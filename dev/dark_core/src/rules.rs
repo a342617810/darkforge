@@ -102,6 +102,26 @@ const MIKIRI_BODY: f32 = 0.6;
 const MIKIRI_PROGRESS: (f32, f32) = (0.2, 0.75);
 const MIKIRI_ARC: f32 = 60.0;
 const ATTACK_ANIMS: std::ops::Range<i32> = 3000..4000;
+/// Boss 的武器长、横扫和转身出招多（用户 2026-11-16「见切对于米塔恩 原版梅瑟莫二阶段…不生效」：日志里梅瑟莫二阶段的出招判定在，
+/// 被够得着 4.5 米、夹角 60° 挡掉的占多数）：Boss 够得着再加这么多米、夹角放宽到这么多度
+const MIKIRI_BOSS_REACH: f32 = 3.0;
+const MIKIRI_BOSS_ARC: f32 = 110.0;
+/// 人形敌人第一次出现时的诊断日志最多写几个（见切）
+const HUMANOID_DIAG_MAX: usize = 12;
+
+/// 见切的够得着距离、夹角上限（Boss 放宽）
+fn mikiri_limits(f: &Foe) -> (f32, f32) {
+    if f.boss {
+        (MIKIRI_REACH + MIKIRI_BOSS_REACH + f.radius, MIKIRI_BOSS_ARC)
+    } else {
+        (MIKIRI_REACH + f.radius, MIKIRI_ARC)
+    }
+}
+
+/// 人形（c0000）的动作编号：段 ≥ 20、段内编号 ≥ 10000（如 23030000）；敌人自己的是 3000 段、1003000 这类
+fn humanoid_anim(a: i32) -> bool {
+    a >= 20_000_000 && a % 1_000_000 >= 10_000
+}
 
 /// 敌人的动作是不是攻击：动作编号 = 分段 × 1000000 + 编号（玩家的如 30032500），有的敌人攻击在别的分段，只看编号
 fn is_attack(a: i32) -> bool {
@@ -1164,6 +1184,39 @@ struct Foe {
     layers: Vec<(i32, f32)>,
 }
 
+/// 同时在播的动作：播放时间这么久内变过就算还在播
+const LAYER_FRESH: Duration = Duration::from_millis(250);
+
+/// 同时在播的其他动作（用户 2026-11-12 梅瑟莫这类 Boss 读到的「当前动作」一直是没有出招数据的 43000；2026-11-16「是不是因为43000把真正的出招动作挡住了」）。
+/// seen = 这个角色队列里每个动作（动作编号, 最近的播放时间, 播放时间最近一次变了的时刻）；queue = 这一帧的队列（从旧到新）；
+/// 第一次扫到这个角色时（first）都不算刚变（分不清是在播还是早就停了）。以前只和上一次扫描比，游戏有的帧没更新这个角色的动作队列，
+/// 那一帧就看不到出招；现在 LAYER_FRESH 内变过的都算。返回 (动作编号, 播放时间)，不含读到的当前动作
+fn anim_layers(seen: &mut Vec<(i32, f32, Option<Instant>)>, queue: &[(i32, f32)], cur: Option<i32>, first: bool, now: Instant) -> Vec<(i32, f32)> {
+    // 同一个动作有好几格：后写的（新的）为准
+    let mut latest: Vec<(i32, f32)> = Vec::new();
+    for &(a, p) in queue.iter().filter(|x| x.0 > 0) {
+        match latest.iter_mut().find(|x| x.0 == a) {
+            Some(x) => x.1 = p,
+            None => latest.push((a, p)),
+        }
+    }
+    let mut next = Vec::with_capacity(latest.len());
+    for &(a, p) in &latest {
+        let changed = match seen.iter().find(|x| x.0 == a) {
+            Some(&(_, old, at)) if old.to_bits() == p.to_bits() => at,
+            Some(_) => Some(now),
+            None if first => None,
+            None => Some(now),
+        };
+        next.push((a, p, changed));
+    }
+    *seen = next;
+    seen.iter()
+        .filter(|x| Some(x.0) != cur && x.2.is_some_and(|t| now.saturating_duration_since(t) <= LAYER_FRESH))
+        .map(|x| (x.0, x.1))
+        .collect()
+}
+
 /// 场上的一颗子弹（见切）
 #[derive(Debug, Clone, Default)]
 struct Shot {
@@ -1182,23 +1235,35 @@ fn foe_model(d: &Def, model: u32) -> Option<u32> {
 /// 见切看敌人这一刻的攻击判定：Some(true) 判定在（只认判定时间段本身，前后不留）；Some(false) 表里有这个模型，
 /// 但这一刻没有判定（这个动作根本没有攻击判定也算：吼叫、强化、只放子弹的）；None 表里没有这个模型 → 用以前的近似
 fn foe_hit_now(d: &Def, f: &Foe, a: i32, play: f32) -> Option<bool> {
-    let m = foe_model(d, f.model)?;
-    let Some(w) = d.foe_hits.get(&(m, a)) else { return Some(false) };
-    Some(play >= 0.0 && w.iter().any(|&(s, e)| play >= s && play <= e))
+    let w = foe_windows(d, f, a)?;
+    Some(w.is_some_and(|w| play >= 0.0 && w.iter().any(|&(s, e)| play >= s && play <= e)))
+}
+
+/// 这个敌人这个动作的攻击判定时间段：Some(Some) 有；Some(None) 表里有这个模型、这个动作没有判定；None 表里没有这个模型。
+/// 自己模型的表里查不到、动作编号看着是人形的（humanoid_anim），查人形（c0000）的表：人形 NPC 的模型号读出来不是 0 时也认得出
+fn foe_windows<'a>(d: &'a Def, f: &Foe, a: i32) -> Option<Option<&'a Vec<(f32, f32)>>> {
+    let own = foe_model(d, f.model);
+    let w = own.and_then(|m| d.foe_hits.get(&(m, a)));
+    if w.is_some() {
+        return Some(w);
+    }
+    if humanoid_anim(a) && d.foe_models.contains(&0) {
+        return Some(d.foe_hits.get(&(0, a)));
+    }
+    own.map(|_| None)
 }
 
 /// 日志用：这个敌人这个动作的攻击判定时间段（表里没有这个模型 / 这个动作没有判定也写出来）
 fn foe_win_text(d: &Def, f: &Foe, a: i32, play: f32) -> String {
-    match foe_model(d, f.model) {
+    match foe_windows(d, f, a) {
         None => format!("模型 c{:04} 不在判定表里，按进度 {:.0}% 估", f.model, f.progress * 100.0),
-        Some(m) => match d.foe_hits.get(&(m, a)) {
-            None => format!("第 {:.2} 秒，这个动作没有攻击判定", play),
-            Some(w) => format!(
-                "第 {:.2} 秒（判定 {}）",
-                play,
-                w.iter().map(|(s, e)| format!("{s:.2}–{e:.2}")).collect::<Vec<_>>().join("、")
-            ),
-        },
+        Some(None) => format!("第 {:.2} 秒，这个动作没有攻击判定", play),
+        Some(Some(w)) => format!(
+            "第 {:.2} 秒（判定 {}{}）",
+            play,
+            w.iter().map(|(s, e)| format!("{s:.2}–{e:.2}")).collect::<Vec<_>>().join("、"),
+            if foe_model(d, f.model).is_none_or(|m| !d.foe_hits.contains_key(&(m, a))) { "，按人形的表" } else { "" }
+        ),
     }
 }
 
@@ -1228,15 +1293,16 @@ fn mikiri_reason(d: &Def, fr: &Frame, used: &HashMap<usize, i32>) -> Option<(Str
                 }
             }
             let (flat, ang) = foe_geom(fr, f);
-            if flat > MIKIRI_REACH + f.radius {
+            let (reach, arc) = mikiri_limits(f);
+            if flat > reach {
                 continue;
             }
-            if ang > MIKIRI_ARC {
+            if ang > arc {
                 continue;
             }
             return Some((
-                format!("近战（NPC {} 动作 {a}{} {} 距离 {flat:.1} 体型 {:.1} 夹角 {ang:.0}°）", f.npc, if k > 0 { "（叠着播的）" } else { "" },
-                        foe_win_text(d, f, a, play), f.radius),
+                format!("近战（NPC {}{} 动作 {a}{} {} 距离 {flat:.1} 体型 {:.1} 夹角 {ang:.0}°）", f.npc, if f.boss { "（Boss）" } else { "" },
+                        if k > 0 { "（叠着播的）" } else { "" }, foe_win_text(d, f, a, play), f.radius),
                 Some((f.id, a)),
             ));
         }
@@ -1282,14 +1348,15 @@ impl RollDbg {
                 format!("（同时在播 {}）", f.layers.iter().map(|(a, p)| format!("{a} 第 {p:.2} 秒")).collect::<Vec<_>>().join("、"))
             };
             Self::keep(&mut self.near, flat, || format!("{who} 动作 {:?}{layers} 距离 {flat:.1}", f.anim));
-            let attacking = |a: i32| match foe_model(d, f.model) {
-                Some(m) => d.foe_hits.contains_key(&(m, a)),
+            let attacking = |a: i32| match foe_windows(d, f, a) {
+                Some(w) => w.is_some(),
                 None => is_attack(a),
             };
+            let (reach, arc) = mikiri_limits(f);
             for (a, play) in f.anim.map(|a| (a, f.play)).into_iter().chain(f.layers.iter().copied()).filter(|&(a, _)| attacking(a)) {
                 Self::keep(&mut self.atk, flat, || {
-                    format!("{who} 动作 {a} {} 距离 {flat:.1}（够得着 {:.1}）夹角 {ang:.0}°（反过来算 {:.0}°）", foe_win_text(d, f, a, play),
-                            MIKIRI_REACH + f.radius, 180.0 - ang)
+                    format!("{who}{} 动作 {a} {} 距离 {flat:.1}（够得着 {reach:.1}）夹角 {ang:.0}°（上限 {arc:.0}°，反过来算 {:.0}°）",
+                            if f.boss { "（Boss）" } else { "" }, foe_win_text(d, f, a, play), 180.0 - ang)
                 });
             }
         }
@@ -1418,7 +1485,7 @@ struct Engine {
     /// 这一帧见切成立了、身上戴着听见切的词条：tick 放防御反击的音效（clash::mikiri_sound）
     mikiri_sound: bool,
     /// 周围角色上一次扫到时的动作队列（动作编号, 播放时间的位）：这一帧变了的就是这一帧也在播的（Foe::layers）
-    queue_prev: HashMap<usize, [(i32, u32); 10]>,
+    anim_seen: HashMap<usize, Vec<(i32, f32, Option<Instant>)>>,
     /// 玩家现在的动作、播到哪、什么时候开始的（take_fresh 看命中是不是叠层加上之后新出的招）
     act_anim: Option<i32>,
     act_t: f32,
@@ -1494,6 +1561,11 @@ struct Engine {
     seed: u64,
     /// 见过的阵营号（tick 写日志用）
     teams_seen: HashSet<u8>,
+    /// 见切诊断：写过的人形敌人（NPC 编号）、查到过出招判定的人形敌人；发射者不在周围的子弹写过几次、是哪些发射者
+    humanoid_seen: HashSet<i32>,
+    humanoid_atk: HashSet<i32>,
+    far_owner_logged: u32,
+    far_owners: HashSet<FieldInsHandle>,
     /// 这次翻滚已经见切过；见切用掉的敌人出招（敌人 → 动作编号，动作换了就去掉）
     dodged: bool,
     mikiri_used: HashMap<usize, i32>,
@@ -1830,7 +1902,8 @@ impl Engine {
         let mikiri_cool = self.blocked.contains_key("mikiri");
         let ended: HashSet<&str> = self.last_present.difference(present).map(|s| s.as_str()).collect();
         // 见切：翻滚 / 后撤步的无敌帧内有敌人的攻击落在身上，一次翻滚算一次
-        self.mikiri_used.retain(|id, a| fr.foes.iter().any(|f| f.id == *id && f.anim == Some(*a)));
+        // 同一招只算一次：这一招还在播（当前动作或同时在播的）就一直记着
+        self.mikiri_used.retain(|id, a| fr.foes.iter().any(|f| f.id == *id && (f.anim == Some(*a) || f.layers.iter().any(|l| l.0 == *a))));
         let mut mikiri_log = None;
         let wear = d.mikiri_keys.iter().any(|k| tiers.contains_key(k));
         let rolling = present.contains("roll") || present.contains("backstep");
@@ -3049,17 +3122,12 @@ pub fn tick() {
             let x = &c.modules.physics.position;
             let ta = &c.modules.time_act;
             let cur = (!ta.anim_queue.is_empty()).then(|| &ta.anim_queue[ta.read_idx as usize % ta.anim_queue.len()]);
-            // 同时在播的其他动作：和上一次扫到时比，播放时间变了的格子（第一次扫到的不算）
-            let ri = ta.read_idx as usize % ta.anim_queue.len().max(1);
-            let snap: [(i32, u32); 10] = std::array::from_fn(|k| (ta.anim_queue[k].anim_id, ta.anim_queue[k].play_time.to_bits()));
+            // 同时在播的其他动作（anim_layers）：队列从最旧的一格读到最新的一格（write_idx 是下一个要写的）
             let cur_id = cur.map(|a| a.anim_id);
-            let layers: Vec<(i32, f32)> = match eng.queue_prev.insert(id, snap) {
-                Some(prev) => (0..snap.len())
-                    .filter(|&k| k != ri && snap[k].0 > 0 && snap[k] != prev[k] && Some(snap[k].0) != cur_id)
-                    .map(|k| (snap[k].0, ta.anim_queue[k].play_time))
-                    .collect(),
-                None => Vec::new(),
-            };
+            let n = ta.anim_queue.len();
+            let queue: Vec<(i32, f32)> = (0..n).map(|k| &ta.anim_queue[(ta.write_idx as usize + k) % n.max(1)]).map(|q| (q.anim_id, q.play_time)).collect();
+            let first = !eng.anim_seen.contains_key(&id);
+            let layers = anim_layers(eng.anim_seen.entry(id).or_default(), &queue, cur_id, first, now);
             owners.insert(c.field_ins_handle, hostile);
             let fwd = flat_forward(&c.modules.physics.orientation);
             foes.push(Foe {
@@ -3089,8 +3157,30 @@ pub fn tick() {
                 boss: d.bosses.contains(&c.npc_param_id),
             });
         }
+        // 见切诊断（用户 2026-11-16「人形npc不生效」「人形应该是褪色者的模组」）：人形角色（模型 c0000，或者动作编号是人形的；算不算敌人都写，
+        // 联机分支的「玩家角色不算敌人」按玩家列表认，人形 NPC 万一也在列表里就看得出来）第一次出现在 15 米内写一行，
+        // 第一次查到它的出招判定再写一行（判定表认不认得它的动作）。只在戴着见切类词条时看
+        if d.mikiri && d.mikiri_keys.iter().any(|k| tiers.contains_key(k)) {
+            for f in foes.iter().filter(|f| f.dist <= 15.0) {
+                let acts: Vec<(i32, f32)> = f.anim.map(|a| (a, f.play)).into_iter().chain(f.layers.iter().copied()).collect();
+                if f.model != 0 && !acts.iter().any(|x| humanoid_anim(x.0)) {
+                    continue;
+                }
+                if eng.humanoid_seen.len() < HUMANOID_DIAG_MAX && eng.humanoid_seen.insert(f.npc) {
+                    log(&format!("积木引擎（见切诊断）：人形角色 NPC {}（模型 c{:04}，阵营 {}，{}，体型 {:.1}）动作 {}", f.npc, f.model, f.team,
+                                 if f.hostile { "算敌人" } else if FRIENDLY_TEAMS.contains(&f.team) { "友方阵营，不算敌人" } else { "在玩家列表里，不算敌人" }, f.radius,
+                                 acts.iter().map(|(a, p)| format!("{a} 第 {p:.2} 秒")).collect::<Vec<_>>().join("、")));
+                }
+                if f.hostile && eng.humanoid_seen.contains(&f.npc) && !eng.humanoid_atk.contains(&f.npc) {
+                    if let Some(&(a, p)) = acts.iter().find(|x| matches!(foe_windows(d, f, x.0), Some(Some(_)))) {
+                        eng.humanoid_atk.insert(f.npc);
+                        log(&format!("积木引擎（见切诊断）：人形角色 NPC {} 出招，动作 {a} {}", f.npc, foe_win_text(d, f, a, p)));
+                    }
+                }
+            }
+        }
         let seen: HashSet<usize> = foes.iter().map(|f: &Foe| f.id).collect();
-        eng.queue_prev.retain(|k, _| seen.contains(k));
+        eng.anim_seen.retain(|k, _| seen.contains(k));
         eng.hit_seen = hit_now;
         if !eng.orb_probe.is_some_and(|(t, _)| now.duration_since(t) <= ORB_PROBE_WIN) {
             eng.orb_hp.clear();
@@ -3287,9 +3377,23 @@ pub fn tick() {
     // 见切：场上的子弹（发射者在周围、是敌人的才算）
     let mut shots = Vec::new();
     if d.mikiri {
+        let my_handle = p.chr_ins.field_ins_handle;
         if let Ok(bm) = unsafe { CSBulletManager::instance() } {
             for b in bm.bullets() {
-                let Some(&hostile) = owners.get(&b.targeting_owner.owner_chr_handle) else { continue };
+                // 发射者不在周围的角色里（Boss 的分身、召唤出来放招的、拉塔恩的光矛这类；用户 2026-11-16「米塔恩」）也算敌人的：
+                // 周围的角色（含队友、骨灰）都在 owners 里，只剩自己的和没有发射者的不算
+                let owner = b.targeting_owner.owner_chr_handle;
+                let hostile = match owners.get(&owner) {
+                    Some(&h) => h,
+                    None => {
+                        let far = owner != my_handle && !owner.is_empty();
+                        if far && eng.far_owner_logged < 5 && eng.far_owners.insert(owner) {
+                            eng.far_owner_logged += 1;
+                            log("积木引擎（见切）：有子弹的发射者不在周围的角色里（多半是 Boss 的分身或召唤出来放招的），这类子弹也算敌人的");
+                        }
+                        far
+                    }
+                };
                 let radius = [&b.wait_state.base, &b.fly_state.base, &b.exp_state.base]
                     .iter()
                     .filter_map(|s| s.param.param_row)
@@ -4544,7 +4648,7 @@ mod tests {
         s.step(&d, &w, &[], None, 0);
         assert!(s.step(&d, &w, &["roll"], None, 50).is_empty());
         assert_eq!(s.step(&d, &w, &[], None, 100),
-                   vec![Act::Log("见切没成立（翻滚 1 帧，其中无敌 1 帧）：最近出招的角色 NPC 0 阵营 6 动作 3010 模型 c0000 不在判定表里，按进度 50% 估 距离 3.0（够得着 4.5）夹角 180°（反过来算 0°）；\
+                   vec![Act::Log("见切没成立（翻滚 1 帧，其中无敌 1 帧）：最近出招的角色 NPC 0 阵营 6 动作 3010 模型 c0000 不在判定表里，按进度 50% 估 距离 3.0（够得着 4.5）夹角 180°（上限 60°，反过来算 0°）；\
                                   最近的角色 NPC 0 阵营 6 动作 Some(3010) 距离 3.0；最近的敌方子弹 无".into())]);
         // 后撤步也算
         let mut s = Sim::new();
@@ -4584,6 +4688,25 @@ mod tests {
         assert!(hit(2500, 3010, 1.0).is_some_and(|m| m.contains("模型 c2500 不在判定表里，按进度 50% 估")), "表里没有的模型照旧估");
     }
 
+    /// 同时在播的动作（用户 2026-11-16「是不是因为43000把真正的出招动作挡住了」）：游戏这一帧没更新队列时，LAYER_FRESH 内变过的照样算；
+    /// 停了的不算；第一次扫到不算；同一个动作好几格取最新的
+    #[test]
+    fn anim_layers_survive_frames_without_update() {
+        let t0 = Instant::now();
+        let ms = |n: u64| t0 + Duration::from_millis(n);
+        let mut seen = Vec::new();
+        // 第一次扫到：都不算
+        assert!(anim_layers(&mut seen, &[(43000, 5.0), (3036, 1.0), (40001, 2.0)], Some(43000), true, t0).is_empty());
+        // 出招在播（播放时间变了）、40001 也在播
+        assert_eq!(anim_layers(&mut seen, &[(43000, 5.1), (3036, 1.1), (40001, 2.1)], Some(43000), false, ms(16)), vec![(3036, 1.1), (40001, 2.1)]);
+        // 游戏这一帧没更新队列（值一样）：以前这里什么都看不到，现在照样算
+        assert_eq!(anim_layers(&mut seen, &[(43000, 5.1), (3036, 1.1), (40001, 2.1)], Some(43000), false, ms(33)), vec![(3036, 1.1), (40001, 2.1)]);
+        // 3036 停了 300 毫秒：不算了；40001 还在变
+        assert_eq!(anim_layers(&mut seen, &[(43000, 5.4), (3036, 1.1), (40001, 2.4)], Some(43000), false, ms(330)), vec![(40001, 2.4)]);
+        // 新出现的出招：算；同一个动作好几格，取后写的
+        assert_eq!(anim_layers(&mut seen, &[(20043, 0.10), (43000, 5.5), (20043, 0.12)], Some(43000), false, ms(350)), vec![(20043, 0.12)]);
+    }
+
     /// 叠着播的动作（用户 2026-11-12：梅瑟莫模组 c5130 一直读到 43000，出招在同时在播的另一格里）：叠着的那个在判定里也算
     #[test]
     fn mikiri_sees_layered_attack() {
@@ -4601,6 +4724,55 @@ mod tests {
         assert_eq!(hit(vec![]), None, "只有 43000（没有出招数据）");
         assert_eq!(hit(vec![(3010, 0.5)]), Some("近战（NPC 0 动作 3010（叠着播的） 第 0.50 秒（判定 0.40–0.60） 距离 3.0 体型 0.5 夹角 0°）".into()));
         assert_eq!(hit(vec![(3010, 0.9)]), None, "叠着的出招判定已经过了");
+    }
+
+    /// Boss 放宽够得着和夹角（用户 2026-11-16「见切对于米塔恩 原版梅瑟莫二阶段…不生效」：日志里梅瑟莫二阶段 20043 判定在、
+    /// 夹角 83°、离 0.8 米，被 60° 挡掉；约定之王拉塔恩的大剑够得着更远）
+    #[test]
+    fn mikiri_boss_reach_and_arc() {
+        let d = parse(&format!("{DODGE}foewin\t5130\t20043\t0.970,1.530\n"));
+        let w = worn(&[("dr_mikiri", 3)]);
+        let hit = |boss: bool, x: f32, ang: f32| {
+            let mut s = Sim::new();
+            let mut f = foe(1, x, vec![], false);
+            (f.model, f.anim, f.play, f.boss) = (5130, Some(20043), 1.2, boss);
+            let r = ang.to_radians();
+            f.fwd = [-r.cos(), r.sin()];
+            s.foes = vec![f];
+            s.step(&d, &w, &[], None, 0);
+            let a = s.step(&d, &w, &["roll"], None, 50);
+            a.first().and_then(|x| if let Act::Log(m) = x { m.strip_prefix("见切：").map(String::from) } else { None })
+        };
+        assert!(hit(true, 2.0, 83.0).is_some_and(|m| m.contains("（Boss）")), "Boss 夹角 83°：算");
+        assert_eq!(hit(false, 2.0, 83.0), None, "不是 Boss：照旧 60°");
+        assert!(hit(true, 7.0, 10.0).is_some(), "Boss 7 米：4 + 3 + 体型 0.5 够得着");
+        assert_eq!(hit(false, 7.0, 10.0), None, "不是 Boss：4.5 米");
+        assert_eq!(hit(true, 8.0, 10.0), None, "Boss 8 米：太远");
+        assert_eq!(hit(true, 2.0, 120.0), None, "Boss 背对着（120°）不算");
+    }
+
+    /// 人形敌人（用户 2026-11-16「人形npc不生效」）：动作编号是人形的（23030000 这类）就查人形（c0000）的表，
+    /// 模型号读出来不是 0 也认得出；人形的动作不按 3000 段估
+    #[test]
+    fn mikiri_humanoid_table() {
+        let d = parse(&format!("{DODGE}foewin\t0\t23030000\t0.300,0.500\nfoewin\t4500\t3000\t1.0,1.2\n"));
+        let w = worn(&[("dr_mikiri", 3)]);
+        let hit = |model: u32, anim: i32, play: f32| {
+            let mut s = Sim::new();
+            let mut f = foe(1, 2.0, vec![], false);
+            (f.model, f.anim, f.play) = (model, Some(anim), play);
+            s.foes = vec![f];
+            s.step(&d, &w, &[], None, 0);
+            let a = s.step(&d, &w, &["roll"], None, 50);
+            a.first().and_then(|x| if let Act::Log(m) = x { m.strip_prefix("见切：").map(String::from) } else { None })
+        };
+        assert_eq!(hit(0, 23030000, 0.4), Some("近战（NPC 0 动作 23030000 第 0.40 秒（判定 0.30–0.50） 距离 2.0 体型 0.5 夹角 0°）".into()));
+        assert_eq!(hit(0, 23030000, 0.6), None, "判定过了");
+        assert!(hit(4500, 23030000, 0.4).is_some_and(|m| m.contains("按人形的表")), "模型号不是 0、动作是人形的");
+        assert!(hit(9990, 23030000, 0.4).is_some_and(|m| m.contains("按人形的表")), "表里没有的模型、动作是人形的");
+        assert_eq!(hit(9990, 23039990, 0.4), None, "人形的动作但表里没有：不按 3000 段估");
+        assert!(hit(4500, 3000, 1.1).is_some(), "自己的表照旧");
+        assert!(humanoid_anim(23030000) && humanoid_anim(100030000) && !humanoid_anim(3010) && !humanoid_anim(5003021) && !humanoid_anim(20003000));
     }
 
     /// 见切成立时放防御反击的音效（用户 2026-11-12）：只在戴着听见切的词条时
