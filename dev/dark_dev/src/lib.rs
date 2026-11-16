@@ -1389,6 +1389,28 @@ impl App {
         ui.separator();
     }
 
+    /// 联机通道测试（联机计划 13.4）：写 coopnet_req.txt，dark_core 的 link.rs 看到就做、删掉
+    fn coopnet_ui(&mut self, ui: &Ui) {
+        if !ui.collapsing_header("联机通道测试（整合包自己的 Steam 消息）", imgui::TreeNodeFlags::empty()) {
+            return;
+        }
+        for (name, line) in [("查看状态（写进日志）##cn", "状态"), ("自测：发给自己##cn", "自测"), ("给连上的队员发测试消息##cn", "测试 你好")] {
+            if ui.button(name) {
+                let path = core_dir().join("coopnet_req.txt");
+                self.last = match fs::write(&path, format!("{line}\n")) {
+                    Ok(()) => format!("已发出请求：联机通道 {line}"),
+                    Err(e) => format!("写不了 {}：{e}", path.display()),
+                };
+            }
+            ui.same_line();
+        }
+        ui.new_line();
+        ui.text_wrapped(concat!("「查看状态」把会话里的队员、连上没有、往返时间、兼容档案一不一致写进日志；",
+                                "「自测」不用联机也能点：给自己发一条，看 Steam 会不会送回来（送不回来不代表坏了，要两台电脑实测）；",
+                                "「发测试消息」发给所有已经连上的队员，对方日志里会记「发来测试消息」。dark_core.log 里搜「联机通道」。"));
+        ui.separator();
+    }
+
     /// 效果调试区：给自己 / 15 米内最近的敌人挂效果
     fn speffect_ui(&mut self, ui: &Ui, d: &Data) {
         if !ui.collapsing_header("效果调试（给自己 / 15 米内最近的敌人挂效果）", imgui::TreeNodeFlags::empty()) {
@@ -1626,6 +1648,7 @@ impl ImguiRenderLoop for App {
                 self.prof_ui(ui);
                 self.glow_ui(ui);
                 self.barrier_ui(ui);
+                self.coopnet_ui(ui);
                 self.levelup_ui(ui);
                 self.clashfx_ui(ui, &d);
                 self.orbshot_ui(ui);

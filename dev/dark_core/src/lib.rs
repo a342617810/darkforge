@@ -40,6 +40,8 @@ mod glow;
 mod gear;
 mod hpunify;
 mod levelup;
+mod link;
+mod net;
 mod wishstone;
 mod shopstage;
 mod clash;
@@ -236,7 +238,7 @@ pub unsafe extern "system" fn DllMain(hmodule: u64, reason: u32, _reserved: *mut
         };
         log(&format!("dark_core 已加载：{}；{}；{}；{}（{combat}）；{}；{}；{}；{}；{}；{}；{}；{}；{}；{}；{}；{}；{}；{}；{}；{}；{}；{}；{}；{scaling}", arena::describe(), festive::describe(), gear::describe(), runtime::describe(),
                      rules::describe(), procs::describe(), boat::describe(), attrstack::describe(), skillmult::describe(), spellbase::describe(), hpunify::describe(), ovldrop::describe(), fusion::describe(), nightmare::describe(), curses::describe(), notes::describe(), plague::describe(), wishstone::describe(), shopstage::describe(), clash::describe(), bossmode::describe(), glow::describe(), runebank::describe()));
-        let mut errs = [0u32; 28];
+        let mut errs = [0u32; 29];
         task.run_recurring(
             move |_: &FD4TaskData| {
                 prof::frame();
@@ -271,6 +273,8 @@ pub unsafe extern "system" fn DllMain(hmodule: u64, reason: u32, _reserved: *mut
                 guarded("斗技场试炼", &mut errs[25], arena::tick);
                 // 放在积木引擎后面：同一帧里它刚记下的改动、挂的效果这里都看得到
                 guarded("联机诊断", &mut errs[6], coop::tick);
+                // 联机通道（Steam 消息，联机计划 13.4）：没加载 Seamless、没有开发工具请求时什么都不做
+                guarded("联机通道", &mut errs[28], link::tick);
             },
             CSTaskGroupIndex::FrameBegin,
         );

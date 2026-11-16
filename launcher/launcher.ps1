@@ -1115,6 +1115,39 @@ function Get-YafRelPath([string]$Full) {
     return $Full
 }
 
+# 联机兼容档案（联机计划 13.4）：联机启动时写给 dark_core，联机通道（dev\dark_core\src\link.rs）握手时发给队友逐项比对。
+# 一行「键<Tab>值」：整合包版本、联机核对码、世界、Seamless 的随人数加强和规则（不含密码）、敌人设置。改了键名要和 link.rs 的 LABELS 一起改
+$CoopProfile = Join-Path $Paly 'dll\dark_core\coop_profile.txt'
+function Write-CoopProfile($Ersc, [string]$Fp) {
+    try {
+        $ver = ''
+        $vp = Join-Path $LauncherDir 'version.txt'
+        if (Test-Path -LiteralPath $vp) { $ver = ([System.IO.File]::ReadAllText($vp)).Trim() }
+        $rules = @()
+        $ini = Join-Path $Ersc.DirectoryName 'ersc_settings.ini'
+        if (Test-Path -LiteralPath $ini) {
+            $txt = [System.IO.File]::ReadAllText($ini)
+            foreach ($k in @('allow_summons', 'boss_damage_scaling', 'boss_health_scaling', 'boss_posture_scaling', 'death_debuffs',
+                             'enemy_damage_scaling', 'enemy_health_scaling', 'enemy_posture_scaling')) {
+                $m = Get-IniMatch $txt $k
+                if ($m) { $rules += ($k + '=' + $m.Groups[1].Value.Trim()) }
+            }
+        }
+        $enemy = ''
+        try {
+            $s = [System.IO.File]::ReadAllText((Join-Path $LauncherDir 'reroll\settings.json')) | ConvertFrom-Json
+            $enemy = 'elite_share_mult=' + $s.elite_share_mult + ',boss_in_basic_pct=' + $s.boss_in_basic_pct
+        } catch { }
+        $lines = @('# 联机兼容档案：启动器联机启动时写，dark_core 的联机通道握手时发给队友比对（不含联机密码）',
+                   ('version' + "`t" + $ver), ('fingerprint' + "`t" + $Fp), ('world' + "`t" + $script:WorldSuffix),
+                   ('scaling' + "`t" + ($rules -join ',')), ('enemy' + "`t" + $enemy))
+        [System.IO.File]::WriteAllText($CoopProfile, (($lines -join "`n") + "`n"), (New-Object System.Text.UTF8Encoding($false)))
+        Write-Host ('  联机兼容档案：' + $CoopProfile)
+    } catch {
+        Write-Warn ('写不了联机兼容档案（联机通道握手时不比对）：' + $_.Exception.Message)
+    }
+}
+
 # 联机种子：敌人随机 = 随机器的种子（两人用联机随机码对齐了敌人随机，种子就一样），无敌人随机 = 固定的 $CoopVanillaSeed；读不到返回 $null
 function Get-CoopSeed([bool]$Rand) {
     if (-not $Rand) { return [long]$CoopVanillaSeed }
@@ -1403,6 +1436,9 @@ function Invoke-Launch([bool]$Rand, [bool]$Coop = $false) {
     if ($Coop) {
         $fp = Get-CoopFingerprint $Rand $true
         if ($fp) { Write-Player ('联机核对码：' + $fp + '（两人应该一样；不一样说明整合包版本、设置或敌人随机不同，别一起玩）') }
+        Write-CoopProfile $ersc $fp
+    } else {
+        Remove-Item -LiteralPath $CoopProfile -Force -ErrorAction SilentlyContinue
     }
     Write-BossModeDef $bm
     Write-IniFile $modLines $dllLines

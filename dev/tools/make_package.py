@@ -36,7 +36,8 @@ EXCL = ['launcher/game_path.txt', 'launcher/randomizer_settings_path.txt', 'laun
         'randomizer_hi/*',      # 高难度世界（一键重随敌人时随机器多跑一遍的输出，按本机生成）
         'dll/dark_core/hpunify.txt', 'dll/dark_core/ovldrop.txt', 'dll/dark_core/ashes.txt', 'dll/dark_core/nightmare.txt', 'dll/dark_core/arena.txt', 'dll/dark_core/notes.txt', 'dll/dark_core/curses.txt',
         'dll/dark_core/fusion.txt', 'dll/dark_core/plague.txt', 'dll/dark_core/unseen.txt', 'dll/dark_core/wishstone.txt', 'dll/dark_core/shopstage.txt', 'dll/dark_core/clash.txt', 'dll/dark_core/hitwin.txt', 'dll/dark_core/foewin.txt',
-        'dll/dark_core/*_req.txt', 'dll/dark_core/arena_run.txt',      # 开发工具写的请求（dark_core 看到就删，残留的不发）；斗技场试炼进行中的记录
+        'dll/dark_core/*_req.txt', 'dll/dark_core/arena_run.txt',
+        'dll/dark_core/coop_profile.txt',      # 联机兼容档案：联机启动时按本机写（联机分支 coop，联机计划 13.4）      # 开发工具写的请求（dark_core 看到就删，残留的不发）；斗技场试炼进行中的记录
         'dll/dark_core/frames.txt',      # 稀有度边框图标的对照表：启动时 menu.py 合成菜单包成功才写
         'dll/dark_core/boat.txt', 'dll/dark_core/boat_req.txt', 'dll/dark_core/devsp_req.txt', 'dll/dark_core/devgive_req.txt', 'dll/dark_core/devsp.txt', 'dll/dark_dev/*',      # 开发工具（游戏里 F9 的悬浮窗口），只在本机测试用
         'dll/sv_config.toml',     # SoulsVision 的配置按本机分辨率生成（位置是绝对像素），让它在别的电脑上重新生成

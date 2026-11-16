@@ -189,6 +189,36 @@ fn session() -> Option<(u32, usize, bool)> {
     Some((raw, sm.players.len(), host))
 }
 
+/// 会话里的一个人（联机通道 link.rs 用）
+pub struct Member {
+    pub id: u64,
+    pub host: bool,
+    pub local: bool,
+}
+
+/// 会话就绪时的名单：大厅状态 主机 / 客机、协议 Ingame（6）、没人在加入中、正好一个本机、ID 不重复不为 0；不然 None。
+/// 按原始数值读两个状态（枚举里没有的值不能直接当枚举用）
+pub fn roster() -> Option<Vec<Member>> {
+    let sm = unsafe { CSSessionManager::instance() }.ok()?;
+    let lobby = unsafe { *(&sm.lobby_state as *const _ as *const u32) };
+    let proto = unsafe { *(&sm.protocol_state as *const _ as *const u32) };
+    if !matches!(lobby, 3 | 6) || proto != 6 {
+        return None;
+    }
+    let mut v: Vec<Member> = Vec::new();
+    for p in sm.players.iter() {
+        if p.join_wait || p.rebreak_in {
+            return None;
+        }
+        let id = p.base.steam_id;
+        if id == 0 || v.iter().any(|m| m.id == id) || v.len() >= 64 {
+            return None;
+        }
+        v.push(Member { id, host: p.is_host, local: p.is_local_player });
+    }
+    (v.iter().filter(|m| m.local).count() == 1 && v.iter().filter(|m| m.host).count() <= 1).then_some(v)
+}
+
 fn describe_chr(c: &ChrIns) -> String {
     format!(
         "NPC {}（实体 {}，阵营 {}，网络权 {}，按距离同步 {}，联机人数修正 {}）",
