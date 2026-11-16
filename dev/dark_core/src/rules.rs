@@ -3475,15 +3475,28 @@ pub fn tick() {
                 crate::coop::note(crate::coop::Op::Remove(sp), c);
                 c.remove_speffect(sp)
             }
-            // 客机不改敌人的动作速度（改回 ×1 照常，免得进会话前改过的卡住）、不改架势（联机计划 13.2 G2）
-            Act::FoeSpeed(_, m) if m != 1.0 && crate::coop::client_skip("改敌人动作速度（见切、影步）") => {}
+            // 客机：改敌人的动作速度、架势转给房主去改（联机计划 13.5；改回 ×1 本机也照写，免得进会话前改过的卡住）
+            Act::FoeSpeed(id, m) if crate::coop::client() => {
+                let c = unsafe { &mut *(id as *mut eldenring::cs::ChrIns) };
+                crate::link::foe_to_host(c.event_entity_id, "speed", m);
+                if m == 1.0 {
+                    c.modules.behavior.animation_speed = m;
+                    turn_set(id, m);
+                } else {
+                    crate::coop::client_skip("改敌人动作速度（见切、影步）：转给房主");
+                }
+            }
             Act::FoeSpeed(id, m) => {
                 let c = unsafe { &mut *(id as *mut eldenring::cs::ChrIns) };
                 crate::coop::note(crate::coop::Op::Speed(m), c);
                 c.modules.behavior.animation_speed = m;
                 turn_set(id, m);
             }
-            Act::FoePoise(_, _) if crate::coop::client_skip("改敌人架势（千钧、发狂）") => {}
+            Act::FoePoise(id, v) if crate::coop::client() => {
+                let c = unsafe { &*(id as *const eldenring::cs::ChrIns) };
+                crate::link::foe_to_host(c.event_entity_id, "poise", v);
+                crate::coop::client_skip("改敌人架势（千钧、发狂）：转给房主");
+            }
             Act::FoePoise(id, v) => {
                 let c = unsafe { &mut *(id as *mut eldenring::cs::ChrIns) };
                 crate::coop::note(crate::coop::Op::Poise(v), c);

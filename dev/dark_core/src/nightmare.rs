@@ -253,6 +253,20 @@ pub fn force(ents: &[u32], two_pct: f32) {
     f.1 = two_pct;
 }
 
+/// 联机：房主广播的魇化（实体编号, 词条序号, 收到的时间），客机的扫描里用掉（联机计划 13.5）
+static REMOTE: Mutex<Vec<(u32, Vec<usize>, Instant)>> = Mutex::new(Vec::new());
+/// 收到后这么久那个敌人还没出现在周围就不要了
+const REMOTE_KEEP: Duration = Duration::from_secs(120);
+
+/// link.rs：房主说这个敌人魇化了
+pub fn remote_elite(entity: u32, fams: Vec<usize>) {
+    let mut r = REMOTE.lock().unwrap_or_else(|e| e.into_inner());
+    r.retain(|x| x.0 != entity);
+    if r.len() < 512 {
+        r.push((entity, fams, Instant::now()));
+    }
+}
+
 /// arena.rs：试炼结束
 pub fn unforce() {
     FORCED.lock().unwrap_or_else(|e| e.into_inner()).0.clear();
@@ -516,6 +530,17 @@ fn make_elite_with(d: &Def, st: &mut St, c: &mut eldenring::cs::ChrIns, addr: us
         let k2 = (k1 + 1 + (st.roll() % (n - 1)) as usize) % n as usize;
         fams.push(k2);
     }
+    // 房主：告诉客机这个敌人魇化了、哪几条（联机计划 13.5；客机自己不抽）
+    if crate::coop::host() && c.event_entity_id != 0 {
+        let f: Vec<String> = fams.iter().map(|k| k.to_string()).collect();
+        crate::link::send_all(crate::link::Packet::new(crate::link::Kind::Nm).with("e", c.event_entity_id).with("f", f.join(",")));
+    }
+    make_elite_fams(d, st, c, addr, fams);
+}
+
+/// 按给定的词条序号把这个敌人魇化（房主抽的 / 客机收到房主广播的）
+fn make_elite_fams(d: &Def, st: &mut St, c: &mut eldenring::cs::ChrIns, addr: usize, fams: Vec<usize>) {
+    let k1 = fams[0];
     let color = d.fams[k1].1.min(3);
     let (hp, max) = (c.modules.data.hp, c.modules.data.max_hp);
     for sp in elite_sps(d, &fams) {
@@ -652,6 +677,12 @@ pub fn tick() {
     st.elites.retain(|a, _| live.contains(a));
     st.rolled.retain(|a| live.contains(a));
     let mut relit = 0u32;
+    // 房主广播的魇化（只留 REMOTE_KEEP 内的；用掉就删）
+    let remote: Vec<(u32, Vec<usize>)> = {
+        let mut r = REMOTE.lock().unwrap_or_else(|e| e.into_inner());
+        r.retain(|x| now.duration_since(x.2) < REMOTE_KEEP);
+        r.iter().map(|x| (x.0, x.1.clone())).collect()
+    };
     for e in &around {
         let a = e.chr_ins.as_ptr() as usize;
         if a == me {
@@ -662,6 +693,15 @@ pub fn tick() {
             continue;
         }
         let hp = c.modules.data.hp;
+        // 客机：房主广播过这个敌人魇化了（联机计划 13.5）
+        if hp > 0 && st.tier.is_some() && !st.elites.contains_key(&a) {
+            if let Some(f) = remote.iter().find(|r| r.0 == c.event_entity_id && r.1.iter().all(|&k| k < d.fams.len())).map(|r| r.1.clone()) {
+                st.rolled.insert(a);
+                REMOTE.lock().unwrap_or_else(|e| e.into_inner()).retain(|x| x.0 != c.event_entity_id);   // 用掉了
+                make_elite_fams(d, st, c, a, f);
+                continue;
+            }
+        }
         if hp > 0 && forced.contains(&c.event_entity_id) && !st.elites.contains_key(&a) && st.forced_done.insert(a) {
             st.rolled.insert(a);
             make_elite_with(d, st, c, a, true, Some(two));

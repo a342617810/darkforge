@@ -1301,6 +1301,9 @@ function Show-CoopMenu {
             if (-not (Confirm-Randomizer)) { return }
             $code = try { [string][System.Windows.Forms.Clipboard]::GetText() } catch { '' }
             $code = ($code -replace '\s+', ' ').Trim()
+            # 剪贴板里没有：用联机时联机通道存下的房主的随机码（联机计划 13.5，dll\dark_core\coop_host_code.txt）
+            $hostCode = Join-Path $Paly 'dll\dark_core\coop_host_code.txt'
+            if ($code -notmatch '^DR[12]\|' -and (Test-Path -LiteralPath $hostCode)) { $code = ([System.IO.File]::ReadAllText($hostCode)).Trim() }
             if ($code -notmatch '^DR[12]\|') { Show-Info '剪贴板里没有联机随机码。先复制队友发来的那一行（DR2| 开头），再点「导入随机码」。'; return }
             if (-not (Confirm-GameClosed '重随敌人要在游戏关闭后做。')) { return }
             if (Get-Process -Name 'EldenRingRandomizer' -ErrorAction SilentlyContinue) { Show-Info '随机器已经开着，先把它关掉。'; return }

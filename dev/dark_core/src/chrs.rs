@@ -84,6 +84,15 @@ pub fn is_player(c: &ChrIns) -> bool {
     PLAYERS.lock().unwrap_or_else(|e| e.into_inner()).contains(&a)
 }
 
+/// 按实体编号（MSB 里的，两台电脑一样）找在场的角色；0 不找（临时生成的角色没有编号，两边对不上）
+pub fn find_entity(id: u32) -> Option<NonNull<ChrIns>> {
+    if id == 0 {
+        return None;
+    }
+    let w = unsafe { WorldChrMan::instance() }.ok()?;
+    live!(w).into_iter().map(|a| a as *mut ChrIns).find(|&p| unsafe { (*p).event_entity_id } == id).and_then(NonNull::new)
+}
+
 /// 周围的一个角色（字段名照游戏距离列表的项）
 pub struct Near {
     pub chr_ins: NonNull<ChrIns>,

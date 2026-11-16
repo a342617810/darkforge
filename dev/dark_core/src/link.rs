@@ -15,6 +15,8 @@ use std::fs;
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
+use eldenring::cs::ChrInsExt;
+
 use crate::{dir, log};
 
 /// 协议版本：消息格式改了就加一，不同版本的互相不认
@@ -39,6 +41,10 @@ pub enum Kind {
     Ping,
     Pong,
     Text,
+    /// 客机 → 房主：替我改这个敌人（联机计划 13.5）：e 实体编号、op speed / poise / rmsp、v 值
+    Foe,
+    /// 房主 → 客机：这个敌人魇化了（e 实体编号、f 词条序号，逗号隔开）
+    Nm,
 }
 
 impl Kind {
@@ -49,6 +55,8 @@ impl Kind {
             Kind::Ping => "PING",
             Kind::Pong => "PONG",
             Kind::Text => "TEXT",
+            Kind::Foe => "FOE",
+            Kind::Nm => "NM",
         }
     }
 
@@ -59,6 +67,8 @@ impl Kind {
             "PING" => Kind::Ping,
             "PONG" => Kind::Pong,
             "TEXT" => Kind::Text,
+            "FOE" => Kind::Foe,
+            "NM" => Kind::Nm,
             _ => return None,
         })
     }
@@ -175,13 +185,15 @@ pub struct Peer {
     pub rtt_ms: Option<u32>,
     rtt_logged: Option<Instant>,
     linked_logged: bool,
+    /// 他 HELLO 里带的联机随机码（房主的：档案对不上时存给启动器导入）
+    pub code: Option<String>,
 }
 
 impl Peer {
     fn fresh(id: u64, host: bool, my_nonce: u64) -> Peer {
         Peer {
             id, host, my_nonce, their_nonce: None, acked: false, profile_diff: Vec::new(), last_rx: None, last_hello: None, last_ping: None,
-            ping_seq: 0, ping_sent: HashMap::new(), rtt_ms: None, rtt_logged: None, linked_logged: false,
+            ping_seq: 0, ping_sent: HashMap::new(), rtt_ms: None, rtt_logged: None, linked_logged: false, code: None,
         }
     }
 
@@ -196,6 +208,8 @@ pub struct Link {
     pub peers: HashMap<u64, Peer>,
     rng: u64,
     told_bad: Vec<String>,
+    /// 收到的、要游戏里处理的（FOE、NM）：(发送者, 消息)，tick 取走
+    pub inbox: Vec<(u64, Packet)>,
 }
 
 fn short(id: u64) -> String {
@@ -205,7 +219,7 @@ fn short(id: u64) -> String {
 
 impl Link {
     pub fn new(me: u64, profile: Vec<(String, String)>, seed: u64) -> Self {
-        Link { me, profile, peers: HashMap::new(), rng: seed | 1, told_bad: Vec::new() }
+        Link { me, profile, peers: HashMap::new(), rng: seed | 1, told_bad: Vec::new(), inbox: Vec::new() }
     }
 
     fn nonce(&mut self) -> u64 {
@@ -325,6 +339,7 @@ impl Link {
         let p = self.peers.get_mut(&from).unwrap();
         p.last_rx = Some(now);
         let mut reply: Vec<Packet> = Vec::new();
+        let mut keep: Option<Packet> = None;
         match pk.kind {
             Kind::Hello => {
                 let Some(n) = pk.get("nonce").and_then(|x| x.parse::<u64>().ok()) else { return };
@@ -338,7 +353,10 @@ impl Link {
                 p.their_nonce = Some(n);
                 let theirs: Vec<(String, String)> =
                     pk.fields.iter().filter_map(|(k, v)| k.strip_prefix("p.").map(|k| (k.to_string(), v.clone()))).collect();
-                p.profile_diff = profile_diff(&profile, &theirs);
+                // 联机随机码不算档案的一项（核对码已经管着），单独记下
+                p.code = theirs.iter().find(|(k, _)| k == "code").map(|(_, v)| v.clone());
+                let strip = |v: &[(String, String)]| v.iter().filter(|(k, _)| k != "code").cloned().collect::<Vec<_>>();
+                p.profile_diff = profile_diff(&strip(&profile), &strip(&theirs));
                 reply.push(Packet::new(Kind::Ack).with("nonce", n));
             }
             Kind::Ack => {
@@ -362,6 +380,7 @@ impl Link {
                 }
             }
             Kind::Text => log(&format!("联机通道：队员 {} 发来测试消息「{}」", short(from), pk.get("text").unwrap_or(""))),
+            Kind::Foe | Kind::Nm => keep = Some(pk.clone()),
         }
         if p.linked() && !p.linked_logged {
             p.linked_logged = true;
@@ -376,6 +395,20 @@ impl Link {
         for r in reply {
             t.send(from, &r.encode());
         }
+        if let Some(k) = keep {
+            self.inbox.push((from, k));
+        }
+    }
+
+    /// 发给房主（连上了才发）；返回发没发
+    pub fn send_host(&mut self, pk: &Packet, t: &mut impl Transport) -> bool {
+        let Some(id) = self.peers.values().find(|p| p.host && p.linked()).map(|p| p.id) else { return false };
+        t.send(id, &pk.encode())
+    }
+
+    /// 从这个队员来的、他是房主
+    pub fn from_host(&self, id: u64) -> bool {
+        self.peers.get(&id).is_some_and(|p| p.host && p.linked())
     }
 
     /// 和这个队员连上了、档案也一致（以后要同步的功能看它）
@@ -431,9 +464,56 @@ struct St {
     link: Option<Link>,
     roster_at: Option<Instant>,
     me: u64,
+    /// 存过的房主联机随机码（不重复写）
+    code_saved: Option<String>,
+    foe_logged: u32,
 }
 
-static ST: Mutex<St> = Mutex::new(St { link: None, roster_at: None, me: 0 });
+static ST: Mutex<St> = Mutex::new(St { link: None, roster_at: None, me: 0, code_saved: None, foe_logged: 0 });
+/// 发件箱：别的模块排进来（不碰 ST，免得互相锁住），tick 里发。(只发给房主, 消息)
+static OUT: Mutex<Vec<(bool, Packet)>> = Mutex::new(Vec::new());
+/// 最近转给房主的（实体, 操作, 值）：同样的 2 秒内不重复发（疫病每 0.5 秒扫一遍）
+static RECENT: Mutex<Vec<(u32, &'static str, i32, Instant)>> = Mutex::new(Vec::new());
+const FOE_LOG: u32 = 30;
+
+/// 发给所有连上的队员（房主魇化广播等）
+pub fn send_all(pk: Packet) {
+    OUT.lock().unwrap_or_else(|e| e.into_inner()).push((false, pk));
+}
+
+/// 客机：这个敌人要改，转给房主（联机计划 13.5：直接写敌人内存的只让房主写）。实体编号 0（临时生成的）不转
+pub fn foe_to_host(entity: u32, op: &'static str, v: f32) {
+    if entity == 0 {
+        return;
+    }
+    let now = Instant::now();
+    let key = (v * 1000.0).round() as i32;
+    {
+        let mut r = RECENT.lock().unwrap_or_else(|e| e.into_inner());
+        r.retain(|x| now.duration_since(x.3) < Duration::from_secs(2));
+        if r.iter().any(|x| x.0 == entity && x.1 == op && x.2 == key) {
+            return;
+        }
+        r.push((entity, op, key, now));
+    }
+    OUT.lock().unwrap_or_else(|e| e.into_inner()).push((true, Packet::new(Kind::Foe).with("e", entity).with("op", op).with("v", v)));
+}
+
+/// 房主：替客机改敌人。只认这几种、值在范围内的
+fn apply_foe(pk: &Packet) -> Option<String> {
+    let e = pk.get("e")?.parse::<u32>().ok()?;
+    let op = pk.get("op")?;
+    let v = pk.get("v")?.parse::<f32>().ok()?;
+    let cp = crate::chrs::find_entity(e)?;
+    let c = unsafe { &mut *cp.as_ptr() };
+    match op {
+        "speed" if (0.0..=3.0).contains(&v) => c.modules.behavior.animation_speed = v,
+        "poise" if v >= 0.0 => c.modules.super_armor.sa_durability = v.min(c.modules.super_armor.sa_durability_max),
+        "rmsp" if (90000.0..90400.0).contains(&v) => c.remove_speffect(v as i32),
+        _ => return None,
+    }
+    Some(format!("NPC {}（实体 {e}）{op} {v}", c.npc_param_id))
+}
 /// 自测发出去的时间（收到了就清掉）
 static SELFTEST: Mutex<Option<Instant>> = Mutex::new(None);
 
@@ -500,7 +580,50 @@ pub fn tick() {
     }
     if let Some(l) = g.link.as_mut() {
         l.poll(&mut t, now);
-    } else if selftest_on {
+    }
+    // 发件箱
+    let out: Vec<(bool, Packet)> = std::mem::take(&mut *OUT.lock().unwrap_or_else(|e| e.into_inner()));
+    if let Some(l) = g.link.as_mut() {
+        for (to_host, pk) in out {
+            if to_host {
+                l.send_host(&pk, &mut t);
+            } else {
+                l.broadcast(&pk, &mut t);
+            }
+        }
+    }
+    // 收件箱：客机转来的改敌人（本机是房主才做）、房主的魇化（本机是客机才收）
+    let inbox: Vec<(u64, Packet)> = g.link.as_mut().map(|l| std::mem::take(&mut l.inbox)).unwrap_or_default();
+    for (from, pk) in inbox {
+        match pk.kind {
+            Kind::Foe if crate::coop::host() => {
+                if let Some(s) = apply_foe(&pk) {
+                    if g.foe_logged < FOE_LOG {
+                        g.foe_logged += 1;
+                        log(&format!("联机通道：替客机 {} 改了 {s}", short(from)));
+                    }
+                }
+            }
+            Kind::Nm if g.link.as_ref().is_some_and(|l| l.from_host(from)) => {
+                let e = pk.get("e").and_then(|x| x.parse::<u32>().ok()).unwrap_or(0);
+                let f: Vec<usize> = pk.get("f").unwrap_or("").split(',').filter_map(|x| x.parse().ok()).collect();
+                if e != 0 && !f.is_empty() {
+                    crate::nightmare::remote_elite(e, f);
+                }
+            }
+            _ => {}
+        }
+    }
+    // 房主的联机随机码：档案对不上时存给启动器（「联机」→「导入随机码」剪贴板里没有码时用它）
+    let host_code = g.link.as_ref().and_then(|l| l.peers.values().find(|p| p.host && p.linked() && !p.profile_diff.is_empty()).and_then(|p| p.code.clone()));
+    if let Some(code) = host_code.filter(|c| g.code_saved.as_ref() != Some(c)) {
+        let path = dir().join("coop_host_code.txt");
+        if fs::write(&path, format!("{code}\n")).is_ok() {
+            log("联机通道：和房主的游戏数据对不上，房主的联机随机码存下了（退出游戏后在启动器「联机」→「导入随机码」导入）");
+        }
+        g.code_saved = Some(code);
+    }
+    if g.link.is_none() && selftest_on {
         // 不在会话里也收（自测）
         let me = steam.me;
         for (from, data) in t.recv() {
@@ -665,6 +788,32 @@ mod tests {
         assert_eq!(a.broadcast(&Packet::new(Kind::Text).with("text", "hi"), &mut ta), 0, "还没连上不发");
         run(&mut a, &mut ta, &mut b, &mut tb, Instant::now(), 3.0);
         assert_eq!(a.broadcast(&Packet::new(Kind::Text).with("text", "hi"), &mut ta), 1);
+    }
+
+    #[test]
+    fn foe_goes_to_inbox_and_host_only() {
+        let (mut a, mut ta, mut b, mut tb, _) = pair(prof("aaa"), prof("aaa"));
+        run(&mut a, &mut ta, &mut b, &mut tb, Instant::now(), 3.0);
+        // b 看 a 是房主：b 发给房主
+        assert!(b.send_host(&Packet::new(Kind::Foe).with("e", 1001).with("op", "speed").with("v", 0.5), &mut tb));
+        // a 看 b 是客机：a 发给房主发不出去
+        assert!(!a.send_host(&Packet::new(Kind::Foe).with("e", 1), &mut ta));
+        a.poll(&mut ta, Instant::now() + Duration::from_secs(4));
+        assert_eq!(a.inbox.len(), 1);
+        assert_eq!(a.inbox[0].1.get("e"), Some("1001"));
+        assert!(b.from_host(1) && !a.from_host(2));
+    }
+
+    #[test]
+    fn code_is_not_a_profile_item() {
+        let mut pa = prof("aaa");
+        pa.push(("code".into(), "DR2|1".into()));
+        let mut pb = prof("aaa");
+        pb.push(("code".into(), "DR2|2".into()));
+        let (mut a, mut ta, mut b, mut tb, _) = pair(pa, pb);
+        run(&mut a, &mut ta, &mut b, &mut tb, Instant::now(), 3.0);
+        assert!(a.compatible(2), "随机码不同不算档案不一致：{:?}", a.peers[&2].profile_diff);
+        assert_eq!(b.peers[&1].code.as_deref(), Some("DR2|1"));
     }
 
     #[test]

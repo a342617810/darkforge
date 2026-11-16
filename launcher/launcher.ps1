@@ -1141,6 +1141,8 @@ function Write-CoopProfile($Ersc, [string]$Fp) {
         $lines = @('# 联机兼容档案：启动器联机启动时写，dark_core 的联机通道握手时发给队友比对（不含联机密码）',
                    ('version' + "`t" + $ver), ('fingerprint' + "`t" + $Fp), ('world' + "`t" + $script:WorldSuffix),
                    ('scaling' + "`t" + ($rules -join ',')), ('enemy' + "`t" + $enemy))
+        # 联机随机码（不算比对的一项）：队友和房主对不上时，联机通道把房主的存到队友的 dll\dark_core\coop_host_code.txt
+        try { $cc = Get-CoopCode; if ($cc.Ok) { $lines += ('code' + "`t" + $cc.Code) } } catch { }
         [System.IO.File]::WriteAllText($CoopProfile, (($lines -join "`n") + "`n"), (New-Object System.Text.UTF8Encoding($false)))
         Write-Host ('  联机兼容档案：' + $CoopProfile)
     } catch {
