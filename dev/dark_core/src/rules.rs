@@ -3574,10 +3574,15 @@ pub fn tick() {
                 crate::coop::note(crate::coop::Op::Remove(sp), c);
                 c.remove_speffect(sp)
             }
+            // 动作速度交给 speed.rs 和别的来源（时隙、魇化加快）乘起来写（以前直接写，魇化精英加快会盖掉减速）
             Act::FoeSpeed(id, m) => {
-                let c = unsafe { &mut *(id as *mut eldenring::cs::ChrIns) };
+                let c = unsafe { &*(id as *const eldenring::cs::ChrIns) };
                 crate::coop::note(crate::coop::Op::Speed(m), c);
-                c.modules.behavior.animation_speed = m;
+                if m == 1.0 {
+                    crate::speed::stop(id, "减速");
+                } else {
+                    crate::speed::want(c, "减速", m, crate::speed::HOLD_FRAME);
+                }
                 turn_set(id, m);
             }
             Act::FoePoise(id, v) => {

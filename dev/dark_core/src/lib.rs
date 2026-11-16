@@ -53,6 +53,7 @@ mod unseen;
 mod procs;
 mod prof;
 mod rules;
+mod speed;
 mod runebank;
 mod runtime;
 mod scaling;
@@ -236,7 +237,7 @@ pub unsafe extern "system" fn DllMain(hmodule: u64, reason: u32, _reserved: *mut
         };
         log(&format!("dark_core 已加载：{}；{}；{}；{}（{combat}）；{}；{}；{}；{}；{}；{}；{}；{}；{}；{}；{}；{}；{}；{}；{}；{}；{}；{}；{}；{scaling}", arena::describe(), festive::describe(), gear::describe(), runtime::describe(),
                      rules::describe(), procs::describe(), boat::describe(), attrstack::describe(), skillmult::describe(), spellbase::describe(), hpunify::describe(), ovldrop::describe(), fusion::describe(), nightmare::describe(), curses::describe(), notes::describe(), plague::describe(), wishstone::describe(), shopstage::describe(), clash::describe(), bossmode::describe(), glow::describe(), runebank::describe()));
-        let mut errs = [0u32; 28];
+        let mut errs = [0u32; 29];
         task.run_recurring(
             move |_: &FD4TaskData| {
                 prof::frame();
@@ -270,6 +271,8 @@ pub unsafe extern "system" fn DllMain(hmodule: u64, reason: u32, _reserved: *mut
                 guarded("斗技场试炼", &mut errs[25], arena::tick);
                 // 放在积木引擎后面：同一帧里它刚记下的改动、挂的效果这里都看得到
                 guarded("联机诊断", &mut errs[6], coop::tick);
+                // 别的角色的动作速度（时隙、见切 / 影步减速、魇化加快）：放在它们后面，乘起来写一次（speed.rs）
+                guarded("动作速度", &mut errs[28], speed::flush);
             },
             CSTaskGroupIndex::FrameBegin,
         );
