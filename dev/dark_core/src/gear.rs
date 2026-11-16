@@ -2553,6 +2553,16 @@ fn write_row(d: &Defs, st: &mut St, rec: &Rec) -> Result<(), String> {
         cap_origin(&d.lib, &ct.keep, &src, &mut new);
     }
     dst.copy_from_slice(&new);
+    // 联机时不和别人共享掉落（原版的 disableMultiDropShare，联机计划 13.7）：队友捡到的只是容器编号，配方在你这边，
+    // 他那边是别的东西或占位品。要给队友用物品菜单的「送给队友」。单机没有影响
+    unsafe {
+        use eldenring::param::{EQUIP_PARAM_ACCESSORY_ST, EQUIP_PARAM_PROTECTOR_ST, EQUIP_PARAM_WEAPON_ST};
+        match rec.cat {
+            0 => (*(dst.as_mut_ptr() as *mut EQUIP_PARAM_WEAPON_ST)).set_disable_multi_drop_share(true),
+            1 => (*(dst.as_mut_ptr() as *mut EQUIP_PARAM_PROTECTOR_ST)).set_disable_multi_drop_share(true),
+            _ => (*(dst.as_mut_ptr() as *mut EQUIP_PARAM_ACCESSORY_ST)).set_disable_multi_drop_share(true),
+        }
+    }
     Ok(())
 }
 
@@ -2957,21 +2967,19 @@ fn inv_cat_of_lot(cat: i32) -> Option<u8> {
 }
 
 /// 背包 + 仓库里这一样（掉落表的类别、编号）一共几个
+/// 不用 items()：它只读「当前」的重要物品列表，联机时（Seamless 哪怕只有自己一人）换成联机用的那份，里面只有圣杯瓶、露滴的复制品，
+/// 别的重要物品读不到（黄金树爬塔 native/src/loot.rs 记的；思路借鉴，代码自己写）。普通列表照常数，重要物品取两份里较多的
 fn count_lot_item(pgd: &PlayerGameData, cat: i32, id: i32) -> u32 {
     let Some(ic) = inv_cat_of_lot(cat) else { return 0 };
-    let mut n = 0u32;
-    let mut add = |inv: &EquipInventoryData| {
-        for it in inv.items_data.items() {
-            if it.item_id.category() as u8 == ic && it.item_id.param_id() as i64 == id as i64 {
-                n += it.quantity.max(1);
-            }
-        }
+    let hit = |it: &&eldenring::cs::EquipInventoryDataListEntry| it.item_id.category() as u8 == ic && it.item_id.param_id() as i64 == id as i64;
+    let count = |inv: &EquipInventoryData| -> u32 {
+        let d = &inv.items_data;
+        let n = d.normal_entries().iter().filter_map(|e| e.as_option()).filter(hit).map(|it| it.quantity.max(1)).sum::<u32>();
+        let k = d.key_entries().iter().filter_map(|e| e.as_option()).filter(hit).map(|it| it.quantity.max(1)).sum::<u32>();
+        let m = d.multiplay_key_entries().iter().filter_map(|e| e.as_option()).filter(hit).map(|it| it.quantity.max(1)).sum::<u32>();
+        n + k.max(m)
     };
-    add(&pgd.equipment.equip_inventory_data);
-    if let Some(s) = &pgd.storage {
-        add(&**s);
-    }
-    n
+    count(&pgd.equipment.equip_inventory_data) + pgd.storage.as_ref().map_or(0, |s| count(s))
 }
 
 /// 一批里每一样要涨多少
@@ -3320,7 +3328,9 @@ fn free(d: &Defs, st: &St, held: &HashSet<(usize, u32)>) -> [Vec<u32>; NCAT] {
         let ct = &d.items.cont[c];
         *v = (0..ct.count)
             .filter(|k| {
-                !(st.recs.contains_key(&(c, *k)) && held.contains(&(c, *k)))
+                // 背包 / 仓库里有这一格的东西就不算空格，记录里有没有都一样（联机计划 13.7：联机时捡到队友丢的新装备，记录里没有；
+                // 以前当空格，下次鉴定用上它，捡到的那件就跟着变成新鉴定的那件，背包里两件一样的）
+                !held.contains(&(c, *k))
                     && !sold.contains(&(c, *k))
                     && !shop.contains(&(c, *k))
                     && !locked.contains(&(c, ct.id(*k)))
