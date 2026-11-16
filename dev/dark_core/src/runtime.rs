@@ -224,8 +224,6 @@ struct St {
     next_cocktail: Option<Instant>,
     seed: u64,
     slip_on: bool,
-    /// 时隙上次设的倍率（词条数值随机的精确数；摘下时认得出要还原的）
-    slip_val: Option<f32>,
     /// 上一次读到的本体战斗状态（变了写日志）
     combat_last: Option<bool>,
     /// 玩家的动画速度上一帧是不是我们设的（时隙 × 巧手；不是 1 才设，回到 1 时还原一次）
@@ -565,31 +563,30 @@ pub fn tick() {
     let slip = d.timeslip.as_ref().and_then(|k| tier(k, &has).map(|r| 1.0 + run_num("timeslip", k, r) / 100.0));
     // 只在戴着、或刚摘下要还原时才扫周围（以前词条库里有时隙就每帧扫，切存档时距离列表里有已经释放的角色，崩过，见 chrs.rs）
     if let Some(k) = d.timeslip.as_ref().filter(|_| slip.is_some() || st.slip_on) {
-        // 我们设过的速度：各档的、这次的（词条数值随机）、上次的（摘下时还原用）
-        let mut ours: Vec<f32> = (0..4).map(|r| slip_mult(k, r)).collect();
-        ours.extend(slip.into_iter().chain(st.slip_val));
-        if slip.is_some() {
-            st.slip_val = slip;
-        }
         let me = &p.chr_ins as *const _ as usize;
-        // 游戏的距离列表还没就绪（读图中，见 chrs.rs）就先不动，摘下要还原的也等就绪了再还原
+        let client = crate::coop::client();
+        // 游戏的距离列表还没就绪（读图中，见 chrs.rs）就先不动；摘下后不再报，speed.rs 过了保持时间自己改回 1
         if let Some(around) = around!(wcm, me) {
+            let mut to_host: Vec<u32> = Vec::new();
             for e in &around {
                 if e.chr_ins.as_ptr() as usize == me {
                     continue;
                 }
-                let c = unsafe { &mut *e.chr_ins.as_ptr() };
-                let cur = c.modules.behavior.animation_speed;
-                match slip {
-                    // 玩家角色（队友、入侵者）不改（联机计划 13.2 G8）；以前改过的走下面那条还原
-                    // 客机不改敌人（联机计划 13.2 G2）：以前改过的同样走下面那条还原
-                    Some(m) if e.distance <= k.a && !crate::chrs::is_player(c) && !crate::coop::client_skip("时隙改周围角色的速度") => {
-                        crate::coop::note(crate::coop::Op::Slip(m), c);
-                        c.modules.behavior.animation_speed = m;
+                let c = unsafe { e.chr_ins.as_ref() };
+                // 玩家角色（队友、入侵者）不改（联机计划 13.2 G8）
+                let Some(m) = slip.filter(|_| e.distance <= k.a && !crate::chrs::is_player(c)) else { continue };
+                if client {
+                    // 客机不写敌人（联机计划 13.2 G2）：范围里有实体编号的报给房主，房主那边乘进去（speed.rs）
+                    if c.event_entity_id != 0 {
+                        to_host.push(c.event_entity_id);
                     }
-                    _ if ours.iter().any(|m| (cur - m).abs() < 1e-6) => c.modules.behavior.animation_speed = 1.0,
-                    _ => {}
+                } else {
+                    crate::coop::note(crate::coop::Op::Slip(m), c);
+                    crate::speed::want(c, "时隙", m, crate::speed::HOLD_FRAME);
                 }
+            }
+            if client {
+                crate::link::slip_to_host(&to_host, slip.unwrap_or(1.0));
             }
             if slip.is_some() != st.slip_on {
                 st.slip_on = slip.is_some();
@@ -986,7 +983,8 @@ fn crush_step(seg: &mut Option<bool>, rolling: bool, new_roll: bool, tae: bool, 
     fire
 }
 
-/// 时隙 / 巧手这个稀有度的速度倍数（1 + 百分比）
+/// 时隙 / 巧手这个稀有度的速度倍数（1 + 百分比；现在只有单元测试用）
+#[cfg(test)]
 fn slip_mult(k: &Kind, r: usize) -> f32 {
     1.0 + k.sp[r].first().copied().unwrap_or(0) as f32 / 100.0
 }

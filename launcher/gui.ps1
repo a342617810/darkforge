@@ -1268,54 +1268,60 @@ function Show-CoopMenu {
     $need = "没找到 Seamless Co-op。它要自己下载：把压缩包里的 SeamlessCoop 文件夹整个放进整合包的 dll\ 文件夹（变成 dll\SeamlessCoop\ersc.dll）。"
     $msg = "联机用 Seamless Co-op 模组（整合包不带，要自己下载：把压缩包里的 SeamlessCoop 文件夹整个放进整合包的 dll\；压缩包里的 ersc_launcher.exe 不用，联机也从这里启动）。`r`n" +
            $(if ($ersc) { "已找到：" + $ersc } else { "⚠ 还没找到 Seamless Co-op。" }) + "`r`n`r`n" +
-           "两个人的游戏数据要完全一样：`r`n" +
-           "1. 用同一个版本的整合包。`r`n" +
-           "2. 房主点「复制随机码」发给队友；队友复制这一行，点「导入随机码」（按它重随敌人，约 1~5 分钟；房主的敌人设置和世界也一起照着改）。`r`n" +
-           "3. 两人都点「联机 · 敌人随机」（或者都点「联机 · 无敌人随机」）启动。运行日志里的「联机核对码」两人应该一样。`r`n" +
-           "4. 联机密码一定要填，两人填一样的（空着游戏会报错退出）：「工具与设置」→「联机」→「联机设置」里改 cooppassword 这一行。`r`n`r`n" +
-           "联机时：以房主的世界为准；斗技场试炼、头目复活、卢恩银行不能用；Seamless Co-op 的入侵会自动关掉；直接改敌人的词条效果只在房主那边生效。`r`n" +
+           "怎么联机（两人用同一个版本的整合包）：`r`n" +
+           "1. 房主点「开房 · 敌人随机」或「开房 · 无敌人随机」：联机码自动复制到剪贴板，游戏同时启动。把联机码发给队友（码里有联机密码，只发给队友）。`r`n" +
+           "2. 队友复制这一行，点「加入」：联机密码、Seamless Co-op 设置、敌人设置和世界照房主的改好；敌人随机和房主不一样时先重随（约 1~5 分钟），然后启动。`r`n" +
+           "3. 进游戏后房主用 Seamless Co-op 的开房道具，队友用加入的道具。两边的游戏数据对不对得上，进同一个会话后自动核对。`r`n" +
+           "下次还是同一队人：房主照样点「开房」，队友点「加入」（剪贴板里没有码时用上次的）。`r`n`r`n" +
+           "联机时：以房主的世界为准；斗技场试炼不能用，头目复活只有房主能用；Seamless Co-op 的入侵会自动关掉；直接改敌人的词条效果由房主那边改。`r`n" +
            "联机存档是 ER0000.rng.co2，和单机存档分开；联机角色的新装备、锁定等记录也单独存，互不影响。`r`n" +
-           "联机还在测试：队友身上的新装备在你这边样子和名字不对，新装备也不能直接给队友。出问题时点「导出诊断包」发过来。"
-    $r = Show-DrDialog $msg '暗黑重铸 · 联机（Seamless Co-op）' @('联机 · 敌人随机', '联机 · 无敌人随机', '复制随机码', '导入随机码', '关闭') 0 4 'question' $form
+           "联机还在测试：队友身上的新装备在你这边样子和名字不对；新装备可以在背包里点它「送给」队友。出问题时点「导出诊断包」发过来。"
+    $r = Show-DrDialog $msg '暗黑重铸 · 联机（Seamless Co-op）' @('开房 · 敌人随机', '开房 · 无敌人随机', '加入', '复制联机码', '关闭') 0 4 'question' $form
     switch ($r) {
         0 {
-            if (-not (Confirm-Randomizer)) { return }
             if (-not $ersc) { Show-Info $need; return }
-            if (-not (Confirm-ErscPassword $ersc)) { return }
+            if (-not (Confirm-Randomizer)) { return }
             $latest = Get-LatestRandom
-            if (-not $latest -or $latest.Merged) { Show-Info '还没有能用的敌人随机结果：先「一键重随敌人」，或者点「联机」→「导入随机码」按队友的随机码重随。'; return }
+            if (-not $latest -or $latest.Merged) { Show-Info '还没有能用的敌人随机结果：先「一键重随敌人」，或者点「开房 · 无敌人随机」。'; return }
             if (-not (Before-Launch)) { return }
-            Start-LauncherRun '联机启动 · 敌人随机' @('-Action coop')
+            Start-LauncherRun '联机开房 · 敌人随机' @('-Action coophost')
         }
         1 {
             if (-not $ersc) { Show-Info $need; return }
-            if (-not (Confirm-ErscPassword $ersc)) { return }
             if (-not (Before-Launch)) { return }
-            Start-LauncherRun '联机启动 · 无敌人随机' @('-Action coopvanilla')
+            Start-LauncherRun '联机开房 · 无敌人随机' @('-Action coophostvanilla')
         }
         2 {
-            if (-not (Confirm-Randomizer)) { return }
-            Start-LauncherRun '复制联机随机码' @('-Action coopcode')
-        }
-        3 {
-            if (-not (Confirm-Randomizer)) { return }
+            if (-not $ersc) { Show-Info $need; return }
+            # 联机码：剪贴板 → 联机时联机通道存下的房主的码、上次加入用的码（新的先；launcher.ps1 的 Invoke-CoopJoin 同样的顺序）
             $code = try { [string][System.Windows.Forms.Clipboard]::GetText() } catch { '' }
             $code = ($code -replace '\s+', ' ').Trim()
-            # 剪贴板里没有：用联机时联机通道存下的房主的随机码（联机计划 13.5，dll\dark_core\coop_host_code.txt）
-            $hostCode = Join-Path $Paly 'dll\dark_core\coop_host_code.txt'
-            if ($code -notmatch '^DR[12]\|' -and (Test-Path -LiteralPath $hostCode)) { $code = ([System.IO.File]::ReadAllText($hostCode)).Trim() }
-            if ($code -notmatch '^DR[12]\|') { Show-Info '剪贴板里没有联机随机码。先复制队友发来的那一行（DR2| 开头），再点「导入随机码」。'; return }
-            if (-not (Confirm-GameClosed '重随敌人要在游戏关闭后做。')) { return }
-            if (Get-Process -Name 'EldenRingRandomizer' -ErrorAction SilentlyContinue) { Show-Info '随机器已经开着，先把它关掉。'; return }
-            if (-not (Get-GameRoot)) {
-                if (-not (Select-GameRoot '随机器要读游戏文件，先选一下游戏路径。')) { return }
+            if ($code -notmatch '^DR[123]\|') {
+                $code = ''
+                $files = @((Join-Path $Paly 'dll\dark_core\coop_host_code.txt'), (Join-Path $LauncherDir 'reroll\state\coop_join_code.txt') |
+                           Where-Object { Test-Path -LiteralPath $_ } | Sort-Object { (Get-Item -LiteralPath $_).LastWriteTime } -Descending)
+                foreach ($f in $files) {
+                    $t = (([System.IO.File]::ReadAllText($f)) -replace '\s+', ' ').Trim()
+                    if ($t -match '^DR[123]\|') { $code = $t; break }
+                }
             }
-            $show = if ($code.Length -gt 120) { $code.Substring(0, 120) + '…' } else { $code }
-            $msg2 = "按队友的联机随机码重随敌人：`r`n" + $show + "`r`n`r`n" +
-                    "⚠ 随机器窗口会自动打开、自动操作、完成后自动关闭，这期间不要点它，也不要关掉它（约 1~5 分钟）。`r`n" +
-                    "现在的敌人随机结果会被覆盖（已经是这个随机码的就不重随）。`r`n`r`n现在开始吗？"
-            if (-not (Confirm-Box $msg2 '导入联机随机码')) { return }
-            Start-LauncherRun '按联机随机码重随敌人' @("-Action coopimport -Code '" + ($code -replace "'", "''") + "'")
+            if (-not $code) { Show-Info '剪贴板里没有联机码。先复制房主发来的那一行（DR3| 开头），再点「加入」。'; return }
+            $rand = $code -notmatch '^DR3\|' -or $code -match '\|m=rand(\||$)'
+            if ($rand) {
+                if (-not (Confirm-Randomizer)) { return }
+                if (Get-Process -Name 'EldenRingRandomizer' -ErrorAction SilentlyContinue) { Show-Info '随机器已经开着，先把它关掉。'; return }
+            }
+            if (-not (Before-Launch)) { return }
+            if ($rand) {
+                $msg2 = "加入房主的联机：联机密码、Seamless Co-op 设置、敌人设置和世界照房主的改好再启动。`r`n`r`n" +
+                        "敌人随机和房主不一样时会先重随敌人：随机器窗口会自动打开、自动操作、完成后自动关闭，这期间不要点它，也不要关掉它（约 1~5 分钟）。`r`n`r`n现在开始吗？"
+                if (-not (Confirm-Box $msg2 '加入联机')) { return }
+            }
+            Start-LauncherRun '加入队友的联机' @("-Action coopjoin -Code '" + ($code -replace "'", "''") + "'")
+        }
+        3 {
+            if (-not $ersc) { Show-Info $need; return }
+            Start-LauncherRun '复制联机码' @('-Action coopcode')
         }
     }
 }

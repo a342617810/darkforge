@@ -768,9 +768,10 @@ pub fn tick() {
                 el.fix = None;
             }
         }
+        // 加快交给 speed.rs 和见切 / 影步减速、时隙乘起来写（以前直接写，见切、影步对精英时灵时不灵）；250 毫秒扫一次，保持 HOLD_SCAN
         let speed = d.colors[el.color].1;
-        if speed != 1.0 && hp > 0 && (c.modules.behavior.animation_speed - speed).abs() > 1e-4 && !crate::coop::client_skip("魇化精英加快") {
-            c.modules.behavior.animation_speed = speed;
+        if speed != 1.0 && hp > 0 && !crate::coop::client_skip("魇化精英加快") {
+            crate::speed::want(c, "魇化", speed, crate::speed::HOLD_SCAN);
         }
         let was = el.hp;
         el.hp = c.modules.data.hp;

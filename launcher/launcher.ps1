@@ -4,7 +4,9 @@
 #   ... -Action vanilla -DryRun / -NoLaunch      无敌人随机（只看配置 / 生成并写配置但不启动）
 #   ... -Action rand -DryRun / -NoLaunch         敌人随机
 #   ... -Action coop / coopvanilla               联机启动（Seamless Co-op；敌人随机 / 无敌人随机，dev\coop\联机计划.md）
-#   ... -Action coopcode / coopimport [-Code ..] 复制联机随机码 / 按联机随机码重随敌人（不给 -Code 读剪贴板）
+#   ... -Action coopcode / coopimport [-Code ..] 复制联机码 / 按联机随机码重随敌人（不给 -Code 读剪贴板）
+#   ... -Action coophost / coophostvanilla         联机开房：没密码就生成、联机码复制到剪贴板、联机启动（敌人随机 / 无敌人随机）
+#   ... -Action coopjoin [-Code ..]               加入队友：照联机码改好密码、Seamless 设置、敌人设置和世界，要重随才重随，然后联机启动
 #   ... -Action update -UpdateZip "a.zip|b.zip"   导入离线更新包（launcher\update.py；几个包用 | 隔开，自动按版本排序）
 #   ... -Action checkupdate / autoupdate          在线检查更新 / 下载并应用更新包（地址在 launcher\update_source.json；结果 logs\update_check.json）
 #   ... -Action vanilla / rand -BossWorld high|low   这次以「死亡以上难度」/「普通难度」的世界启动（图形界面问过玩家；不给按上次玩的角色）
@@ -23,7 +25,7 @@
 [CmdletBinding()]
 param(
     [ValidateSet('list', 'vanilla', 'rand', 'randomizer', 'help', 'setgame', 'diag', 'watch', 'oncereset', 'randenemy', 'randhi', 'carryrand',
-                 'coop', 'coopvanilla', 'coopcode', 'coopimport', 'update', 'checkupdate', 'autoupdate')]
+                 'coop', 'coopvanilla', 'coopcode', 'coopimport', 'coophost', 'coophostvanilla', 'coopjoin', 'update', 'checkupdate', 'autoupdate')]
     [string]$Action = 'help',
     [int]$GamePid = 0,
     [string]$GamePath = '',
@@ -1013,8 +1015,9 @@ function Get-NewGameSeed([bool]$Rand) {
 # - 存档：Seamless Co-op 把存档扩展名换成 co2，YAFSML 的 replace_seamless_coop_save_filename 再换成 ER0000.rng.co2（和单机的 ER0000.rng 分开）；
 #   dark_core / dark_sell / dark_lock 看到 ersc.dll 加载了，角色记录就用 角色记录\联机\（格子编号和单机各算各的）；Erd Tools 的存档扩展名跟着换成 co2。
 # - 两个人的游戏数据必须一样：重随用联机种子（敌人随机 = 随机器的种子，无敌人随机 = 固定的 $CoopVanillaSeed），
-#   一次性重随记录用 角色记录\联机\once_<种子>.json（同一个种子抽出来的都一样）；敌人随机靠联机随机码对齐（Get-CoopCode）。
-#   启动后打印联机核对码（reroll\coopfp.py：随机器输出和重随包的指纹），两人对一下。
+#   一次性重随记录用 角色记录\联机\once_<种子>.json（同一个种子抽出来的都一样）；敌人随机靠联机码对齐（Get-CoopCode3）。
+# - 玩家流程（2026-11-16 起）：房主「开房」（Invoke-CoopHost），队友「加入」（Invoke-CoopJoin），一个联机码 DR3 带上密码、Seamless 规则、
+#   敌人设置、世界和启动方式。联机核对码（reroll\coopfp.py）写进兼容档案，进会话后联机通道自动比对。
 $CoopVanillaSeed = 20261102
 $script:CoopDll = ''          # 联机启动时 [dll] 最后加的 ersc.dll（YAFSML.ini 里的写法；Join-DllLines）
 $script:ErdSaveExt = 'rng'    # Erd Tools 的存档扩展名：单机 rng，联机 co2（Test-UserDllSafe）
@@ -1099,7 +1102,7 @@ function Test-ErscSettings($Ersc) {
         }
         $pw = Get-IniMatch $txt 'cooppassword'
         if (-not $pw -or -not $pw.Groups[1].Value.Trim()) {
-            $m = 'ersc_settings.ini 里的联机密码（cooppassword）是空的，Seamless Co-op 会报错并让游戏退出。在 cooppassword = 后面填一个密码（两个人填一样的）再启动：' + $ini
+            $m = 'ersc_settings.ini 里的联机密码（cooppassword）是空的，Seamless Co-op 会报错并让游戏退出。在启动器「联机」里点「开房」会自动生成一个；或者在 cooppassword = 后面自己填一个（两个人填一样的）：' + $ini
             if ($DryRun) { Write-Warn $m } else { Write-Err $m; return $false }
         }
         return $true
@@ -1118,21 +1121,10 @@ function Get-YafRelPath([string]$Full) {
 # 联机兼容档案（联机计划 13.4）：联机启动时写给 dark_core，联机通道（dev\dark_core\src\link.rs）握手时发给队友逐项比对。
 # 一行「键<Tab>值」：整合包版本、联机核对码、世界、Seamless 的随人数加强和规则（不含密码）、敌人设置。改了键名要和 link.rs 的 LABELS 一起改
 $CoopProfile = Join-Path $Paly 'dll\dark_core\coop_profile.txt'
-function Write-CoopProfile($Ersc, [string]$Fp) {
+function Write-CoopProfile($Ersc, [string]$Fp, [bool]$Rand) {
     try {
-        $ver = ''
-        $vp = Join-Path $LauncherDir 'version.txt'
-        if (Test-Path -LiteralPath $vp) { $ver = ([System.IO.File]::ReadAllText($vp)).Trim() }
-        $rules = @()
-        $ini = Join-Path $Ersc.DirectoryName 'ersc_settings.ini'
-        if (Test-Path -LiteralPath $ini) {
-            $txt = [System.IO.File]::ReadAllText($ini)
-            foreach ($k in @('allow_summons', 'boss_damage_scaling', 'boss_health_scaling', 'boss_posture_scaling', 'death_debuffs',
-                             'enemy_damage_scaling', 'enemy_health_scaling', 'enemy_posture_scaling')) {
-                $m = Get-IniMatch $txt $k
-                if ($m) { $rules += ($k + '=' + $m.Groups[1].Value.Trim()) }
-            }
-        }
+        $ver = Get-PackVersion
+        $rules = @(Get-ErscRules $Ersc)
         $enemy = ''
         try {
             $s = [System.IO.File]::ReadAllText((Join-Path $LauncherDir 'reroll\settings.json')) | ConvertFrom-Json
@@ -1141,8 +1133,9 @@ function Write-CoopProfile($Ersc, [string]$Fp) {
         $lines = @('# 联机兼容档案：启动器联机启动时写，dark_core 的联机通道握手时发给队友比对（不含联机密码）',
                    ('version' + "`t" + $ver), ('fingerprint' + "`t" + $Fp), ('world' + "`t" + $script:WorldSuffix),
                    ('scaling' + "`t" + ($rules -join ',')), ('enemy' + "`t" + $enemy))
-        # 联机随机码（不算比对的一项）：队友和房主对不上时，联机通道把房主的存到队友的 dll\dark_core\coop_host_code.txt
-        try { $cc = Get-CoopCode; if ($cc.Ok) { $lines += ('code' + "`t" + $cc.Code) } } catch { }
+        # 联机码（不算比对的一项；DR3 带着联机密码，只发给会话里的队员）：队友和房主对不上时，联机通道把房主的存到队友的
+        # dll\dark_core\coop_host_code.txt，队友退出后点「加入」剪贴板里没有码也能用它
+        try { $cc = Get-CoopCode3 $Rand $Ersc; if ($cc.Ok) { $lines += ('code' + "`t" + $cc.Code) } } catch { }
         [System.IO.File]::WriteAllText($CoopProfile, (($lines -join "`n") + "`n"), (New-Object System.Text.UTF8Encoding($false)))
         Write-Host ('  联机兼容档案：' + $CoopProfile)
     } catch {
@@ -1216,24 +1209,6 @@ function Get-OptionKey([string]$Options) {
     return ((@($Options -split '\s+') | Where-Object { $_ }) -join ' ')
 }
 
-# 复制联机随机码到剪贴板（失败就打印出来让玩家手动复制）
-function Invoke-CoopCodeAction {
-    Write-Head '复制联机随机码'
-    $rs = Get-RandomizerStatus
-    if (-not $rs.Ok) { Write-Err $rs.Msg; return $false }
-    $c = Get-CoopCode
-    if (-not $c.Ok) { Write-Err $c.Msg; return $false }
-    try { Set-Clipboard -Value $c.Code; Write-Ok '联机随机码已复制到剪贴板，发给队友：' }
-    catch { Write-Warn '复制到剪贴板失败，手动复制下面这一行发给队友：' }
-    Write-Host ('  ' + $c.Code)
-    Write-Host ('  （这份敌人随机做于 ' + $c.Info.Time.ToString('yyyy-MM-dd HH:mm') + '，种子 ' + $c.Info.Seed + '；世界：' +
-                $(if ($c.World -eq 'high') { '死亡以上' } else { '普通' }) + '，随机码里带着敌人设置）')
-    $fp = Get-CoopFingerprint $true $false
-    if ($fp) { Write-Host ('  敌人随机核对码：' + $fp + '（队友导入后看到的应该一样）') -ForegroundColor Cyan }
-    Write-Host '  队友复制这一行，在启动器里点「联机」→「导入随机码」；完成后两人都用「联机」→「联机 · 敌人随机」启动。'
-    return $true
-}
-
 # 按联机随机码重随敌人：$Text 不给就读剪贴板。现在的敌人随机已经是这个码的就不重随
 function Invoke-CoopImport([string]$Text) {
     Write-Head '按联机随机码重随敌人'
@@ -1254,6 +1229,15 @@ function Invoke-CoopImport([string]$Text) {
         Write-Err ($from + '不是联机随机码（应该是 DR2| 开头的一行，对方在启动器里点「联机」→「复制随机码」得到）：' + $show)
         return $false
     }
+    if (-not (Import-CoopEnemy $fixed $em $bp $world)) { return $false }
+    $fp = Get-CoopFingerprint $true $false
+    if ($fp) { Write-Host ('  敌人随机核对码：' + $fp + '（和对方复制随机码时看到的应该一样）') -ForegroundColor Cyan }
+    Write-Host '  现在两人都用「联机」→「联机 · 敌人随机」启动。'
+    return $true
+}
+
+# 照房主的改敌人设置、世界，敌人随机和码不一样才重随（DR1 / DR2 导入和 DR3「加入」共用）。$em / $bp 是 $null = 码里没带敌人设置
+function Import-CoopEnemy($fixed, $em, $bp, [string]$world) {
     # 敌人设置照房主的（不一样才改；原设置备份）。要在重随敌人之前改：敌人预设按它写
     if ($null -ne $em) {
         $sp = Join-Path $LauncherDir 'reroll\settings.json'
@@ -1273,29 +1257,327 @@ function Invoke-CoopImport([string]$Text) {
             }
         }
     }
-    if ($world) {
-        if (-not $DryRun) {
-            [System.IO.File]::WriteAllText($CoopWorldFile, ($world + "`n"), (New-Object System.Text.UTF8Encoding($false)))
-        }
-        Write-Player ('联机世界：' + $(if ($world -eq 'high') { '死亡以上（改版 Boss）' } else { '普通' }) + '，和房主一样；之后联机启动按它加载')
-    }
+    Set-CoopWorld $world
     $sd = if ($fixed.Options -match '(?:^|\s)seed:(\d+)') { $Matches[1] } else { '' }
     Write-Host ('  联机随机码：种子 ' + $sd + '，敌人预设种子 ' + $fixed.PresetSeed)
     $cur = Get-RandomInfo $RandomDir
     if ($cur -and -not $cur.Merged -and $cur.PresetSeed -eq $fixed.PresetSeed -and $cur.PresetNat -eq $fixed.Nat -and (Get-OptionKey $cur.Options) -eq $fixed.Options) {
-        Write-Ok '现在的敌人随机已经就是这个联机随机码的，不用重随（敌人设置不同时已经照房主的改了，下次重随敌人才生效；这份敌人随机本来就是按房主的设置做的）。'
+        Write-Player '敌人随机已经和房主的一样，不用重随。'
     } else {
         if (Get-Process -Name 'eldenring' -ErrorAction SilentlyContinue) { Write-Err '游戏还在运行，先退出游戏再重随敌人。'; return $false }
         $erRoot = Resolve-GameRoot
         if (-not $erRoot) { Write-Err '还没有设置游戏路径（随机器要读游戏文件）。先点「游戏路径」选一下。'; return $false }
         if ($DryRun) { Write-Host ('  [-DryRun] 不重随。选项：' + $fixed.Options); return $true }
+        Write-Player '敌人随机和房主的不一样，先照房主的重随（随机器窗口会自动打开、自动关闭，约 1~5 分钟，期间不要点它）……'
         $r = Invoke-RandomizeEnemies (Join-Path $erRoot 'Game\eldenring.exe') $fixed
-        if (-not $r.Ok) { Write-Err ('按联机随机码重随失败：' + $r.Msg); return $false }
+        if (-not $r.Ok) { Write-Err ('按联机码重随失败：' + $r.Msg); return $false }
         Write-Ok $r.Msg
     }
-    $fp = Get-CoopFingerprint $true $false
-    if ($fp) { Write-Host ('  敌人随机核对码：' + $fp + '（和对方复制随机码时看到的应该一样）') -ForegroundColor Cyan }
-    Write-Host '  现在两人都用「联机」→「联机 · 敌人随机」启动。'
+    return $true
+}
+
+# 联机世界照房主的（high = 死亡以上的改版 Boss 世界）：之后联机启动按它加载（Get-BossMods）；空 = 不改
+function Set-CoopWorld([string]$world) {
+    if (-not $world) { return }
+    if (-not $DryRun) {
+        [System.IO.File]::WriteAllText($CoopWorldFile, ($world + "`n"), (New-Object System.Text.UTF8Encoding($false)))
+    }
+    Write-Player ('联机世界：' + $(if ($world -eq 'high') { '死亡以上（改版 Boss）' } else { '普通' }) + '，和房主一样')
+}
+
+# ---------------------------------------------------------------- 联机码第三版（用户 2026-11-16「参考爬塔mod简化一下联机流程」→「联机流程改」）
+# 一个码带上队友加入要的全部东西：房主「开房」生成、复制、启动，队友「加入」照着改好再启动，不用再手动填密码、选启动方式、对核对码
+#（核对改成联机通道进会话自动比对，dev\dark_core\src\link.rs）。参考黄金树爬塔：联机密码第一次开房自动生成、启动前先核对版本。
+# DR3|v=整合包版本|m=rand / plain（敌人随机 / 无敌人随机）|pw=联机密码（UTF-8 的 base64）|w=high / low（世界）|sc=Seamless 的规则（键=值,…）
+#    敌人随机的再加 |em=精英倍数|bp=普通位置出头目|ps=敌人预设种子|nat=自然精英比例|o=随机器的选项和种子（最后一项，里面有空格）
+# 码里有联机密码：只发给队友；启动器日志里只打出去掉密码的（Hide-CoopSecret），诊断包里也去掉（Remove-CoopSecret）。DR2 / DR1 照收（不带密码）
+$CoopRuleKeys = @('allow_summons', 'boss_damage_scaling', 'boss_health_scaling', 'boss_posture_scaling', 'death_debuffs',
+                  'enemy_damage_scaling', 'enemy_health_scaling', 'enemy_posture_scaling')
+$CoopHostModeFile = Join-Path $LauncherDir 'reroll\state\coop_host_mode.txt'
+$CoopJoinCodeFile = Join-Path $LauncherDir 'reroll\state\coop_join_code.txt'
+$CoopHostCodeFile = Join-Path $Paly 'dll\dark_core\coop_host_code.txt'
+
+function Get-PackVersion {
+    $vp = Join-Path $LauncherDir 'version.txt'
+    if (Test-Path -LiteralPath $vp) { return ([System.IO.File]::ReadAllText($vp)).Trim() }
+    return ''
+}
+
+# ersc_settings.ini：路径、有没有 BOM、内容
+function Read-ErscIni($Ersc) {
+    $ini = Join-Path $Ersc.DirectoryName 'ersc_settings.ini'
+    $bytes = [System.IO.File]::ReadAllBytes($ini)
+    $bom = $bytes.Length -ge 3 -and $bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF
+    return @{ Path = $ini; Bom = $bom; Text = [System.IO.File]::ReadAllText($ini) }
+}
+
+# ini 里这一项改成 $Value；没有就加在 [$Section] 下面（没有这一节就加在最后）
+function Set-IniValue([string]$Text, [string]$Key, [string]$Value, [string]$Section) {
+    $m = Get-IniMatch $Text $Key
+    if ($m) {
+        $g = $m.Groups[1]
+        $old = $g.Value
+        $keep = $old.Substring($old.TrimEnd().Length)      # 值后面、分号注释前的空格留着
+        return $Text.Substring(0, $g.Index) + $Value + $keep + $Text.Substring($g.Index + $g.Length)
+    }
+    $sm = [regex]::Match($Text, '(?im)^[ \t]*\[' + [regex]::Escape($Section) + '\][ \t]*(?=\r?$)')
+    if ($sm.Success) {
+        $at = $sm.Index + $sm.Length
+        return $Text.Substring(0, $at) + "`r`n" + $Key + ' = ' + $Value + $Text.Substring($at)
+    }
+    return $Text.TrimEnd() + "`r`n`r`n[" + $Section + "]`r`n" + $Key + ' = ' + $Value + "`r`n"
+}
+
+# Seamless 的规则（不含密码）：「键=值」数组，兼容档案和联机码共用
+function Get-ErscRules($Ersc) {
+    $rules = @()
+    try { $txt = (Read-ErscIni $Ersc).Text } catch { return $rules }
+    foreach ($k in $CoopRuleKeys) {
+        $m = Get-IniMatch $txt $k
+        if ($m) { $rules += ($k + '=' + $m.Groups[1].Value.Trim()) }
+    }
+    return $rules
+}
+
+function Get-ErscPassword($Ersc) {
+    try {
+        $m = Get-IniMatch (Read-ErscIni $Ersc).Text 'cooppassword'
+        if ($m) { return $m.Groups[1].Value.Trim() }
+    } catch { }
+    return ''
+}
+
+# 16 位随机密码（去掉了容易看错的 0 O 1 l I）
+function New-CoopPassword {
+    $chars = 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+    $rng = New-Object System.Security.Cryptography.RNGCryptoServiceProvider
+    $b = New-Object byte[] 16
+    $rng.GetBytes($b)
+    return (-join ($b | ForEach-Object { $chars[$_ % $chars.Length] }))
+}
+
+# 房主：联机密码空着就生成一个写进去（原 ini 备份）；返回密码，失败返回空串
+function Initialize-CoopPassword($Ersc) {
+    try {
+        $pw = Get-ErscPassword $Ersc
+        if ($pw) { return $pw }
+        $pw = New-CoopPassword
+        if ($DryRun) { Write-Host '  [-DryRun] 联机密码是空的，真的开房时会自动生成一个'; return $pw }
+        $f = Read-ErscIni $Ersc
+        Copy-Item -LiteralPath $f.Path -Destination ($f.Path + '.bak_' + (Get-Date -Format 'yyyyMMdd_HHmmss')) -Force
+        [System.IO.File]::WriteAllText($f.Path, (Set-IniValue $f.Text 'cooppassword' $pw 'PASSWORD'), (New-Object System.Text.UTF8Encoding($f.Bom)))
+        Write-Player '联机密码是空的，自动生成了一个（联机码里带着，队友加入时自动填上；原设置已备份）。'
+        return $pw
+    } catch {
+        Write-Err ('写不了联机密码：' + $_.Exception.Message)
+        return ''
+    }
+}
+
+# 联机码里的密码换成「去掉了」（日志、诊断包用）
+function Hide-CoopSecret([string]$Text) {
+    return [regex]::Replace($Text, '(DR3\|[^\r\n]*?\|pw=)[A-Za-z0-9+/=]*', '${1}（去掉了）')
+}
+
+# 诊断包：文字文件里的联机码去掉密码
+function Remove-CoopSecret([string]$Dir) {
+    foreach ($f in @(Get-ChildItem -LiteralPath $Dir -Recurse -File -ErrorAction SilentlyContinue | Where-Object { $_.Extension -in @('.log', '.txt', '.ini', '.json') })) {
+        try {
+            $bytes = [System.IO.File]::ReadAllBytes($f.FullName)
+            $bom = $bytes.Length -ge 3 -and $bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF
+            $t = [System.IO.File]::ReadAllText($f.FullName)
+            $n = Hide-CoopSecret $t
+            if ($n -ne $t) { [System.IO.File]::WriteAllText($f.FullName, $n, (New-Object System.Text.UTF8Encoding($bom))) }
+        } catch { }
+    }
+}
+
+# 生成联机码（$Rand = 敌人随机）：@{ Ok; Code; Msg; World; Info }
+function Get-CoopCode3([bool]$Rand, $Ersc) {
+    $pw = Get-ErscPassword $Ersc
+    if (-not $pw) { return @{ Ok = $false; Msg = '联机密码是空的：点「开房」会自动生成一个。' } }
+    $world = if (@((Get-BossMods $true).Keys).Count) { 'high' } else { 'low' }
+    $f = @('DR3', ('v=' + (Get-PackVersion)), ('m=' + $(if ($Rand) { 'rand' } else { 'plain' })),
+           ('pw=' + [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes($pw))), ('w=' + $world), ('sc=' + (@(Get-ErscRules $Ersc) -join ',')))
+    $info = $null
+    if ($Rand) {
+        $c2 = Get-CoopCode
+        if (-not $c2.Ok) { return $c2 }
+        $p = $c2.Code.Split('|')      # DR2|预设种子|自然精英比例|精英倍数|普通位置出头目|世界|选项（选项里不会有 |）
+        $f += @(('em=' + $p[3]), ('bp=' + $p[4]), ('ps=' + $p[1]), ('nat=' + $p[2]), ('o=' + ($p[6..($p.Length - 1)] -join '|')))
+        $info = $c2.Info
+    }
+    return @{ Ok = $true; Code = ($f -join '|'); World = $world; Info = $info }
+}
+
+# 读联机码第三版：@{ Ok; Msg; Version; Rand; Password; World; Rules; Em; Bp; Fixed }
+function Read-CoopCode3([string]$Text) {
+    $t = ([string]$Text -replace '\s+', ' ').Trim()
+    if (-not $t.StartsWith('DR3|')) { return @{ Ok = $false; Msg = '不是 DR3| 开头' } }
+    $parts = $t.Split('|')
+    $h = @{}
+    for ($i = 1; $i -lt $parts.Length; $i++) {
+        $kv = $parts[$i]
+        $eq = $kv.IndexOf('=')
+        if ($eq -lt 1) { continue }
+        $k = $kv.Substring(0, $eq)
+        $v = $kv.Substring($eq + 1)
+        if ($k -eq 'o') {
+            if ($i -lt $parts.Length - 1) { $v = (@($v) + $parts[($i + 1)..($parts.Length - 1)]) -join '|' }
+            $h[$k] = $v
+            break
+        }
+        $h[$k] = $v
+    }
+    if ($h['m'] -notin @('rand', 'plain')) { return @{ Ok = $false; Msg = '启动方式看不懂（m=）' } }
+    if ($h['w'] -notin @('high', 'low')) { return @{ Ok = $false; Msg = '世界看不懂（w=）' } }
+    $pw = ''
+    try { $pw = [System.Text.Encoding]::UTF8.GetString([Convert]::FromBase64String([string]$h['pw'])) } catch { }
+    if (-not $pw -or $pw -match '[\r\n;]') { return @{ Ok = $false; Msg = '联机密码看不懂（pw=），码可能没复制完整' } }
+    $rules = @(([string]$h['sc']).Split(',') | Where-Object { $_ -match '^[a-z_]+=-?[0-9]+$' })
+    $r = @{ Ok = $true; Msg = ''; Version = [string]$h['v']; Rand = ($h['m'] -eq 'rand'); Password = $pw; World = $h['w']; Rules = $rules
+            Em = $null; Bp = $null; Fixed = $null }
+    if ($r.Rand) {
+        if ([string]$h['ps'] -notmatch '^\d+$' -or [string]$h['nat'] -notmatch '^[-0-9=.,]+$' -or [string]$h['em'] -notmatch '^[0-9.]+$' -or
+            [string]$h['bp'] -notmatch '^[0-9.]+$' -or [string]$h['o'] -notmatch '(?:^|\s)seed:\d+') {
+            return @{ Ok = $false; Msg = '敌人随机的部分不完整，码可能没复制完整' }
+        }
+        $r.Em = [double]::Parse($h['em'], $CoopInv)
+        $r.Bp = [double]::Parse($h['bp'], $CoopInv)
+        $r.Fixed = @{ PresetSeed = $h['ps']; Nat = $h['nat']; Options = (Get-OptionKey $h['o']) }
+    }
+    return $r
+}
+
+# 队友：Seamless 的联机密码和规则照房主的（不一样才改；原 ini 备份）
+function Set-ErscFromCode($Ersc, $C) {
+    try {
+        $f = Read-ErscIni $Ersc
+        $t = $f.Text
+        $what = @()
+        if ((Get-ErscPassword $Ersc) -cne $C.Password) { $t = Set-IniValue $t 'cooppassword' $C.Password 'PASSWORD'; $what += '联机密码' }
+        $ruleChanged = $false
+        foreach ($rule in $C.Rules) {
+            $eq = $rule.IndexOf('=')
+            $k = $rule.Substring(0, $eq)
+            $v = $rule.Substring($eq + 1)
+            if ($CoopRuleKeys -notcontains $k) { continue }
+            $m = Get-IniMatch $t $k
+            if (-not $m -or $m.Groups[1].Value.Trim() -ne $v) {
+                $t = Set-IniValue $t $k $v $(if ($k -in @('allow_summons', 'death_debuffs')) { 'GAMEPLAY' } else { 'SCALING' })
+                $ruleChanged = $true
+            }
+        }
+        if ($ruleChanged) { $what += '随人数加强等规则' }
+        if (-not $what) { Write-Host '  Seamless Co-op 设置已经和房主一样'; return $true }
+        if ($DryRun) { Write-Host ('  [-DryRun] Seamless Co-op 设置会照房主的改：' + ($what -join '、')); return $true }
+        Copy-Item -LiteralPath $f.Path -Destination ($f.Path + '.bak_coop_' + (Get-Date -Format 'yyyyMMdd_HHmmss')) -Force
+        [System.IO.File]::WriteAllText($f.Path, $t, (New-Object System.Text.UTF8Encoding($f.Bom)))
+        Write-Player ('Seamless Co-op 设置照房主的改了：' + ($what -join '、') + '（原设置已备份）')
+        return $true
+    } catch {
+        Write-Err ('改不了 Seamless Co-op 的设置：' + $_.Exception.Message)
+        return $false
+    }
+}
+
+# 复制联机码到剪贴板，告诉房主发给队友（日志里只打去掉密码的；复制失败才把完整的打出来让玩家手动复制）
+function Copy-CoopCode($C) {
+    $ok = $true
+    try { Set-Clipboard -Value $C.Code } catch { $ok = $false }
+    $about = '（' + $(if ($C.Info) { '敌人随机，做于 ' + $C.Info.Time.ToString('yyyy-MM-dd HH:mm') } else { '无敌人随机' }) + '；世界：' +
+             $(if ($C.World -eq 'high') { '死亡以上' } else { '普通' }) + '）'
+    if ($ok) {
+        Write-Player ('联机码已复制到剪贴板' + $about + '：发给队友，队友复制后在启动器「联机」里点「加入」。码里有联机密码，只发给队友。')
+        Write-Host ('  ' + (Hide-CoopSecret $C.Code))
+    } else {
+        Write-Player ('复制到剪贴板失败，手动复制下面这一行发给队友' + $about + '（里面有联机密码，只发给队友）：')
+        Write-Player $C.Code
+    }
+}
+
+# 复制联机码（不启动）：按上次开房的方式（没开过房按敌人随机）
+function Invoke-CoopCodeAction {
+    Write-Head '复制联机码'
+    $ersc = Find-Ersc
+    if (-not $ersc) { Write-Err ('没找到 Seamless Co-op。把它压缩包里的 SeamlessCoop 文件夹整个放进 ' + $UserDllDir + '（变成 dll\SeamlessCoop\ersc.dll）。'); return $false }
+    $rand = $true
+    if (Test-Path -LiteralPath $CoopHostModeFile) { $rand = ([System.IO.File]::ReadAllText($CoopHostModeFile)).Trim() -ne 'plain' }
+    if ($rand) { $rs = Get-RandomizerStatus; if (-not $rs.Ok) { Write-Err $rs.Msg; return $false } }
+    if (-not (Initialize-CoopPassword $ersc)) { return $false }
+    $c = Get-CoopCode3 $rand $ersc
+    if (-not $c.Ok) { Write-Err $c.Msg; return $false }
+    Copy-CoopCode $c
+    return $true
+}
+
+# 联机开房：没密码就生成、联机码复制到剪贴板、联机启动
+function Invoke-CoopHost([bool]$Rand) {
+    Write-Head ('联机开房 · ' + $(if ($Rand) { '敌人随机' } else { '无敌人随机' }))
+    $ersc = Find-Ersc
+    if (-not $ersc) { Write-Err ('没找到 Seamless Co-op。把它压缩包里的 SeamlessCoop 文件夹整个放进 ' + $UserDllDir + '（变成 dll\SeamlessCoop\ersc.dll；整合包不带 Seamless Co-op，要自己下载）。'); return $false }
+    if ($Rand) { $rs = Get-RandomizerStatus; if (-not $rs.Ok) { Write-Err $rs.Msg; return $false } }
+    # 房主的世界按自己上次玩的联机角色定：以前当队友加入时照别人的码记下的世界不要了
+    if (Test-Path -LiteralPath $CoopWorldFile) {
+        if (-not $DryRun) { Remove-Item -LiteralPath $CoopWorldFile -Force -ErrorAction SilentlyContinue }
+        Write-Host '  以前加入队友时记下的联机世界去掉了：开房按自己上次玩的联机角色定'
+    }
+    if (-not (Initialize-CoopPassword $ersc)) { return $false }
+    $c = Get-CoopCode3 $Rand $ersc
+    if (-not $c.Ok) { Write-Err $c.Msg; return $false }
+    if (-not $DryRun) {
+        try { [System.IO.File]::WriteAllText($CoopHostModeFile, $(if ($Rand) { 'rand' } else { 'plain' }), (New-Object System.Text.UTF8Encoding($false))) } catch { }
+    }
+    Copy-CoopCode $c
+    Invoke-Launch $Rand $true
+    return $true
+}
+
+# 加入队友：找联机码（给的 / 剪贴板 → 联机时联机通道存下的房主的码、上次加入用的码，新的先），照着改好再联机启动
+function Invoke-CoopJoin([string]$Text) {
+    Write-Head '加入队友的联机'
+    $ersc = Find-Ersc
+    if (-not $ersc) { Write-Err ('没找到 Seamless Co-op。把它压缩包里的 SeamlessCoop 文件夹整个放进 ' + $UserDllDir + '（变成 dll\SeamlessCoop\ersc.dll；整合包不带 Seamless Co-op，要自己下载）。'); return $false }
+    $cands = @()
+    if ($Text) { $cands += , @('给的', $Text) }
+    else { try { $cands += , @('剪贴板里的', [string](Get-Clipboard -Raw)) } catch { } }
+    $files = @(@{ P = $CoopHostCodeFile; N = '上次联机时房主发来的' }, @{ P = $CoopJoinCodeFile; N = '上次加入时用的' } |
+               Where-Object { Test-Path -LiteralPath $_.P } | Sort-Object { (Get-Item -LiteralPath $_.P).LastWriteTime } -Descending)
+    foreach ($f in $files) { $cands += , @($f.N, [System.IO.File]::ReadAllText($f.P)) }
+    $code = ''; $from = ''
+    foreach ($c in $cands) {
+        $t = ([string]$c[1] -replace '\s+', ' ').Trim()
+        if ($t -match '^DR[123]\|') { $code = $t; $from = $c[0]; break }
+    }
+    if (-not $code) { Write-Err '没找到联机码：先复制房主发来的那一行（DR3| 开头），再点「加入」。'; return $false }
+    if (-not $code.StartsWith('DR3|')) {
+        # 旧版的码（DR2 / DR1）：不带联机密码和启动方式，按敌人随机
+        Write-Warn '这是旧版的联机随机码（不带联机密码）：两人的联机密码要自己填一样的（「工具与设置」→「联机设置」）。'
+        if (-not (Test-ErscSettings $ersc)) { return $false }
+        if (-not (Invoke-CoopImport $code)) { return $false }
+        Invoke-Launch $true $true
+        return $true
+    }
+    $c = Read-CoopCode3 $code
+    if (-not $c.Ok) { Write-Err ($from + '联机码不对：' + $c.Msg + '。让房主重新点「复制联机码」发一次。'); return $false }
+    $mine = Get-PackVersion
+    if ($c.Version -and $mine -and $c.Version -ne $mine) {
+        Write-Err ('房主的整合包是 ' + $c.Version + '，你的是 ' + $mine + '：两人先更新成同一个版本再联机。')
+        return $false
+    }
+    Write-Player ('按' + $from + '联机码加入：' + $(if ($c.Rand) { '敌人随机' } else { '无敌人随机' }) + '，世界：' + $(if ($c.World -eq 'high') { '死亡以上' } else { '普通' }))
+    if (-not (Set-ErscFromCode $ersc $c)) { return $false }
+    if ($c.Rand) {
+        $rs = Get-RandomizerStatus
+        if (-not $rs.Ok) { Write-Err $rs.Msg; return $false }
+        if (-not (Import-CoopEnemy $c.Fixed $c.Em $c.Bp $c.World)) { return $false }
+    } else {
+        Set-CoopWorld $c.World
+    }
+    if (-not $DryRun) {
+        try { [System.IO.File]::WriteAllText($CoopJoinCodeFile, ($code + "`n"), (New-Object System.Text.UTF8Encoding($false))) } catch { }
+    }
+    Invoke-Launch $c.Rand $true
     return $true
 }
 
@@ -1499,8 +1781,8 @@ function Invoke-Launch([bool]$Rand, [bool]$Coop = $false) {
     [System.IO.File]::WriteAllText($WorldFile, $script:WorldSuffix)     # 状态显示、诊断包读这一份
     if ($Coop) {
         $fp = Get-CoopFingerprint $Rand $true
-        if ($fp) { Write-Player ('联机核对码：' + $fp + '（两人应该一样；不一样说明整合包版本、设置或敌人随机不同，别一起玩）') }
-        Write-CoopProfile $ersc $fp
+        if ($fp) { Write-Host ('  联机核对码：' + $fp + '（进会话后自动和队友比对，对不上时日志里写是哪一项）') }
+        Write-CoopProfile $ersc $fp $Rand
     } else {
         Remove-Item -LiteralPath $CoopProfile -Force -ErrorAction SilentlyContinue
     }
@@ -1582,6 +1864,7 @@ function Invoke-Diag([string]$OutDir = '', [string]$Reason = '', [string]$DumpPa
     }
     New-Item -ItemType Directory -Force -Path $dir | Out-Null
     $zip = Join-Path $dir ($(if ($Reason) { 'Darkforge_崩溃诊断_' } else { 'Darkforge_诊断_' }) + $ts + '.zip')
+    Remove-CoopSecret $tmp
     Compress-Archive -Path (Join-Path $tmp '*') -DestinationPath $zip -Force
     Remove-Item -LiteralPath $tmp -Recurse -Force -ErrorAction SilentlyContinue
     if (Test-Path -LiteralPath $zip) {
@@ -2022,7 +2305,9 @@ function Show-Help {
     Write-Host '  ... -Action update -UpdateZip "a.zip"  （导入离线更新包）'
     Write-Host '  ... -Action checkupdate / autoupdate  （在线检查更新 / 下载并应用更新）'
     Write-Host '  ... -Action coop / coopvanilla      （联机启动 · 敌人随机 / 无敌人随机，要先放 Seamless Co-op）'
-    Write-Host '  ... -Action coopcode                （复制联机随机码）'
+    Write-Host '  ... -Action coopcode                （复制联机码）'
+    Write-Host '  ... -Action coophost / coophostvanilla   （联机开房 · 敌人随机 / 无敌人随机）'
+    Write-Host '  ... -Action coopjoin [-Code "DR3|..."]   （加入队友：不给 -Code 读剪贴板）'
     Write-Host '  ... -Action coopimport [-Code "DR1|..."]   （按联机随机码重随敌人，不给 -Code 读剪贴板）'
 }
 
@@ -2076,6 +2361,9 @@ try {
         'coopvanilla' { Invoke-Launch $false $true }
         'coopcode'   { $script:ExitCode = $(if (Invoke-CoopCodeAction) { 0 } else { 1 }) }
         'coopimport' { $script:ExitCode = $(if (Invoke-CoopImport $Code) { 0 } else { 1 }) }
+        'coophost'   { $script:ExitCode = $(if (Invoke-CoopHost $true) { 0 } else { 1 }) }
+        'coophostvanilla' { $script:ExitCode = $(if (Invoke-CoopHost $false) { 0 } else { 1 }) }
+        'coopjoin'   { $script:ExitCode = $(if (Invoke-CoopJoin $Code) { 0 } else { 1 }) }
         'randenemy'  { $script:ExitCode = $(if (Invoke-RandEnemyAction) { 0 } else { 1 }) }    # 明确的退出码：图形界面靠它决定接不接着启动
         'randhi'     { $script:ExitCode = $(if (Invoke-RandHiAction) { 0 } else { 1 }) }       # 只补做高难度世界（Boss 模组）
         'carryrand'  { $script:ExitCode = $(if (Invoke-CarryRandom $FromPack) { 0 } else { 1 }) }

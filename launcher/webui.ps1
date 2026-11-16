@@ -19,8 +19,8 @@ $WebModTools = @(
 
 # 「联机」一类（联机分支 coop，联机计划 13.3 C11）：只在新界面有。「联机」打开经典界面同一个联机菜单（gui.ps1 的 Show-CoopMenu，弹窗显示在页面里）
 $WebCoopTools = @(
-    @('联机', '和朋友用 Seamless Co-op 联机（要自己下载放进整合包的 dll\ 文件夹）：两种联机启动、复制 / 导入随机码，以及联机前要准备的'),
-    @('联机设置', '用记事本打开 Seamless Co-op 的设置文件（ersc_settings.ini）：联机密码（cooppassword，两人要填一样的）、随人数加强的血量和伤害等')
+    @('联机', '和朋友用 Seamless Co-op 联机（要自己下载放进整合包的 dll\ 文件夹）：房主点「开房」，把联机码发给队友，队友点「加入」'),
+    @('联机设置', '用记事本打开 Seamless Co-op 的设置文件（ersc_settings.ini）：随人数加强的血量和伤害等。联机密码开房时自动生成、队友加入时自动填，一般不用改')
 )
 
 function Invoke-WebCoopTool([string]$Name) {

@@ -20,7 +20,7 @@ use eldenring::cs::ChrInsExt;
 use crate::{dir, log};
 
 /// 协议版本：消息格式改了就加一，不同版本的互相不认
-pub const PROTO: u32 = 1;
+pub const PROTO: u32 = 2;
 const MAGIC: &str = "DFL";
 const HELLO_EVERY: Duration = Duration::from_secs(1);
 const PING_EVERY: Duration = Duration::from_secs(5);
@@ -45,6 +45,8 @@ pub enum Kind {
     Foe,
     /// 房主 → 客机：这个敌人魇化了（e 实体编号、f 词条序号，逗号隔开）
     Nm,
+    /// 客机 → 房主：我戴着时隙，这几个敌人（e 实体编号，逗号隔开）乘 m；m = 1 = 摘下了（speed.rs，协议 2 起）
+    Slip,
     /// 赠送（联机计划 13.7，gear/gift.rs）：n 随机数、c 类别、lv 强化等级、r 配方
     Gift,
     /// 收下了（n）
@@ -63,6 +65,7 @@ impl Kind {
             Kind::Text => "TEXT",
             Kind::Foe => "FOE",
             Kind::Nm => "NM",
+            Kind::Slip => "SLIP",
             Kind::Gift => "GIFT",
             Kind::GiftOk => "GOK",
             Kind::GiftNo => "GNO",
@@ -78,6 +81,7 @@ impl Kind {
             "TEXT" => Kind::Text,
             "FOE" => Kind::Foe,
             "NM" => Kind::Nm,
+            "SLIP" => Kind::Slip,
             "GIFT" => Kind::Gift,
             "GOK" => Kind::GiftOk,
             "GNO" => Kind::GiftNo,
@@ -392,7 +396,7 @@ impl Link {
                 }
             }
             Kind::Text => log(&format!("联机通道：队员 {} 发来测试消息「{}」", short(from), pk.get("text").unwrap_or(""))),
-            Kind::Foe | Kind::Nm | Kind::Gift | Kind::GiftOk | Kind::GiftNo => keep = Some(pk.clone()),
+            Kind::Foe | Kind::Nm | Kind::Slip | Kind::Gift | Kind::GiftOk | Kind::GiftNo => keep = Some(pk.clone()),
         }
         if p.linked() && !p.linked_logged {
             p.linked_logged = true;
@@ -545,6 +549,38 @@ pub fn foe_to_host(entity: u32, op: &'static str, v: f32) {
     log_capped(&SEND_LOGGED, SEND_LOG, || format!("联机通道：转给房主：实体 {entity} {op} = {v}"));
 }
 
+/// 客机戴着时隙：上次报给房主的（时间, 倍数, 敌人）
+static SLIP_SENT: Mutex<Option<(Instant, f32, Vec<u32>)>> = Mutex::new(None);
+const SLIP_EVERY: Duration = Duration::from_millis(500);
+
+/// 客机：时隙范围里的敌人报给房主（runtime.rs 每帧调；敌人变了或者过了 SLIP_EVERY 才发；m = 1 = 摘下了，只发一次）
+pub fn slip_to_host(entities: &[u32], m: f32) {
+    let now = Instant::now();
+    let mut ids: Vec<u32> = entities.to_vec();
+    ids.sort_unstable();
+    ids.dedup();
+    ids.truncate(64);
+    let mut g = SLIP_SENT.lock().unwrap_or_else(|e| e.into_inner());
+    let off = (m - 1.0).abs() < 1e-6;
+    let same = g.as_ref().is_some_and(|x| (x.1 - m).abs() < 1e-6 && x.2 == ids);
+    if off {
+        if g.take().is_some() {
+            OUT.lock().unwrap_or_else(|e| e.into_inner()).push((To::Host, Packet::new(Kind::Slip).with("m", 1).with("e", "")));
+            log_capped(&SEND_LOGGED, SEND_LOG, || "联机通道：转给房主：时隙摘下了".to_string());
+        }
+        return;
+    }
+    if same && g.as_ref().is_some_and(|x| now.duration_since(x.0) < SLIP_EVERY) {
+        return;
+    }
+    if !same {
+        log_capped(&SEND_LOGGED, SEND_LOG, || format!("联机通道：转给房主：时隙 ×{m:.2}，范围里 {} 个敌人", ids.len()));
+    }
+    let list: Vec<String> = ids.iter().map(|e| e.to_string()).collect();
+    OUT.lock().unwrap_or_else(|e| e.into_inner()).push((To::Host, Packet::new(Kind::Slip).with("m", m).with("e", list.join(","))));
+    *g = Some((now, m, ids));
+}
+
 /// 发件箱里发不出去的（没连上 / 没有连上的房主 / 没有连上的队员）
 fn log_drop(kind: &Kind, why: &str) {
     log_capped(&DROP_LOGGED, DROP_LOG, || format!("联机通道：{} 消息没发出去（{why}）", kind.name()));
@@ -558,7 +594,6 @@ fn apply_foe(pk: &Packet) -> Option<String> {
     let cp = crate::chrs::find_entity(e)?;
     let c = unsafe { &mut *cp.as_ptr() };
     match op {
-        "speed" if (0.0..=3.0).contains(&v) => c.modules.behavior.animation_speed = v,
         "poise" if v >= 0.0 => c.modules.super_armor.sa_durability = v.min(c.modules.super_armor.sa_durability_max),
         "rmsp" if (90000.0..90400.0).contains(&v) => c.remove_speffect(v as i32),
         _ => return None,
@@ -677,6 +712,25 @@ pub fn tick() {
     let inbox: Vec<(u64, Packet)> = g.link.as_mut().map(|l| std::mem::take(&mut l.inbox)).unwrap_or_default();
     for (from, pk) in inbox {
         match pk.kind {
+            Kind::Foe if crate::coop::host() && pk.get("op") == Some("speed") => {
+                let e = pk.get("e").and_then(|x| x.parse::<u32>().ok()).unwrap_or(0);
+                if let Some(v) = pk.get("v").and_then(|x| x.parse::<f32>().ok()) {
+                    crate::speed::remote(e, crate::speed::Src::Slow, from, v);
+                    if g.foe_logged < FOE_LOG {
+                        g.foe_logged += 1;
+                        log(&format!("联机通道：替客机 {} 改实体 {e} 的动作速度 ×{v}（{}）", short(from), if v == 1.0 { "改回" } else { "减速" }));
+                    }
+                }
+            }
+            Kind::Slip if crate::coop::host() => {
+                let m = pk.get("m").and_then(|x| x.parse::<f32>().ok()).unwrap_or(1.0);
+                crate::speed::remote_clear(crate::speed::Src::Slip, from);
+                if (m - 1.0).abs() > 1e-6 {
+                    for e in pk.get("e").unwrap_or("").split(',').filter_map(|x| x.parse::<u32>().ok()) {
+                        crate::speed::remote(e, crate::speed::Src::Slip, from, m);
+                    }
+                }
+            }
             Kind::Foe if crate::coop::host() => {
                 if let Some(s) = apply_foe(&pk) {
                     if g.foe_logged < FOE_LOG {

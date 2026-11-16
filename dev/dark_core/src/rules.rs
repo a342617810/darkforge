@@ -3525,21 +3525,25 @@ pub fn tick() {
                 crate::coop::note(crate::coop::Op::Remove(sp), c);
                 c.remove_speffect(sp)
             }
-            // 客机：改敌人的动作速度、架势转给房主去改（联机计划 13.5；改回 ×1 本机也照写，免得进会话前改过的卡住）
+            // 动作速度交给 speed.rs 和别的来源（时隙、魇化加快）乘起来写；客机转给房主去改（联机计划 13.5；进会话前写过的 speed.rs 自己改回 1）
             Act::FoeSpeed(id, m) if crate::coop::client() => {
-                let c = unsafe { &mut *(id as *mut eldenring::cs::ChrIns) };
+                let c = unsafe { &*(id as *const eldenring::cs::ChrIns) };
                 crate::link::foe_to_host(c.event_entity_id, "speed", m);
+                crate::speed::stop(id, "减速");
                 if m == 1.0 {
-                    c.modules.behavior.animation_speed = m;
                     turn_set(id, m);
                 } else {
                     crate::coop::client_skip("改敌人动作速度（见切、影步）：转给房主");
                 }
             }
             Act::FoeSpeed(id, m) => {
-                let c = unsafe { &mut *(id as *mut eldenring::cs::ChrIns) };
+                let c = unsafe { &*(id as *const eldenring::cs::ChrIns) };
                 crate::coop::note(crate::coop::Op::Speed(m), c);
-                c.modules.behavior.animation_speed = m;
+                if m == 1.0 {
+                    crate::speed::stop(id, "减速");
+                } else {
+                    crate::speed::want(c, "减速", m, crate::speed::HOLD_FRAME);
+                }
                 turn_set(id, m);
             }
             Act::FoePoise(id, v) if crate::coop::client() => {
