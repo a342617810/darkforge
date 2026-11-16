@@ -1269,8 +1269,8 @@ function Show-CoopMenu {
     $msg = "联机用 Seamless Co-op 模组（整合包不带，要自己下载：把压缩包里的 SeamlessCoop 文件夹整个放进整合包的 dll\；压缩包里的 ersc_launcher.exe 不用，联机也从这里启动）。`r`n" +
            $(if ($ersc) { "已找到：" + $ersc } else { "⚠ 还没找到 Seamless Co-op。" }) + "`r`n`r`n" +
            "两个人的游戏数据要完全一样：`r`n" +
-           "1. 用同一个版本的整合包，设置也一样（包括「敌人设置」）。`r`n" +
-           "2. 玩敌人随机：一个人点「复制随机码」发给队友；队友复制这一行，点「导入随机码」（按它重随敌人，约 1~5 分钟）。`r`n" +
+           "1. 用同一个版本的整合包。`r`n" +
+           "2. 房主点「复制随机码」发给队友；队友复制这一行，点「导入随机码」（按它重随敌人，约 1~5 分钟；房主的敌人设置和世界也一起照着改）。`r`n" +
            "3. 两人都点「联机 · 敌人随机」（或者都点「联机 · 无敌人随机」）启动。运行日志里的「联机核对码」两人应该一样。`r`n" +
            "4. 联机密码一定要填，两人填一样的（空着游戏会报错退出）：「工具与设置」→「联机」→「联机设置」里改 cooppassword 这一行。`r`n`r`n" +
            "联机时：以房主的世界为准；斗技场试炼、头目复活、卢恩银行不能用；Seamless Co-op 的入侵会自动关掉；直接改敌人的词条效果只在房主那边生效。`r`n" +
@@ -1301,7 +1301,7 @@ function Show-CoopMenu {
             if (-not (Confirm-Randomizer)) { return }
             $code = try { [string][System.Windows.Forms.Clipboard]::GetText() } catch { '' }
             $code = ($code -replace '\s+', ' ').Trim()
-            if (-not $code.StartsWith('DR1|')) { Show-Info '剪贴板里没有联机随机码。先复制队友发来的那一行（DR1| 开头），再点「导入随机码」。'; return }
+            if ($code -notmatch '^DR[12]\|') { Show-Info '剪贴板里没有联机随机码。先复制队友发来的那一行（DR2| 开头），再点「导入随机码」。'; return }
             if (-not (Confirm-GameClosed '重随敌人要在游戏关闭后做。')) { return }
             if (Get-Process -Name 'EldenRingRandomizer' -ErrorAction SilentlyContinue) { Show-Info '随机器已经开着，先把它关掉。'; return }
             if (-not (Get-GameRoot)) {

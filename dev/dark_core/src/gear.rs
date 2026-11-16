@@ -2877,7 +2877,7 @@ struct St {
     /// 回购这一步挤掉的（buyback_tick 另存到「挤掉的装备_<格子>.txt」后清空）
     evicted: Vec<Rec>,
     /// 别的模块要发的东西（gift）正在发：点亮发货标记的时间、这一批
-    gift_wait: Option<(Instant, Vec<(i32, i32, u8)>)>,
+    gift_wait: Option<GiftWait>,
     /// 进存档时已经强化到新上限（rmax）以上的武器容器序号：强化照原版（新的强化表没有那一级）
     over_max: HashSet<u32>,
     /// 护符模板换上稀有度边框了没有、试了几次（frame_templates）
@@ -2938,18 +2938,95 @@ pub(crate) fn gift_n(cat: i32, id: i32, n: u32) -> bool {
     true
 }
 
-/// 发 gift 排的队：标记熄灭（公共事件发完）就算到了；15 秒还没熄就算没发（重新排回去，下次再发）
-fn gift_tick(d: &Defs, st: &mut St) {
-    if let Some((t0, items)) = st.gift_wait.as_ref() {
-        if flag_get(d.items.deliver_flag) == Some(false) {
-            log(&format!("发货：{} 格到了（{}）", items.len(), items.iter().map(|(c, i, n)| format!("{c}:{i}×{n}")).collect::<Vec<_>>().join("、")));
-            st.gift_wait = None;
-        } else if t0.elapsed().as_secs_f32() > 15.0 {
+/// 发出去等结果的一批
+pub(crate) struct GiftWait {
+    t0: Instant,
+    items: Vec<(i32, i32, u8)>,
+    /// 联机会话里：点亮标记前各样东西（掉落表类别, 编号）在背包 + 仓库里的个数；不在会话里 None（标记熄了就算到了）
+    before: Option<Vec<((i32, i32), u32)>>,
+    off_at: Option<Instant>,
+}
+
+/// 掉落表的类别（1 道具、2 武器、3 防具、4 护符）→ 背包里的类别
+fn inv_cat_of_lot(cat: i32) -> Option<u8> {
+    match cat {
+        1 => Some(INV_GOODS),
+        2..=4 => Some(INV_CAT[(cat - 2) as usize]),
+        _ => None,
+    }
+}
+
+/// 背包 + 仓库里这一样（掉落表的类别、编号）一共几个
+fn count_lot_item(pgd: &PlayerGameData, cat: i32, id: i32) -> u32 {
+    let Some(ic) = inv_cat_of_lot(cat) else { return 0 };
+    let mut n = 0u32;
+    let mut add = |inv: &EquipInventoryData| {
+        for it in inv.items_data.items() {
+            if it.item_id.category() as u8 == ic && it.item_id.param_id() as i64 == id as i64 {
+                n += it.quantity.max(1);
+            }
+        }
+    };
+    add(&pgd.equipment.equip_inventory_data);
+    if let Some(s) = &pgd.storage {
+        add(&**s);
+    }
+    n
+}
+
+/// 一批里每一样要涨多少
+fn gift_need(items: &[(i32, i32, u8)]) -> Vec<((i32, i32), u32)> {
+    let mut v: Vec<((i32, i32), u32)> = Vec::new();
+    for &(c, i, n) in items {
+        match v.iter_mut().find(|(k, _)| *k == (c, i)) {
+            Some((_, x)) => *x += n as u32,
+            None => v.push(((c, i), n as u32)),
+        }
+    }
+    v
+}
+
+/// 发 gift 排的队：标记熄灭（公共事件发完）就算到了；15 秒还没熄就算没发（重新排回去，下次再发）。
+/// 联机会话里多一步（联机计划 13.3 C8）：熄了再等 1 秒数背包 + 仓库，没涨够的重新排队
+fn gift_tick(d: &Defs, st: &mut St, pgd: &PlayerGameData) {
+    if let Some(w) = st.gift_wait.as_mut() {
+        if w.off_at.is_none() && flag_get(d.items.deliver_flag) == Some(false) {
+            w.off_at = Some(Instant::now());
+        }
+        if let Some(off) = w.off_at {
+            if w.before.is_some() && off.elapsed().as_secs_f32() < 1.0 {
+                return;
+            }
+            let w = st.gift_wait.take().unwrap();
+            let mut again: Vec<(i32, i32, u8)> = Vec::new();
+            if let Some(before) = &w.before {
+                for ((c, i), need) in gift_need(&w.items) {
+                    let b = before.iter().find(|(k, _)| *k == (c, i)).map_or(0, |x| x.1);
+                    let got = count_lot_item(pgd, c, i).saturating_sub(b);
+                    let mut miss = need.saturating_sub(got);
+                    while miss > 0 {
+                        let k = miss.min(GIFT_MAX);
+                        again.push((c, i, k as u8));
+                        miss -= k;
+                    }
+                }
+            }
+            if again.is_empty() {
+                log(&format!("发货：{} 格到了（{}）{}", w.items.len(), w.items.iter().map(|(c, i, n)| format!("{c}:{i}×{n}")).collect::<Vec<_>>().join("、"),
+                             if w.before.is_some() { "，联机：数过背包了" } else { "" }));
+            } else {
+                log(&format!("发货：联机时发货标记熄了，但背包里没涨够：{}，这几样重新排队",
+                             again.iter().map(|(c, i, n)| format!("{c}:{i}×{n}")).collect::<Vec<_>>().join("、")));
+                GIFTS.lock().unwrap_or_else(|e| e.into_inner()).splice(0..0, again);
+            }
+            return;
+        }
+        if w.t0.elapsed().as_secs_f32() > 15.0 {
             log("发货：点亮发货标记 15 秒了还没熄，这批重新排队");
-            let (_, items) = st.gift_wait.take().unwrap();
+            let w = st.gift_wait.take().unwrap();
             let _ = lot_write(&d.items, &[]);
             flag_set(d.items.deliver_flag, false);
-            GIFTS.lock().unwrap_or_else(|e| e.into_inner()).splice(0..0, items);
+            GIFTS.lock().unwrap_or_else(|e| e.into_inner()).splice(0..0, w.items);
         }
         return;
     }
@@ -2961,8 +3038,10 @@ fn gift_tick(d: &Defs, st: &mut St) {
     if items.is_empty() {
         return;
     }
+    // 联机会话里点亮前先数一遍（C8）
+    let before = crate::coop::active().then(|| gift_need(&items).into_iter().map(|((c, i), _)| ((c, i), count_lot_item(pgd, c, i))).collect());
     match lot_write(&d.items, &items) {
-        Ok(()) if flag_set(d.items.deliver_flag, true) => st.gift_wait = Some((Instant::now(), items)),
+        Ok(()) if flag_set(d.items.deliver_flag, true) => st.gift_wait = Some(GiftWait { t0: Instant::now(), items, before, off_at: None }),
         r => {
             log(&format!("发货：改写发货表 / 点亮标记失败（{}），这批重新排队", r.err().unwrap_or_else(|| "标记".into())));
             GIFTS.lock().unwrap_or_else(|e| e.into_inner()).splice(0..0, items);
@@ -3472,8 +3551,8 @@ fn on_load(d: &'static Defs, st: &mut St, who: &(i32, String), pgd: &PlayerGameD
     st.bb_dirty = d.items.buyback.is_some();
     record_start(d, st, who, pgd);
     st.pending = None;
-    if let Some((_, items)) = st.gift_wait.take() {
-        GIFTS.lock().unwrap_or_else(|e| e.into_inner()).splice(0..0, items); // 读档前还没到的，重新排队
+    if let Some(w) = st.gift_wait.take() {
+        GIFTS.lock().unwrap_or_else(|e| e.into_inner()).splice(0..0, w.items); // 读档前还没到的，重新排队
     }
     st.wish_queue = 0;
     st.more = false;
@@ -4702,7 +4781,7 @@ pub fn tick() {
     st.frames = st.frames.saturating_add(1);
     deliver_check(d, st, pgd, &who);
     if st.pending.is_none() && st.frames >= 60 {
-        gift_tick(d, st);
+        gift_tick(d, st, pgd);
     }
     buyback_tick(d, st, pgd, &who);
     shop_tick(d, st, pgd, &who);

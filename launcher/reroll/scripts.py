@@ -30,6 +30,24 @@ SIG_FILE = 'scripts_source.txt'
 FEATURES = (grace, difficulty, identify, wish, inherit, wspages, wishstone, runebank, notes, sounds, sell, guide, darkshop, forge, twin, lock, slot, start, hks, bells, training, extragrace, bossarena, avatarfix, bossaward, bossmods, arena, story, lostarena, gracelook)   # forge 要在登记进「暗黑重铸」的功能之后，gracelook 最后；lostarena 在改地图的那几个（extragrace、bossarena、avatarfix、arena、story）之后，接着它们改好的那份补
 
 
+NO_SYNC = {'bank': 2000, 'id': 2, 'args': b'\0\0\0\0', 'layer': None}     # Set Network Sync State(Disabled)
+
+
+def no_network_sync(e, base_ids):
+    """联机（联机计划 13.3 C6）：整合包往公共事件脚本里加的事件（发货、难度、提示、音效、开局、Boss 奖励、斗技场传送）都只管自己，
+    开头关掉网络同步：照原版公共事件 710 / 711 / 740 等第一条的 2000[2] 参数 0（原版 569 处里 0 占绝大多数、多半在第一条）。
+    不然 Seamless 联机时事件里点亮 / 熄灭的标记会同步给队友（黄金树爬塔实测：房主开过的宝箱客机只能开到空的）。
+    插在第一条，参数替换表按指令序号记的要跟着 +1；已经是这条开头的不重复加。返回加了几个"""
+    n = 0
+    for ev in e['events']:
+        if ev['id'] in base_ids or (ev['ins'] and (ev['ins'][0]['bank'], ev['ins'][0]['id']) == (2000, 2)):
+            continue
+        ev['ins'].insert(0, dict(NO_SYNC))
+        ev['params'] = [(p[0] + 1,) + tuple(p[1:]) for p in ev['params']]
+        n += 1
+    return n
+
+
 def sig_of(cx, paths):
     h = hashlib.sha1(VERSION.encode())
     code = sorted(glob.glob(os.path.join(HERE, 'sc', '*.py'))) + [os.path.join(HERE, f) for f in ('emevd.py', 'esd.py', 'erlib.py')] + [os.path.abspath(__file__), SETTINGS]
@@ -111,9 +129,11 @@ def build(sources, out):
         e = emevd.read(erlib.dcx_decompress(open(cx.common, 'rb').read()))
         ev0 = next(ev for ev in e['events'] if ev['id'] == 0)
         n_ev = len(e['events'])
+        base_ids = {ev['id'] for ev in e['events']}
         for m in FEATURES:
             if hasattr(m, 'events'):
                 m.events(cx, e, ev0)
+        no_network_sync(e, base_ids)
         if len(e['events']) != n_ev:
             os.makedirs(os.path.join(tmp, 'event'), exist_ok=True)
             open(os.path.join(tmp, 'event', 'common.emevd.dcx'), 'wb').write(erlib.dcx_compress_dflt(emevd.write(e), level=6))

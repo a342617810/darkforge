@@ -1177,13 +1177,37 @@ function Get-CoopFingerprint([bool]$Rand, [bool]$WithReroll) {
 #（randomize.ps1 的 Invoke-RandomizeEnemies $Fixed）。敌人预设的种子和用的随机器自然精英比例（按上一次的随机结果算的，
 # 不带上的话对方按自己的上一次算，预设就不一样）是一键重随时记下的（spoiler 日志旁边的 .preset），
 # 加联机功能以前随机化的、自己开随机器随机化的没有，要先一键重随一次
+# 联机随机码第二版（联机计划 13.3 C9）：DR2|预设种子|自然精英比例|精英倍数|普通位置出头目|世界|随机器的选项和种子。
+# 敌人设置（启动器「敌人设置」，settings.json 的 elite_share_mult / boss_in_basic_pct）决定敌人预设，世界（high = 死亡以上的改版 Boss 世界）
+# 是房主联机启动会用的那个；队友导入时照着改、照着启动，两边的游戏数据才一样
+$CoopWorldFile = Join-Path $LauncherDir 'reroll\state\coop_world.txt'
+$CoopInv = [Globalization.CultureInfo]::InvariantCulture
+
+function Get-CoopSettingNum([string]$Text, [string]$Name, [double]$Default) {
+    $m = [regex]::Match($Text, '(?m)^\s*"' + [regex]::Escape($Name) + '"\s*:\s*(-?[0-9]+(?:\.[0-9]+)?)')
+    if (-not $m.Success) { return $Default }
+    return [double]::Parse($m.Groups[1].Value, $CoopInv)
+}
+
+# 只换已有键的数字（两个键在发布的 settings.json 里都有）；没有这个键返回 $null
+function Set-CoopSettingNum([string]$Text, [string]$Name, [double]$Value) {
+    $m = [regex]::Match($Text, '(?m)^\s*"' + [regex]::Escape($Name) + '"\s*:\s*(-?[0-9]+(?:\.[0-9]+)?)')
+    if (-not $m.Success) { return $null }
+    $g = $m.Groups[1]
+    return $Text.Substring(0, $g.Index) + $Value.ToString('0.###', $CoopInv) + $Text.Substring($g.Index + $g.Length)
+}
+
 function Get-CoopCode {
     $ri = Get-RandomInfo $RandomDir
     if (-not $ri) { return @{ Ok = $false; Msg = '还没有敌人随机结果。先一键重随敌人一次。' } }
     if ($ri.Merged) { return @{ Ok = $false; Msg = '现在的敌人随机结果是旧版本合并别的包做的。先一键重随敌人一次。' } }
     if (-not $ri.PresetSeed -or -not $ri.PresetNat) { return @{ Ok = $false; Msg = '现在的敌人随机结果没记下敌人预设的种子（加联机功能以前做的，或者是自己开随机器做的）。先一键重随敌人一次再复制。' } }
     if ($ri.Options -notmatch '(?:^|\s)seed:\d+') { return @{ Ok = $false; Msg = 'spoiler 日志第一行里没有种子，生成不了联机随机码。先一键重随敌人一次。' } }
-    return @{ Ok = $true; Code = ('DR1|' + $ri.PresetSeed + '|' + $ri.PresetNat + '|' + $ri.Options); Info = $ri }
+    $txt = try { [System.IO.File]::ReadAllText((Join-Path $LauncherDir 'reroll\settings.json')) } catch { '' }
+    $em = (Get-CoopSettingNum $txt 'elite_share_mult' 1.0).ToString('0.###', $CoopInv)
+    $bp = (Get-CoopSettingNum $txt 'boss_in_basic_pct' 0.0).ToString('0.###', $CoopInv)
+    $world = if (@((Get-BossMods $true).Keys).Count) { 'high' } else { 'low' }
+    return @{ Ok = $true; Code = ('DR2|' + $ri.PresetSeed + '|' + $ri.PresetNat + '|' + $em + '|' + $bp + '|' + $world + '|' + $ri.Options); Info = $ri; World = $world }
 }
 
 function Get-OptionKey([string]$Options) {
@@ -1200,7 +1224,8 @@ function Invoke-CoopCodeAction {
     try { Set-Clipboard -Value $c.Code; Write-Ok '联机随机码已复制到剪贴板，发给队友：' }
     catch { Write-Warn '复制到剪贴板失败，手动复制下面这一行发给队友：' }
     Write-Host ('  ' + $c.Code)
-    Write-Host ('  （这份敌人随机做于 ' + $c.Info.Time.ToString('yyyy-MM-dd HH:mm') + '，种子 ' + $c.Info.Seed + '）')
+    Write-Host ('  （这份敌人随机做于 ' + $c.Info.Time.ToString('yyyy-MM-dd HH:mm') + '，种子 ' + $c.Info.Seed + '；世界：' +
+                $(if ($c.World -eq 'high') { '死亡以上' } else { '普通' }) + '，随机码里带着敌人设置）')
     $fp = Get-CoopFingerprint $true $false
     if ($fp) { Write-Host ('  敌人随机核对码：' + $fp + '（队友导入后看到的应该一样）') -ForegroundColor Cyan }
     Write-Host '  队友复制这一行，在启动器里点「联机」→「导入随机码」；完成后两人都用「联机」→「联机 · 敌人随机」启动。'
@@ -1215,17 +1240,48 @@ function Invoke-CoopImport([string]$Text) {
     $from = if ($Text) { '给的' } else { '剪贴板里的' }
     if (-not $Text) { try { $Text = [string](Get-Clipboard -Raw) } catch { $Text = '' } }
     $t = ([string]$Text -replace '\s+', ' ').Trim()
-    if ($t -notmatch '^DR1\|(\d+)\|([-0-9=.,]+)\|(.*(?:^|\s)seed:\d+.*)$') {
+    $em = $null; $bp = $null; $world = ''
+    if ($t -match '^DR2\|(\d+)\|([-0-9=.,]+)\|([0-9.]+)\|([0-9.]+)\|(high|low)\|(.*(?:^|\s)seed:\d+.*)$') {
+        $fixed = @{ PresetSeed = $Matches[1]; Nat = $Matches[2]; Options = (Get-OptionKey $Matches[6]) }
+        $em = [double]::Parse($Matches[3], $CoopInv); $bp = [double]::Parse($Matches[4], $CoopInv); $world = $Matches[5]
+    } elseif ($t -match '^DR1\|(\d+)\|([-0-9=.,]+)\|(.*(?:^|\s)seed:\d+.*)$') {
+        $fixed = @{ PresetSeed = $Matches[1]; Nat = $Matches[2]; Options = (Get-OptionKey $Matches[3]) }
+        Write-Warn '这是旧版的联机随机码（DR1）：不带敌人设置和世界，两人的「敌人设置」要自己对一样。'
+    } else {
         $show = if ($t.Length -gt 80) { $t.Substring(0, 80) + '…' } elseif ($t) { $t } else { '（空的）' }
-        Write-Err ($from + '不是联机随机码（应该是 DR1| 开头的一行，对方在启动器里点「联机」→「复制随机码」得到）：' + $show)
+        Write-Err ($from + '不是联机随机码（应该是 DR2| 开头的一行，对方在启动器里点「联机」→「复制随机码」得到）：' + $show)
         return $false
     }
-    $fixed = @{ PresetSeed = $Matches[1]; Nat = $Matches[2]; Options = (Get-OptionKey $Matches[3]) }
+    # 敌人设置照房主的（不一样才改；原设置备份）。要在重随敌人之前改：敌人预设按它写
+    if ($null -ne $em) {
+        $sp = Join-Path $LauncherDir 'reroll\settings.json'
+        $txt = [System.IO.File]::ReadAllText($sp)
+        $myEm = Get-CoopSettingNum $txt 'elite_share_mult' 1.0
+        $myBp = Get-CoopSettingNum $txt 'boss_in_basic_pct' 0.0
+        if ($myEm -ne $em -or $myBp -ne $bp) {
+            if ($DryRun) { Write-Host ('  [-DryRun] 敌人设置会改成房主的：精英倍数 ' + $em + '，普通位置出头目 ' + $bp + '%') }
+            else {
+                $new = Set-CoopSettingNum $txt 'elite_share_mult' $em
+                if ($null -ne $new) { $new = Set-CoopSettingNum $new 'boss_in_basic_pct' $bp }
+                if ($null -eq $new) { Write-Err ('改不了敌人设置（settings.json 里没有 elite_share_mult / boss_in_basic_pct）：' + $sp); return $false }
+                [void]($new | ConvertFrom-Json)
+                Copy-Item -LiteralPath $sp -Destination ($sp + '.bak_coop_' + (Get-Date -Format 'yyyyMMdd_HHmmss')) -Force
+                [System.IO.File]::WriteAllText($sp, $new, (New-Object System.Text.UTF8Encoding($false)))
+                Write-Player ('敌人设置改成了房主的：精英倍数 ' + $em.ToString('0.###', $CoopInv) + '，普通位置出头目 ' + $bp.ToString('0.###', $CoopInv) + '%（原设置已备份）')
+            }
+        }
+    }
+    if ($world) {
+        if (-not $DryRun) {
+            [System.IO.File]::WriteAllText($CoopWorldFile, ($world + "`n"), (New-Object System.Text.UTF8Encoding($false)))
+        }
+        Write-Player ('联机世界：' + $(if ($world -eq 'high') { '死亡以上（改版 Boss）' } else { '普通' }) + '，和房主一样；之后联机启动按它加载')
+    }
     $sd = if ($fixed.Options -match '(?:^|\s)seed:(\d+)') { $Matches[1] } else { '' }
     Write-Host ('  联机随机码：种子 ' + $sd + '，敌人预设种子 ' + $fixed.PresetSeed)
     $cur = Get-RandomInfo $RandomDir
     if ($cur -and -not $cur.Merged -and $cur.PresetSeed -eq $fixed.PresetSeed -and $cur.PresetNat -eq $fixed.Nat -and (Get-OptionKey $cur.Options) -eq $fixed.Options) {
-        Write-Ok '现在的敌人随机已经就是这个联机随机码的，不用重随。'
+        Write-Ok '现在的敌人随机已经就是这个联机随机码的，不用重随（敌人设置不同时已经照房主的改了，下次重随敌人才生效；这份敌人随机本来就是按房主的设置做的）。'
     } else {
         if (Get-Process -Name 'eldenring' -ErrorAction SilentlyContinue) { Write-Err '游戏还在运行，先退出游戏再重随敌人。'; return $false }
         $erRoot = Resolve-GameRoot
@@ -1269,6 +1325,12 @@ function Get-BossMods([bool]$Coop = $false) {
     if ($r.Mode -eq 'on') { $r.Keys = $want; $r.Why = '设置成一直加载'; return $r }
     if (-not $Coop -and $BossWorld -eq 'high') { $r.Keys = $want; $r.Why = '启动时选了死亡以上难度'; return $r }
     if (-not $Coop -and $BossWorld -eq 'low') { $r.Why = '启动时选了普通难度'; return $r }
+    # 联机：导入过房主的联机随机码（DR2）就按里面的世界（联机计划 13.3 C9）
+    if ($Coop -and (Test-Path -LiteralPath $CoopWorldFile)) {
+        $w = ([System.IO.File]::ReadAllText($CoopWorldFile)).Trim()
+        if ($w -eq 'high') { $r.Keys = $want; $r.Why = '和房主一样（导入的联机随机码）：死亡以上'; return $r }
+        if ($w -eq 'low') { $r.Why = '和房主一样（导入的联机随机码）：普通'; return $r }
+    }
     $dir = if ($Coop) { Join-Path $RngRecordDir '联机' } else { $RngRecordDir }
     $rec = Join-Path $dir 'boss_mode.txt'
     if (-not (Test-Path -LiteralPath $rec)) { $r.Why = '还不知道角色难度（进一次游戏读档后就记下了）'; return $r }
