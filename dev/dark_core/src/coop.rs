@@ -194,6 +194,8 @@ pub struct Member {
     pub id: u64,
     pub host: bool,
     pub local: bool,
+    /// Steam 名字（赠送菜单里写「送给 <名字>」）
+    pub name: String,
 }
 
 /// 大厅状态的原始值（读不到会话管理器 None）：0 不在会话中，1 正在建，3 主机，4 正在加入，6 客机……（lobby_name）
@@ -224,7 +226,8 @@ pub fn roster() -> Option<Vec<Member>> {
         if id == 0 || v.iter().any(|m| m.id == id) || v.len() >= 64 {
             return None;
         }
-        v.push(Member { id, host: p.is_host, local: p.is_local_player });
+        let name = p.base.steam_name.to_string().unwrap_or_default().trim().to_string();
+        v.push(Member { id, host: p.is_host, local: p.is_local_player, name });
     }
     (v.iter().filter(|m| m.local).count() == 1 && v.iter().filter(|m| m.host).count() <= 1).then_some(v)
 }

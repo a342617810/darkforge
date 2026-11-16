@@ -45,6 +45,12 @@ pub enum Kind {
     Foe,
     /// 房主 → 客机：这个敌人魇化了（e 实体编号、f 词条序号，逗号隔开）
     Nm,
+    /// 赠送（联机计划 13.7，gear/gift.rs）：n 随机数、c 类别、lv 强化等级、r 配方
+    Gift,
+    /// 收下了（n）
+    GiftOk,
+    /// 没收下（n、why）
+    GiftNo,
 }
 
 impl Kind {
@@ -57,6 +63,9 @@ impl Kind {
             Kind::Text => "TEXT",
             Kind::Foe => "FOE",
             Kind::Nm => "NM",
+            Kind::Gift => "GIFT",
+            Kind::GiftOk => "GOK",
+            Kind::GiftNo => "GNO",
         }
     }
 
@@ -69,6 +78,9 @@ impl Kind {
             "TEXT" => Kind::Text,
             "FOE" => Kind::Foe,
             "NM" => Kind::Nm,
+            "GIFT" => Kind::Gift,
+            "GOK" => Kind::GiftOk,
+            "GNO" => Kind::GiftNo,
             _ => return None,
         })
     }
@@ -380,7 +392,7 @@ impl Link {
                 }
             }
             Kind::Text => log(&format!("联机通道：队员 {} 发来测试消息「{}」", short(from), pk.get("text").unwrap_or(""))),
-            Kind::Foe | Kind::Nm => keep = Some(pk.clone()),
+            Kind::Foe | Kind::Nm | Kind::Gift | Kind::GiftOk | Kind::GiftNo => keep = Some(pk.clone()),
         }
         if p.linked() && !p.linked_logged {
             p.linked_logged = true;
@@ -411,8 +423,7 @@ impl Link {
         self.peers.get(&id).is_some_and(|p| p.host && p.linked())
     }
 
-    /// 和这个队员连上了、档案也一致（以后要同步的功能看它）
-    #[allow(dead_code)]
+    /// 和这个队员连上了、档案也一致（赠送等要同步的功能看它）
     pub fn compatible(&self, id: u64) -> bool {
         self.peers.get(&id).is_some_and(|p| p.linked() && p.profile_diff.is_empty())
     }
@@ -467,18 +478,37 @@ struct St {
     /// 存过的房主联机随机码（不重复写）
     code_saved: Option<String>,
     foe_logged: u32,
+    /// 名单里的名字（Steam ID → 名字）
+    names: std::collections::BTreeMap<u64, String>,
 }
 
-static ST: Mutex<St> = Mutex::new(St { link: None, roster_at: None, me: 0, code_saved: None, foe_logged: 0 });
-/// 发件箱：别的模块排进来（不碰 ST，免得互相锁住），tick 里发。(只发给房主, 消息)
-static OUT: Mutex<Vec<(bool, Packet)>> = Mutex::new(Vec::new());
+static ST: Mutex<St> = Mutex::new(St { link: None, roster_at: None, me: 0, code_saved: None, foe_logged: 0, names: std::collections::BTreeMap::new() });
+/// 发件箱：别的模块排进来（不碰 ST，免得互相锁住），tick 里发
+static OUT: Mutex<Vec<(To, Packet)>> = Mutex::new(Vec::new());
+#[derive(Clone, Copy)]
+enum To {
+    All,
+    Host,
+    Peer(u64),
+}
+/// 能送装备的队员（连上了、档案一致；按 Steam ID 排序）：(Steam ID, 名字)，tick 里更新（gear/gift.rs、dark_lock 的菜单用）
+static GIFT_PEERS: Mutex<Vec<(u64, String)>> = Mutex::new(Vec::new());
+
+pub fn gift_peers() -> Vec<(u64, String)> {
+    GIFT_PEERS.lock().unwrap_or_else(|e| e.into_inner()).clone()
+}
+
+/// 发给某一个队员（连上了才发）
+pub fn send_to(peer: u64, pk: Packet) {
+    OUT.lock().unwrap_or_else(|e| e.into_inner()).push((To::Peer(peer), pk));
+}
 /// 最近转给房主的（实体, 操作, 值）：同样的 2 秒内不重复发（疫病每 0.5 秒扫一遍）
 static RECENT: Mutex<Vec<(u32, &'static str, i32, Instant)>> = Mutex::new(Vec::new());
 const FOE_LOG: u32 = 30;
 
 /// 发给所有连上的队员（房主魇化广播等）
 pub fn send_all(pk: Packet) {
-    OUT.lock().unwrap_or_else(|e| e.into_inner()).push((false, pk));
+    OUT.lock().unwrap_or_else(|e| e.into_inner()).push((To::All, pk));
 }
 
 /// 客机：这个敌人要改，转给房主（联机计划 13.5：直接写敌人内存的只让房主写）。实体编号 0（临时生成的）不转
@@ -496,7 +526,7 @@ pub fn foe_to_host(entity: u32, op: &'static str, v: f32) {
         }
         r.push((entity, op, key, now));
     }
-    OUT.lock().unwrap_or_else(|e| e.into_inner()).push((true, Packet::new(Kind::Foe).with("e", entity).with("op", op).with("v", v)));
+    OUT.lock().unwrap_or_else(|e| e.into_inner()).push((To::Host, Packet::new(Kind::Foe).with("e", entity).with("op", op).with("v", v)));
 }
 
 /// 房主：替客机改敌人。只认这几种、值在范围内的
@@ -563,6 +593,7 @@ pub fn tick() {
                 }
                 g.me = me;
                 let others: Vec<(u64, bool)> = r.iter().filter(|m| !m.local).map(|m| (m.id, m.host)).collect();
+                g.names = r.iter().map(|m| (m.id, m.name.clone())).collect();
                 if let Some(l) = g.link.as_mut() {
                     l.set_roster(&others, &mut t);
                 }
@@ -582,15 +613,34 @@ pub fn tick() {
         l.poll(&mut t, now);
     }
     // 发件箱
-    let out: Vec<(bool, Packet)> = std::mem::take(&mut *OUT.lock().unwrap_or_else(|e| e.into_inner()));
+    let out: Vec<(To, Packet)> = std::mem::take(&mut *OUT.lock().unwrap_or_else(|e| e.into_inner()));
     if let Some(l) = g.link.as_mut() {
-        for (to_host, pk) in out {
-            if to_host {
-                l.send_host(&pk, &mut t);
-            } else {
-                l.broadcast(&pk, &mut t);
+        for (to, pk) in out {
+            match to {
+                To::Host => {
+                    l.send_host(&pk, &mut t);
+                }
+                To::All => {
+                    l.broadcast(&pk, &mut t);
+                }
+                To::Peer(id) => {
+                    if l.peers.get(&id).is_some_and(|p| p.linked()) {
+                        t.send(id, &pk.encode());
+                    }
+                }
             }
         }
+    }
+    // 能送装备的队员（名字从名单来；没名字写 Steam ID 后 4 位）
+    {
+        let mut v: Vec<(u64, String)> = g.link.as_ref().map_or_else(Vec::new, |l| {
+            l.peers.values().filter(|p| p.linked() && p.profile_diff.is_empty()).map(|p| {
+                let n = g.names.get(&p.id).filter(|n| !n.is_empty()).cloned().unwrap_or_else(|| format!("队友 {}", short(p.id)));
+                (p.id, n.chars().take(16).collect())
+            }).collect()
+        });
+        v.sort_by_key(|x| x.0);
+        *GIFT_PEERS.lock().unwrap_or_else(|e| e.into_inner()) = v;
     }
     // 收件箱：客机转来的改敌人（本机是房主才做）、房主的魇化（本机是客机才收）
     let inbox: Vec<(u64, Packet)> = g.link.as_mut().map(|l| std::mem::take(&mut l.inbox)).unwrap_or_default();
@@ -602,6 +652,20 @@ pub fn tick() {
                         g.foe_logged += 1;
                         log(&format!("联机通道：替客机 {} 改了 {s}", short(from)));
                     }
+                }
+            }
+            // 赠送：档案一致的才收（两边词条库一样，配方才对得上）
+            Kind::Gift => {
+                if g.link.as_ref().is_some_and(|l| l.compatible(from)) {
+                    crate::gear::gift_in(from, pk);
+                } else if let Some(n) = pk.get("n") {
+                    let no = Packet::new(Kind::GiftNo).with("n", n).with("why", "两边的游戏数据不一样");
+                    t.send(from, &no.encode());
+                }
+            }
+            Kind::GiftOk | Kind::GiftNo => {
+                if let Some(n) = pk.get("n").and_then(|x| x.parse::<u64>().ok()) {
+                    crate::gear::gift_result(from, n, pk.kind == Kind::GiftOk, pk.get("why").unwrap_or("").to_string());
                 }
             }
             Kind::Nm if g.link.as_ref().is_some_and(|l| l.from_host(from)) => {

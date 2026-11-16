@@ -46,6 +46,7 @@ use crate::{dir, log};
 mod ashes;
 mod batch;
 mod devgive;
+mod gift;
 mod overlimit;
 mod valfx;
 mod workshop;
@@ -2566,6 +2567,8 @@ fn write_row(d: &Defs, st: &mut St, rec: &Rec) -> Result<(), String> {
     Ok(())
 }
 
+pub(crate) use gift::{gift_in, gift_result};
+
 // ------------------------------------------------------------------ 内存里的文字占位
 fn read_mem(proc: HANDLE, addr: usize, out: &mut [u16]) -> bool {
     let mut read = 0usize;
@@ -2720,6 +2723,8 @@ fn scan(items: &Items) -> (HashMap<(u32, usize), Vec<Spot>>, Vec<Conf>) {
                                 c if (b'0' as u16..=b'9' as u16).contains(&c) => Some((c - b'0' as u16) as u8),
                                 c if c == b'A' as u16 => Some(10u8),
                                 c if c == b'B' as u16 => Some(11u8),   // 卢恩银行（runebank.rs）
+                                // C~G：物品菜单「送给 <队友>」的第 1~5 个（gear/gift.rs、sc/lock.py）
+                                c if (b'C' as u16..=b'G' as u16).contains(&c) => Some((c - b'C' as u16) as u8 + 12),
                                 _ => None,
                             };
                             if let (Some(kind), Some(len)) = (kind, w.iter().position(|&c| c == close)) {
@@ -4250,6 +4255,11 @@ fn confirm_tick(d: &Defs, st: &St, pgd: &PlayerGameData) {
     // 11（占位写 #IB）：卢恩银行的余额、身上的卢恩（runebank.rs）
     tx.resize(11, None);
     tx.push(crate::runebank::confirm_text(pgd));
+    // 12~16（占位写 #IC~#IG）：物品菜单「送给 <队友>」（gear/gift.rs）
+    tx.resize(12, None);
+    for i in 0..gift::MAX_PEERS {
+        tx.push(gift::label(i));
+    }
     let key = tx.iter().map(|x| x.as_ref().map_or_else(String::new, |(a, b)| format!("{a}|{b}"))).collect::<Vec<_>>().join("|");
     if key == t.confirm_last {
         return;
@@ -4790,6 +4800,7 @@ pub fn tick() {
     }
     st.frames = st.frames.saturating_add(1);
     deliver_check(d, st, pgd, &who);
+    gift::tick(d, st, pgd, &who); // 联机装备赠送（gear/gift.rs）：先认刚到的赠送，再开新的一批；要在回购之前（送走的不进回购商店）
     if st.pending.is_none() && st.frames >= 60 {
         gift_tick(d, st, pgd);
     }

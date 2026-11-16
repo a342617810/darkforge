@@ -9,7 +9,9 @@ TEXT0 + 编号那条文字、3 秒后熄灭这 7 个标记，dark_core 等它们
 from .common import *  # noqa: F401,F403
 from . import curses as cs, darkshop, nightmare as nm
 
-BITS = list(range(93093, 93100))         # 7 位，编号 1~127（dev\event_flags\说明.md；sc/notes.py 要求连号）
+# 8 位，编号 1~255（dev\event_flags\说明.md；sc/notes.py 要求连号）。原来是 93093~93099 七位（最多 127 条），
+# 2026-11-16 加联机赠送的三条后放不下，挪到扫过没人用的 92560~92567（只在显示时临时点亮，挪了不影响存档）
+BITS = list(range(92560, 92568))
 TEXT0 = 80095000                         # EventTextForMap：TEXT0 + 编号
 ROMAN = ('', 'I', 'II', 'III', 'IV')     # 游戏字体里没有 Ⅰ~Ⅳ
 
@@ -60,8 +62,10 @@ def build(ctx):
     # 斗技场试炼死在里面（复活在赐福，竞技场里的提示看不到了）：放最后，不动前面的编号（竞技场里的提示走本图自己的标记，sc/arena.py）
     if getattr(ctx, 'arena', None):
         rows.append(('arena fail', '斗技场试炼失败，这次得到的奖励已经收回', 'Colosseum Trial failed. The rewards it gave were taken back'))
-    if not rows:
-        return
+    # 联机装备赠送（联机计划 13.7，dark_core 的 gear/gift.rs）：放最后，不动前面的编号
+    rows.append(('gift sent', '队友收下了你送的新装备', 'Your teammate received the gear you gave'))
+    rows.append(('gift fail', '新装备没送出去，还在你这里', "The gear wasn't given and is still yours"))
+    rows.append(('gift got', '收到队友送的新装备', 'You received gear from a teammate'))
     if len(rows) >= 1 << len(BITS):
         raise RuntimeError('原版提示：%d 条，%d 个标记放不下' % (len(rows), len(BITS)))
     ctx.notes = rows

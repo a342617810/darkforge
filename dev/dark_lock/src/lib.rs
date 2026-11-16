@@ -13,6 +13,8 @@
 //!   旧版写在 DLL 旁边的 lock_items.txt（下次改动时写到新位置，旧文件不动）；旧版按句柄记的行（「格子<TAB>句柄<TAB>编号」，
 //!   十六进制）读的时候换成新键，下次改动时按新格式写回。
 //! 选一次选项游戏会调两次动作：同一件 0.5 秒内只算一次。
+//! 联机时还加「送给 <队友>」（联机计划 13.7，2026-11-16）：能送给几个队友问 dark_core 的 dr_gift_can（0 = 不加），
+//!   第 i 个用文字 4192 + i（sc/lock.py；选项文字是占位，dark_core 改写成队友的名字），选了调 dr_gift_begin（dark_core 的 gear/gift.rs）。
 //! 格子左上的锁图标（背包、仓库）：
 //!   - OPEN_FILE（游戏读界面文件）读到 02_020_inventory / 03_050_itembox.gfx 时，用 gfx::patch 往格子元件里加一个
 //!     矢量锁 RngLock，把 MemoryFile 的数据指针换成改好的（磁盘上的文件不动，不管是原版还是别的 mod 的界面文件）；
@@ -129,6 +131,9 @@ impl Rvas {
 const DATA_HANDLE: usize = 0x50;
 const TEXT_LOCK: u32 = 4190;
 const TEXT_UNLOCK: u32 = 4191;
+/// 「送给第 i 个队友」的文字 4192 + i，最多 5 个（和 dark_core 的 gear/gift.rs MAX_PEERS、sc/lock.py 一致）
+const TEXT_GIFT0: u32 = 4192;
+const MAX_GIFT: u32 = 5;
 const MAX_POPUP_LOGS: u32 = 3;
 
 type PopupFn = unsafe extern "C" fn(usize, usize, usize, usize, usize) -> usize;
@@ -380,6 +385,88 @@ fn character() -> Option<(i32, String)> {
     .flatten()
 }
 
+// ---- dark_core 的赠送接口（找不到 = 不是联机分支的 dark_core，或者还没加载：不加选项，下次建菜单再找）
+type GiftCanFn = unsafe extern "C" fn(u32, u32) -> u32;
+type GiftBeginFn = unsafe extern "C" fn(u32, u32, u32);
+static GIFT_CAN: AtomicUsize = AtomicUsize::new(0);
+static GIFT_BEGIN: AtomicUsize = AtomicUsize::new(0);
+
+fn gift_api() -> Option<(GiftCanFn, GiftBeginFn)> {
+    if GIFT_CAN.load(Ordering::Relaxed) == 0 {
+        let name: Vec<u16> = "dark_core.dll\0".encode_utf16().collect();
+        let m = unsafe { GetModuleHandleW(windows::core::PCWSTR(name.as_ptr())) }.ok()?;
+        let can = unsafe { windows::Win32::System::LibraryLoader::GetProcAddress(m, windows::core::s!("dr_gift_can")) }?;
+        let begin = unsafe { windows::Win32::System::LibraryLoader::GetProcAddress(m, windows::core::s!("dr_gift_begin")) }?;
+        GIFT_BEGIN.store(begin as usize, Ordering::Relaxed);
+        GIFT_CAN.store(can as usize, Ordering::Relaxed);
+    }
+    let (c, b) = (GIFT_CAN.load(Ordering::Relaxed), GIFT_BEGIN.load(Ordering::Relaxed));
+    (c != 0 && b != 0).then(|| unsafe { (std::mem::transmute::<usize, GiftCanFn>(c), std::mem::transmute::<usize, GiftBeginFn>(b)) })
+}
+
+/// 「送给第 i 个队友」的动作
+#[repr(C)]
+struct GiftFn {
+    vtable: *const GiftVTable,
+    cat: u32,
+    id: u32,
+    i: u32,
+}
+
+#[repr(C)]
+struct GiftVTable([*const (); 6]);
+unsafe impl Sync for GiftVTable {}
+
+static GIFT_VTABLE: GiftVTable = GiftVTable([
+    gift_copy as *const (),
+    gift_copy as *const (),
+    gift_call as *const (),
+    fn_target as *const (),
+    gift_delete as *const (),
+    gift_get as *const (),
+]);
+
+static LAST_GIFT: Mutex<Option<((u32, u32, u32), std::time::Instant)>> = Mutex::new(None);
+
+unsafe extern "C" fn gift_copy(this: *const GiftFn, _where: *mut u8) -> *mut GiftFn {
+    let (cat, id, i) = unsafe { ((*this).cat, (*this).id, (*this).i) };
+    Box::into_raw(Box::new(GiftFn { vtable: &GIFT_VTABLE, cat, id, i }))
+}
+
+unsafe extern "C" fn gift_delete(this: *mut GiftFn, dealloc: u8) {
+    if dealloc != 0 {
+        drop(unsafe { Box::from_raw(this) });
+    }
+}
+
+unsafe extern "C" fn gift_get(this: *const GiftFn) -> *const GiftFn {
+    this
+}
+
+/// 选中「送给 <队友>」：交给 dark_core（同一件同一个队友 0.5 秒内只算一次），返回游戏的结果对象
+unsafe extern "C" fn gift_call(this: *const GiftFn, ret: *mut usize, _arg: usize) -> *mut usize {
+    let k = unsafe { ((*this).cat, (*this).id, (*this).i) };
+    let dup = {
+        let mut last = LAST_GIFT.lock().unwrap();
+        let dup = matches!(*last, Some((x, t)) if x == k && t.elapsed().as_millis() < 500);
+        *last = Some((k, std::time::Instant::now()));
+        dup
+    };
+    if !dup {
+        if let Some((_, begin)) = gift_api() {
+            unsafe { begin(k.0, k.1, k.2) };
+            log(&format!("送给第 {} 个队友：类别 {} 物品编号 {:08x}（交给 dark_core）", k.2 + 1, k.0, k.1));
+        }
+    }
+    let mut tmp = 0usize;
+    unsafe {
+        let mk: ResultFn = std::mem::transmute(addr(rv().result2));
+        mk(&mut tmp);
+        *ret = tmp;
+    }
+    ret
+}
+
 // ---- 我们的 std::function 实现（MSVC _Func_base：_Copy, _Move, _Do_call, _Target_type, _Delete_this, _Get）
 #[repr(C)]
 struct LockFn {
@@ -480,6 +567,9 @@ unsafe extern "C" fn finalize_hook(builder: usize, out: usize, x: usize, y: usiz
             if let Err(e) = std::panic::catch_unwind(|| unsafe { add_lock_item(builder, key) }) {
                 log(&format!("加选项出错：{e:?}"));
             }
+            if let Err(e) = std::panic::catch_unwind(|| unsafe { add_gift_items(builder, key) }) {
+                log(&format!("加赠送选项出错：{e:?}"));
+            }
         }
     }
     let orig: FinalizeFn = unsafe { std::mem::transmute(ORIG_FIN.load(Ordering::Relaxed)) };
@@ -504,6 +594,27 @@ unsafe fn add_lock_item(builder: usize, (key, item): (Key, u32)) {
         func[7] = Box::into_raw(Box::new(LockFn { vtable: &VTABLE, key, id: item })) as usize;
         add(builder, pair.0.as_mut_ptr(), func.as_mut_ptr(), 0); // 会复制一份并释放 func 里的这份
         dtor(pair.0.as_mut_ptr());
+    }
+}
+
+/// 联机时「送给 <队友>」：dark_core 说能送给几个就加几项
+unsafe fn add_gift_items(builder: usize, ((_slot, cat, _kid), item): (Key, u32)) {
+    let Some((can, _)) = gift_api() else { return };
+    let n = unsafe { can(cat as u32, item) }.min(MAX_GIFT);
+    for i in 0..n {
+        unsafe {
+            let label: TextFn = std::mem::transmute(addr(rv().text_label));
+            let help: TextFn = std::mem::transmute(addr(rv().text_help));
+            let dtor: DtorFn = std::mem::transmute(addr(rv().text_dtor));
+            let add: AddItemFn = std::mem::transmute(addr(rv().add_item));
+            let mut pair = TextPair([0; 0x70]);
+            label(pair.0.as_mut_ptr(), TEXT_GIFT0 + i);
+            help(pair.0.as_mut_ptr().add(0x38), TEXT_GIFT0 + i);
+            let mut func = [0usize; 8]; // std::function：实现指针在 +0x38
+            func[7] = Box::into_raw(Box::new(GiftFn { vtable: &GIFT_VTABLE, cat: cat as u32, id: item, i })) as usize;
+            add(builder, pair.0.as_mut_ptr(), func.as_mut_ptr(), 0);
+            dtor(pair.0.as_mut_ptr());
+        }
     }
 }
 

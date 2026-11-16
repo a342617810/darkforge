@@ -1451,6 +1451,8 @@ struct Engine {
     pending: Option<(i32, Instant)>,
     /// 上一帧身上有命中标记的角色（tick 用）
     land_seen: HashSet<usize>,
+    /// 联机时「命中标记不是你打的」记过几次（最多记 6 次）
+    not_mine_logged: u32,
     /// 睡眠（惊醒，tick 用）：在睡的角色 → 身上的睡眠、什么时候睡着、上次扫到还在睡的时间；
     /// 被打中（命中 / 子弹标记刚出现）之前就在睡的角色 → 那时的睡眠、什么时候被打（等这一下算打中时交给规则，见 Foe::slept）
     sleep_seen: HashMap<usize, Sleeping>,
@@ -2882,14 +2884,22 @@ pub fn tick() {
                 }
             }
         }
+        // 联机：近战命中标记只有「最后打中它的」是本机主角才算（队友戴同样的词条也挂同一个标记；联机计划 13.7）
+        let coop_on = crate::coop::active();
+        let my_handle = p.chr_ins.field_ins_handle;
         for e in around.iter().chain(extra.iter()).filter(|e| e.distance <= FOE_SCAN && e.chr_ins.as_ptr() as usize != me) {
             let c = unsafe { e.chr_ins.as_ref() };
             let id = e.chr_ins.as_ptr() as usize;
             let mut sts = Vec::new();
             let mut hit = false;
             let mut via = None;
+            let mine = !coop_on || c.last_hit_by == my_handle;
             for s in c.special_effect.entries() {
-                hit |= Some(s.param_id) == land;
+                if Some(s.param_id) == land && !mine && !eng.land_seen.contains(&id) && eng.not_mine_logged < 6 {
+                    eng.not_mine_logged += 1;
+                    log(&format!("积木引擎（联机）：NPC {} 身上的命中标记不是你打的（最后打中它的是别人），不算", c.npc_param_id));
+                }
+                hit |= mine && Some(s.param_id) == land;
                 for &(k, sp) in &hit_marks {
                     if s.param_id == sp {
                         hit_now.entry(k).or_default().insert(id);
