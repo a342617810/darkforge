@@ -288,6 +288,12 @@ class MsbTool {
                 e.NPCParamID = int.Parse(f[9]);
                 int think = int.Parse(f[10]);
                 if (think >= 0) e.ThinkParamID = think;
+                // 出现条件（ChrActivateConditionParam：0 = 一直出现，101000 = 只在 20:00~05:59，101001 / 101010 = 只在白天）改成一直出现：
+                // 死之鸟、死仪礼鸟这类只在夜里出现的照抄进竞技场后白天根本不生成（2026-11-17 诊断包：有 Boss 血条、看不到怪，dark_core「没读进来」）
+                if (e.ChrActivateCondParamID != 0) {
+                    Console.WriteLine("line " + no + ": " + f[3] + " activate condition " + e.ChrActivateCondParamID + " -> 0");
+                    e.ChrActivateCondParamID = 0;
+                }
                 if (tpl != null) {
                     e.Unk10.MapID = tpl.Unk10.MapID;
                     e.Unk10.Unk04 = tpl.Unk10.Unk04;
