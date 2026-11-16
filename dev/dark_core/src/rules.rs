@@ -191,6 +191,8 @@ pub(crate) const FRIENDLY_TEAMS: [u8; 6] = [0, 1, 2, 26, 28, 47];
 pub(crate) const OWN_MELEE_REACH: Duration = Duration::from_millis(400);
 /// 远程：这么久内本机射击 / 施法 / 投掷 / 调香过才算你打的（箭飞得久的也够）
 pub(crate) const OWN_RANGED_REACH: Duration = Duration::from_secs(5);
+/// 「近战命中不是你打的」日志最多写几行（这次进游戏）
+const NOT_MINE_LOG: u32 = 20;
 
 /// 联机时新出现的近战命中（land 标记、咒痕看到的掉血）算不算你的：你的攻击打中东西时身上会闪一下连击值 hit_self，队友打中不会让它涨；
 /// 房主、客机一样，不靠同步来的数据。判断不了（命中累积 hit_acc 不在身上）就全算，同单机。
@@ -2930,11 +2932,12 @@ pub fn tick() {
             for s in c.special_effect.entries() {
                 let melee = Some(s.param_id) == land;
                 let ranged = hit_marks.iter().any(|x| x.1 == s.param_id);
-                let mine_ranged = ranged && *ranged_ok.get_or_insert_with(|| !coop_on || crate::shots::ranged_mine(c, fired));
-                if ((melee && !mine_melee) || (ranged && !mine_ranged)) && !eng.land_seen.contains(&id) && eng.not_mine_logged < 6 {
+                let mine_ranged = ranged && *ranged_ok.get_or_insert_with(|| !coop_on || crate::shots::ranged_mine(c, fired, "积木引擎"));
+                // 远程为什么算 / 不算，shots::ranged_mine 自己写日志；这里只记近战
+                if melee && !mine_melee && !eng.land_seen.contains(&id) && eng.not_mine_logged < NOT_MINE_LOG {
                     eng.not_mine_logged += 1;
-                    log(&format!("积木引擎（联机）：NPC {} 身上的命中标记不是你打的（{}），不算", c.npc_param_id,
-                                 if melee { "这一刻你的连击值没涨" } else { "最近到过它身边的是队友的子弹，或你最近没有射击、施法或投掷" }));
+                    log(&format!("积木引擎（联机）：NPC {}（实体 {}）身上的近战命中标记不是你打的（这一刻你的连击值没涨），不算{}", c.npc_param_id, c.event_entity_id,
+                                 if eng.not_mine_logged == NOT_MINE_LOG { "；后面同类不再记" } else { "" }));
                 }
                 hit |= mine_melee && melee;
                 for &(k, sp) in &hit_marks {

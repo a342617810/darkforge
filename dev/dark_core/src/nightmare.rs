@@ -258,12 +258,29 @@ static REMOTE: Mutex<Vec<(u32, Vec<usize>, Instant)>> = Mutex::new(Vec::new());
 /// 收到后这么久那个敌人还没出现在周围就不要了
 const REMOTE_KEEP: Duration = Duration::from_secs(120);
 
+/// 联机魇化日志：每种最多写几行（这次进游戏；发 / 收 / 用上 / 过期 / 临时敌人不发 各算各的）
+const NM_LOG: u32 = 30;
+static NM_LOGGED: [std::sync::atomic::AtomicU32; 5] = [std::sync::atomic::AtomicU32::new(0), std::sync::atomic::AtomicU32::new(0),
+    std::sync::atomic::AtomicU32::new(0), std::sync::atomic::AtomicU32::new(0), std::sync::atomic::AtomicU32::new(0)];
+
+/// 联机魇化日志（kind：0 发、1 收、2 用上、3 过期、4 临时敌人不发）
+fn nm_log(kind: usize, msg: impl FnOnce() -> String) {
+    let n = NM_LOGGED[kind].fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    let cap = if kind == 4 { 5 } else { NM_LOG };
+    if n < cap {
+        log(&format!("魇化（联机）：{}{}", msg(), if n + 1 == cap { "；后面同类不再记" } else { "" }));
+    }
+}
+
 /// link.rs：房主说这个敌人魇化了
 pub fn remote_elite(entity: u32, fams: Vec<usize>) {
     let mut r = REMOTE.lock().unwrap_or_else(|e| e.into_inner());
     r.retain(|x| x.0 != entity);
     if r.len() < 512 {
+        nm_log(1, || format!("房主说实体 {entity} 魇化了（词条序号 {fams:?}），等它出现在你周围（最多等 {} 秒）", REMOTE_KEEP.as_secs()));
         r.push((entity, fams, Instant::now()));
+    } else {
+        nm_log(1, || format!("房主说实体 {entity} 魇化了，但没用掉的已经有 512 个，这条不要了"));
     }
 }
 
@@ -534,6 +551,9 @@ fn make_elite_with(d: &Def, st: &mut St, c: &mut eldenring::cs::ChrIns, addr: us
     if crate::coop::host() && c.event_entity_id != 0 {
         let f: Vec<String> = fams.iter().map(|k| k.to_string()).collect();
         crate::link::send_all(crate::link::Packet::new(crate::link::Kind::Nm).with("e", c.event_entity_id).with("f", f.join(",")));
+        nm_log(0, || format!("NPC {}（实体 {}）魇化了，告诉队员（词条序号 {fams:?}）", c.npc_param_id, c.event_entity_id));
+    } else if crate::coop::host() {
+        nm_log(4, || format!("NPC {} 魇化了，但它是临时生成的（没有实体编号），队员那边认不出它，不会是精英", c.npc_param_id));
     }
     make_elite_fams(d, st, c, addr, fams);
 }
@@ -680,7 +700,12 @@ pub fn tick() {
     // 房主广播的魇化（只留 REMOTE_KEEP 内的；用掉就删）
     let remote: Vec<(u32, Vec<usize>)> = {
         let mut r = REMOTE.lock().unwrap_or_else(|e| e.into_inner());
-        r.retain(|x| now.duration_since(x.2) < REMOTE_KEEP);
+        let old: Vec<u32> = r.iter().filter(|x| now.duration_since(x.2) >= REMOTE_KEEP).map(|x| x.0).collect();
+        if !old.is_empty() {
+            nm_log(3, || format!("房主广播的 {} 个魇化 {} 秒内没出现在你周围，不等了（实体 {old:?}；多半是离房主太远、那个敌人在你这边没加载）",
+                                 old.len(), REMOTE_KEEP.as_secs()));
+            r.retain(|x| now.duration_since(x.2) < REMOTE_KEEP);
+        }
         r.iter().map(|x| (x.0, x.1.clone())).collect()
     };
     for e in &around {
@@ -698,6 +723,7 @@ pub fn tick() {
             if let Some(f) = remote.iter().find(|r| r.0 == c.event_entity_id && r.1.iter().all(|&k| k < d.fams.len())).map(|r| r.1.clone()) {
                 st.rolled.insert(a);
                 REMOTE.lock().unwrap_or_else(|e| e.into_inner()).retain(|x| x.0 != c.event_entity_id);   // 用掉了
+                nm_log(2, || format!("按房主的广播把 NPC {}（实体 {}）魇化（词条序号 {f:?}）", c.npc_param_id, c.event_entity_id));
                 make_elite_fams(d, st, c, a, f);
                 continue;
             }

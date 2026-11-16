@@ -402,6 +402,9 @@ struct St {
 }
 
 static ST: Mutex<Option<St>> = Mutex::new(None);
+/// 联机：「掉血不是你打的」日志写了几行（这次进游戏最多 NOT_MINE_LOG 行）
+static NOT_MINE_LOGGED: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+const NOT_MINE_LOG: u32 = 20;
 
 impl St {
     fn rev(&self, key: &str) -> bool {
@@ -884,7 +887,7 @@ pub fn tick() {
         let foe = st.foes.entry(a).or_insert(Foe { hp, last_hit: None, marked: false, echo_due: 0, echo_at: None });
         // 联机：新出现的子弹标记要最近到过它身边的是你的子弹才算你打的（队友的箭不算；谁的都没记到时看你最近放没放过远程；
         // 联机计划 13.7，同积木引擎）
-        let fresh_mark = marked && !foe.marked && (!coop_on || crate::shots::ranged_mine(c, crate::rules::own_ranged(true, st.ranged_at, now)));
+        let fresh_mark = marked && !foe.marked && (!coop_on || crate::shots::ranged_mine(c, crate::rules::own_ranged(true, st.ranged_at, now), "咒痕"));
         foe.marked = marked;
         let drop = foe.hp - hp;
         let was = foe.hp;
@@ -905,6 +908,13 @@ pub fn tick() {
         hit_mark |= fresh_mark;
         // 联机：掉血要你的连击值刚涨过才算你打的（队友打的不算；联机计划 13.7，同积木引擎的 own_melee）
         let dropped = drop > 0 && hp >= 0 && crate::rules::own_melee(coop_on, can_tell, st.self_hit_at, now);
+        if coop_on && drop > 0 && hp >= 0 && !dropped && !fresh_mark {
+            let n = NOT_MINE_LOGGED.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            if n < NOT_MINE_LOG {
+                log(&format!("咒痕（联机）：NPC {}（实体 {}）掉了 {drop} 血，不是你打的（这一刻你的连击值没涨），不算{}", c.npc_param_id, c.event_entity_id,
+                             if n + 1 == NOT_MINE_LOG { "；后面同类不再记" } else { "" }));
+            }
+        }
         if foe_hit_cat(fresh_mark, dropped, my_cat, last_cat).is_none() {
             continue;
         }

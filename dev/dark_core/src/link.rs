@@ -505,6 +505,20 @@ pub fn send_to(peer: u64, pk: Packet) {
 /// 最近转给房主的（实体, 操作, 值）：同样的 2 秒内不重复发（疫病每 0.5 秒扫一遍）
 static RECENT: Mutex<Vec<(u32, &'static str, i32, Instant)>> = Mutex::new(Vec::new());
 const FOE_LOG: u32 = 30;
+/// 客机「转给房主」、发件箱发不出去 的日志最多写几行（这次进游戏）
+const SEND_LOG: u32 = 30;
+const DROP_LOG: u32 = 20;
+static SEND_LOGGED: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+static ZERO_LOGGED: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+static DROP_LOGGED: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+
+/// 有上限的日志：counter 记写了几行，到 cap 时说明后面不再记
+fn log_capped(counter: &std::sync::atomic::AtomicU32, cap: u32, msg: impl FnOnce() -> String) {
+    let n = counter.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    if n < cap {
+        log(&format!("{}{}", msg(), if n + 1 == cap { "；后面同类不再记" } else { "" }));
+    }
+}
 
 /// 发给所有连上的队员（房主魇化广播等）
 pub fn send_all(pk: Packet) {
@@ -514,6 +528,7 @@ pub fn send_all(pk: Packet) {
 /// 客机：这个敌人要改，转给房主（联机计划 13.5：直接写敌人内存的只让房主写）。实体编号 0（临时生成的）不转
 pub fn foe_to_host(entity: u32, op: &'static str, v: f32) {
     if entity == 0 {
+        log_capped(&ZERO_LOGGED, 5, || format!("联机通道：要改的敌人是临时生成的（没有实体编号），{op} 没法转给房主"));
         return;
     }
     let now = Instant::now();
@@ -527,6 +542,12 @@ pub fn foe_to_host(entity: u32, op: &'static str, v: f32) {
         r.push((entity, op, key, now));
     }
     OUT.lock().unwrap_or_else(|e| e.into_inner()).push((To::Host, Packet::new(Kind::Foe).with("e", entity).with("op", op).with("v", v)));
+    log_capped(&SEND_LOGGED, SEND_LOG, || format!("联机通道：转给房主：实体 {entity} {op} = {v}"));
+}
+
+/// 发件箱里发不出去的（没连上 / 没有连上的房主 / 没有连上的队员）
+fn log_drop(kind: &Kind, why: &str) {
+    log_capped(&DROP_LOGGED, DROP_LOG, || format!("联机通道：{} 消息没发出去（{why}）", kind.name()));
 }
 
 /// 房主：替客机改敌人。只认这几种、值在范围内的
@@ -618,17 +639,27 @@ pub fn tick() {
         for (to, pk) in out {
             match to {
                 To::Host => {
-                    l.send_host(&pk, &mut t);
+                    if !l.send_host(&pk, &mut t) {
+                        log_drop(&pk.kind, "还没和房主连上");
+                    }
                 }
                 To::All => {
-                    l.broadcast(&pk, &mut t);
+                    if l.broadcast(&pk, &mut t) == 0 {
+                        log_drop(&pk.kind, "还没和任何队员连上");
+                    }
                 }
                 To::Peer(id) => {
                     if l.peers.get(&id).is_some_and(|p| p.linked()) {
                         t.send(id, &pk.encode());
+                    } else {
+                        log_drop(&pk.kind, &format!("和队员 {} 没连上", short(id)));
                     }
                 }
             }
+        }
+    } else {
+        for (_, pk) in out {
+            log_drop(&pk.kind, "联机通道还没建好（不在会话里，或会话还没就绪）");
         }
     }
     // 能送装备的队员（名字从名单来；没名字写 Steam ID 后 4 位）
