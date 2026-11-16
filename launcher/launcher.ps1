@@ -1075,6 +1075,18 @@ function Test-ErscSettings($Ersc) {
                 Write-Warn ('Seamless Co-op 的存档扩展名是「' + $ext + '」，已改成 co2（联机存档是 ER0000.rng.co2，和单机存档分开；原 ini 已备份）：' + $ini)
             }
         }
+        # 入侵关掉（联机计划 13.2 G7）：入侵者的游戏数据和我们对不上，Seamless 的反作弊按什么限制匹配也看不到
+        $inv = Get-IniMatch $txt 'allow_invaders'
+        if ($inv -and $inv.Groups[1].Value.Trim() -ne '0') {
+            if ($DryRun) {
+                Write-Warn ('Seamless Co-op 开着入侵（allow_invaders），真的启动时会关掉：' + $ini)
+            } else {
+                Copy-Item -LiteralPath $ini -Destination ($ini + '.bak_' + (Get-Date -Format 'yyyyMMdd_HHmmss')) -Force
+                $txt = $txt.Substring(0, $inv.Groups[1].Index) + '0' + $txt.Substring($inv.Groups[1].Index + $inv.Groups[1].Length)
+                [System.IO.File]::WriteAllText($ini, $txt, (New-Object System.Text.UTF8Encoding($bom)))
+                Write-Player '联机时不开放入侵：已把 Seamless Co-op 设置里的入侵关掉（整合包的数据和别的玩家对不上，入侵会出问题）。'
+            }
+        }
         $sc = @()
         foreach ($p in @(@('enemy_health_scaling', '小怪血量'), @('boss_health_scaling', 'Boss 血量'), @('enemy_posture_scaling', '小怪架势'),
                          @('boss_posture_scaling', 'Boss 架势'), @('enemy_damage_scaling', '小怪伤害'), @('boss_damage_scaling', 'Boss 伤害'))) {
