@@ -199,9 +199,9 @@ pub(crate) fn own_melee(coop_on: bool, can_tell: bool, last_self_hit: Option<Ins
     !coop_on || !can_tell || last_self_hit.is_some_and(|t| now.saturating_duration_since(t) <= OWN_MELEE_REACH)
 }
 
-/// 联机时新出现的子弹命中标记（箭、投掷道具、法术）算不算你的：最近你自己射击 / 施法 / 投掷 / 调香过才算。
-/// 箭不一定触发连击值（2026-11-05 查「远程射击还是不能清空沉寂」时发现的），所以远程不看连击值。
-/// 剩下的误差：你和队友都在放远程时分不清，算你的
+/// 联机时新出现的子弹命中标记（箭、投掷道具、法术）先看子弹是谁的（shots::ranged_mine：最近到过这个敌人身边的是你的还是队友的子弹），
+/// 谁的都没记到时才用这个：最近你自己射击 / 施法 / 投掷 / 调香过就算。
+/// 箭不一定触发连击值（2026-11-05 查「远程射击还是不能清空沉寂」时发现的），所以远程不看连击值
 pub(crate) fn own_ranged(coop_on: bool, last_fire: Option<Instant>, now: Instant) -> bool {
     !coop_on || last_fire.is_some_and(|t| now.saturating_duration_since(t) <= OWN_RANGED_REACH)
 }
@@ -2912,24 +2912,29 @@ pub fn tick() {
                 }
             }
         }
-        // 联机：命中标记（近战 land、子弹的 shot / item / cast）只算你打的（队友戴同样的词条也挂同一个标记）：
-        // 这一刻本机的连击值也涨了才算（own_hit，联机计划 13.7）。不算的不记进 land_seen / hit_seen，标记还在的话下一帧再判（差一帧也不漏）
+        // 联机：命中标记只算你打的（队友戴同样的词条也挂同一个标记；联机计划 13.7）：近战 land 要这一刻本机的连击值也涨了（own_melee），
+        // 子弹的 shot / item / cast 看最近到过它身边的是不是你的子弹（shots::ranged_mine，谁的都没记到时退回 own_ranged）。
+        // 不算的不记进 land_seen / hit_seen，标记还在的话下一帧再判（差一帧也不漏）
         let coop_on = crate::coop::active();
         let can_tell = d.marks.get("hit_acc").is_some_and(|sp| ids.contains(sp));
-        let (mine_melee, mine_ranged) = (own_melee(coop_on, can_tell, eng.last_self_hit, now), own_ranged(coop_on, eng.last_fire, now));
+        let mine_melee = own_melee(coop_on, can_tell, eng.last_self_hit, now);
+        let fired = own_ranged(coop_on, eng.last_fire, now);
         for e in around.iter().chain(extra.iter()).filter(|e| e.distance <= FOE_SCAN && e.chr_ins.as_ptr() as usize != me) {
             let c = unsafe { e.chr_ins.as_ref() };
             let id = e.chr_ins.as_ptr() as usize;
             let mut sts = Vec::new();
             let mut hit = false;
             let mut via = None;
+            // 这个敌人的子弹标记算不算你的：用到才判一次（联机时要比子弹记录）
+            let mut ranged_ok: Option<bool> = None;
             for s in c.special_effect.entries() {
                 let melee = Some(s.param_id) == land;
                 let ranged = hit_marks.iter().any(|x| x.1 == s.param_id);
+                let mine_ranged = ranged && *ranged_ok.get_or_insert_with(|| !coop_on || crate::shots::ranged_mine(c, fired));
                 if ((melee && !mine_melee) || (ranged && !mine_ranged)) && !eng.land_seen.contains(&id) && eng.not_mine_logged < 6 {
                     eng.not_mine_logged += 1;
                     log(&format!("积木引擎（联机）：NPC {} 身上的命中标记不是你打的（{}），不算", c.npc_param_id,
-                                 if melee { "这一刻你的连击值没涨" } else { "你最近没有射击、施法或投掷" }));
+                                 if melee { "这一刻你的连击值没涨" } else { "最近到过它身边的是队友的子弹，或你最近没有射击、施法或投掷" }));
                 }
                 hit |= mine_melee && melee;
                 for &(k, sp) in &hit_marks {

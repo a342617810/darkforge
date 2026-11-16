@@ -882,8 +882,9 @@ pub fn tick() {
         }
         let marked = c.special_effect.entries().any(|s| bullet.contains(&s.param_id));
         let foe = st.foes.entry(a).or_insert(Foe { hp, last_hit: None, marked: false, echo_due: 0, echo_at: None });
-        // 联机：新出现的子弹标记要你最近放过远程才算你打的（队友的箭不算；联机计划 13.7，同积木引擎的 own_ranged）
-        let fresh_mark = marked && !foe.marked && crate::rules::own_ranged(coop_on, st.ranged_at, now);
+        // 联机：新出现的子弹标记要最近到过它身边的是你的子弹才算你打的（队友的箭不算；谁的都没记到时看你最近放没放过远程；
+        // 联机计划 13.7，同积木引擎）
+        let fresh_mark = marked && !foe.marked && (!coop_on || crate::shots::ranged_mine(c, crate::rules::own_ranged(true, st.ranged_at, now)));
         foe.marked = marked;
         let drop = foe.hp - hp;
         let was = foe.hp;

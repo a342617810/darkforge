@@ -56,6 +56,7 @@ mod unseen;
 mod procs;
 mod prof;
 mod rules;
+mod shots;
 mod runebank;
 mod runtime;
 mod scaling;
@@ -239,11 +240,13 @@ pub unsafe extern "system" fn DllMain(hmodule: u64, reason: u32, _reserved: *mut
         };
         log(&format!("dark_core 已加载：{}；{}；{}；{}（{combat}）；{}；{}；{}；{}；{}；{}；{}；{}；{}；{}；{}；{}；{}；{}；{}；{}；{}；{}；{}；{scaling}", arena::describe(), festive::describe(), gear::describe(), runtime::describe(),
                      rules::describe(), procs::describe(), boat::describe(), attrstack::describe(), skillmult::describe(), spellbase::describe(), hpunify::describe(), ovldrop::describe(), fusion::describe(), nightmare::describe(), curses::describe(), notes::describe(), plague::describe(), wishstone::describe(), shopstage::describe(), clash::describe(), bossmode::describe(), glow::describe(), runebank::describe()));
-        let mut errs = [0u32; 30];
+        let mut errs = [0u32; 31];
         task.run_recurring(
             move |_: &FD4TaskData| {
                 prof::frame();
                 chrs::refresh_players();      // 这一帧的玩家角色（rules::is_foe 跳过它们，联机计划 13.2 G8）
+                // 联机时记玩家放出的子弹（远程命中归属，联机计划 13.7）：放在积木引擎、咒痕前面；不在会话里什么都不读
+                guarded("联机子弹记录", &mut errs[30], shots::tick);
                 guarded("庆典油脂", &mut errs[0], festive::tick);
                 guarded("新装备系统", &mut errs[1], gear::tick);
                 guarded("新词条", &mut errs[2], runtime::tick);
