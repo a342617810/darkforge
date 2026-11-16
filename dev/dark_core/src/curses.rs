@@ -855,6 +855,9 @@ pub fn tick() {
     let my_cat = st.cat.filter(|c| now - c.1 <= CAT_LINK).map(|c| c.0).or_else(|| self_recent.then(|| st.cat.map_or(1, |c| c.0)));
     let last_cat = st.cat.map_or(1, |c| c.0);
     let bullet: Vec<i32> = FOE_HIT_KINDS.iter().filter_map(|k| d.marks.get(*k).copied()).collect();
+    let coop_on = crate::coop::active();
+    // 命中累积挂上了才分得出谁打的（咒痕自己会挂，见上面）；没挂上就全算，同单机
+    let can_tell = d.marks.get("hit_acc").is_some_and(|sp| ids.contains(sp));
     let Some(around) = around!(wcm, me) else { return };
     let mut seen = HashSet::new();
     let mut brand_pool = Vec::new();
@@ -879,7 +882,8 @@ pub fn tick() {
         }
         let marked = c.special_effect.entries().any(|s| bullet.contains(&s.param_id));
         let foe = st.foes.entry(a).or_insert(Foe { hp, last_hit: None, marked: false, echo_due: 0, echo_at: None });
-        let fresh_mark = marked && !foe.marked;
+        // 联机：新出现的子弹标记要你最近放过远程才算你打的（队友的箭不算；联机计划 13.7，同积木引擎的 own_ranged）
+        let fresh_mark = marked && !foe.marked && crate::rules::own_ranged(coop_on, st.ranged_at, now);
         foe.marked = marked;
         let drop = foe.hp - hp;
         let was = foe.hp;
@@ -898,7 +902,9 @@ pub fn tick() {
         }
         hit_any |= fresh_mark;
         hit_mark |= fresh_mark;
-        if foe_hit_cat(fresh_mark, drop > 0 && hp >= 0, my_cat, last_cat).is_none() {
+        // 联机：掉血要你的连击值刚涨过才算你打的（队友打的不算；联机计划 13.7，同积木引擎的 own_melee）
+        let dropped = drop > 0 && hp >= 0 && crate::rules::own_melee(coop_on, can_tell, st.self_hit_at, now);
+        if foe_hit_cat(fresh_mark, dropped, my_cat, last_cat).is_none() {
             continue;
         }
         if foe.last_hit.is_some_and(|t| now - t < FOE_HIT_GAP) {

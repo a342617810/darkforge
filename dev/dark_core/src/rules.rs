@@ -186,15 +186,24 @@ static FREE_SET: std::sync::atomic::AtomicU8 = std::sync::atomic::AtomicU8::new(
 /// 再加上和玩家同阵营的；其余都算敌人（原版敌人用的号很多：6、7、27、48、51、33……，用白名单会漏）
 pub(crate) const FRIENDLY_TEAMS: [u8; 6] = [0, 1, 2, 26, 28, 47];
 
-// ------------------------------------------------------------------ 联机的命中归属（联机计划 13.7）
-/// 敌人身上新出现的命中标记，这么久内本机的连击值涨过（hit_self 刚出现）才算你打的
-const OWN_HIT_REACH: Duration = Duration::from_millis(400);
+// ------------------------------------------------------------------ 联机的命中归属（联机计划 13.7；积木引擎和咒痕共用）
+/// 近战：这么久内本机的连击值涨过（hit_self 刚出现）才算你打的
+pub(crate) const OWN_MELEE_REACH: Duration = Duration::from_millis(400);
+/// 远程：这么久内本机射击 / 施法 / 投掷 / 调香过才算你打的（箭飞得久的也够）
+pub(crate) const OWN_RANGED_REACH: Duration = Duration::from_secs(5);
 
-/// 联机时新出现的命中标记算不算你打的。你每打中一次东西（近战、箭、道具、法术都算）身上会闪一下连击值 hit_self，
-/// 队友打中不会让你的连击值涨；房主、客机都一样，不靠同步来的数据。判断不了（命中累积 hit_acc 不在身上）就全算，同单机。
+/// 联机时新出现的近战命中（land 标记、咒痕看到的掉血）算不算你的：你的攻击打中东西时身上会闪一下连击值 hit_self，队友打中不会让它涨；
+/// 房主、客机一样，不靠同步来的数据。判断不了（命中累积 hit_acc 不在身上）就全算，同单机。
 /// 剩下的误差：你打 A 的同一瞬间队友打中 B，B 也算你的
-pub(crate) fn own_hit(coop_on: bool, can_tell: bool, last_self_hit: Option<Instant>, now: Instant) -> bool {
-    !coop_on || !can_tell || last_self_hit.is_some_and(|t| now.saturating_duration_since(t) <= OWN_HIT_REACH)
+pub(crate) fn own_melee(coop_on: bool, can_tell: bool, last_self_hit: Option<Instant>, now: Instant) -> bool {
+    !coop_on || !can_tell || last_self_hit.is_some_and(|t| now.saturating_duration_since(t) <= OWN_MELEE_REACH)
+}
+
+/// 联机时新出现的子弹命中标记（箭、投掷道具、法术）算不算你的：最近你自己射击 / 施法 / 投掷 / 调香过才算。
+/// 箭不一定触发连击值（2026-11-05 查「远程射击还是不能清空沉寂」时发现的），所以远程不看连击值。
+/// 剩下的误差：你和队友都在放远程时分不清，算你的
+pub(crate) fn own_ranged(coop_on: bool, last_fire: Option<Instant>, now: Instant) -> bool {
+    !coop_on || last_fire.is_some_and(|t| now.saturating_duration_since(t) <= OWN_RANGED_REACH)
 }
 
 /// 算不算敌人：阵营号不是友方、不是自己的阵营，也不是玩家角色（chrs::is_player；联机计划 13.2 G8，入侵者、队友都不算）
@@ -1464,8 +1473,10 @@ struct Engine {
     land_seen: HashSet<usize>,
     /// 联机时「命中标记不是你打的」记过几次（最多记 6 次）
     not_mine_logged: u32,
-    /// 本机的连击值最近一次涨（hit_self 刚出现）的时间：联机时认命中标记是不是你打的（own_hit）
+    /// 本机的连击值最近一次涨（hit_self 刚出现）的时间：联机时认近战命中是不是你打的（own_melee）
     last_self_hit: Option<Instant>,
+    /// 本机最近一次射击 / 施法 / 投掷 / 调香的时间：联机时认子弹命中是不是你打的（own_ranged）
+    last_fire: Option<Instant>,
     /// 睡眠（惊醒，tick 用）：在睡的角色 → 身上的睡眠、什么时候睡着、上次扫到还在睡的时间；
     /// 被打中（命中 / 子弹标记刚出现）之前就在睡的角色 → 那时的睡眠、什么时候被打（等这一下算打中时交给规则，见 Foe::slept）
     sleep_seen: HashMap<usize, Sleeping>,
@@ -2758,6 +2769,9 @@ pub fn tick() {
         .map(|r| r.key.as_str())
         .collect();
     let mut present: HashSet<String> = d.marks.iter().filter(|(_, sp)| ids.contains(sp)).map(|(n, _)| n.clone()).collect();
+    if ["shot_new", "cast_new", "throw_new", "aroma"].iter().any(|e| present.contains(*e)) {
+        eng.last_fire = Some(Instant::now());
+    }
     // 目标层：周围的角色。命中标记 land 挂在被打的角色身上，新挂上的这一帧算被打中（事件 land 发生一次）；发作中的异常从效果的参数认
     let land = d.marks.get("land").copied();
     // 箭 / 道具命中标记（挂在被打的敌人身上，见 FOE_HIT_KINDS）
@@ -2902,7 +2916,7 @@ pub fn tick() {
         // 这一刻本机的连击值也涨了才算（own_hit，联机计划 13.7）。不算的不记进 land_seen / hit_seen，标记还在的话下一帧再判（差一帧也不漏）
         let coop_on = crate::coop::active();
         let can_tell = d.marks.get("hit_acc").is_some_and(|sp| ids.contains(sp));
-        let mine = own_hit(coop_on, can_tell, eng.last_self_hit, now);
+        let (mine_melee, mine_ranged) = (own_melee(coop_on, can_tell, eng.last_self_hit, now), own_ranged(coop_on, eng.last_fire, now));
         for e in around.iter().chain(extra.iter()).filter(|e| e.distance <= FOE_SCAN && e.chr_ins.as_ptr() as usize != me) {
             let c = unsafe { e.chr_ins.as_ref() };
             let id = e.chr_ins.as_ptr() as usize;
@@ -2910,14 +2924,16 @@ pub fn tick() {
             let mut hit = false;
             let mut via = None;
             for s in c.special_effect.entries() {
-                let marked = Some(s.param_id) == land || hit_marks.iter().any(|x| x.1 == s.param_id);
-                if marked && !mine && !eng.land_seen.contains(&id) && eng.not_mine_logged < 6 {
+                let melee = Some(s.param_id) == land;
+                let ranged = hit_marks.iter().any(|x| x.1 == s.param_id);
+                if ((melee && !mine_melee) || (ranged && !mine_ranged)) && !eng.land_seen.contains(&id) && eng.not_mine_logged < 6 {
                     eng.not_mine_logged += 1;
-                    log(&format!("积木引擎（联机）：NPC {} 身上的命中标记不是你打的（这一刻你的连击值没涨），不算", c.npc_param_id));
+                    log(&format!("积木引擎（联机）：NPC {} 身上的命中标记不是你打的（{}），不算", c.npc_param_id,
+                                 if melee { "这一刻你的连击值没涨" } else { "你最近没有射击、施法或投掷" }));
                 }
-                hit |= mine && Some(s.param_id) == land;
+                hit |= mine_melee && melee;
                 for &(k, sp) in &hit_marks {
-                    if mine && s.param_id == sp {
+                    if mine_ranged && s.param_id == sp {
                         hit_now.entry(k).or_default().insert(id);
                         if !eng.hit_seen.get(k).is_some_and(|x| x.contains(&id)) {
                             via = Some(k);
@@ -3576,14 +3592,18 @@ fn set_free(arrows: bool, goods: bool, chr: Option<&mut ChrIns>) {
 #[cfg(test)]
 mod tests {
     #[test]
-    fn coop_own_hit_follows_self_hit_pulse() {
+    fn coop_own_melee_and_ranged() {
         let t = Instant::now();
         let ms = |n: u64| t + Duration::from_millis(n);
-        assert!(own_hit(false, true, None, t), "单机全算");
-        assert!(own_hit(true, false, None, t), "判断不了（命中累积不在身上）全算");
-        assert!(!own_hit(true, true, None, t), "联机、连击值从没涨过：不算（队友打的）");
-        assert!(own_hit(true, true, Some(t), ms(200)), "刚打中东西：算");
-        assert!(!own_hit(true, true, Some(t), ms(1000)), "一秒前打中的：这个标记不算");
+        assert!(own_melee(false, true, None, t), "单机全算");
+        assert!(own_melee(true, false, None, t), "判断不了（命中累积不在身上）全算");
+        assert!(!own_melee(true, true, None, t), "联机、连击值从没涨过：不算（队友打的）");
+        assert!(own_melee(true, true, Some(t), ms(200)), "刚打中东西：算");
+        assert!(!own_melee(true, true, Some(t), ms(1000)), "一秒前打中的：这个标记不算");
+        assert!(own_ranged(false, None, t), "单机全算");
+        assert!(!own_ranged(true, None, t), "联机、自己没放过远程：不算（队友的箭）");
+        assert!(own_ranged(true, Some(t), ms(3000)), "3 秒前射的箭刚到：算");
+        assert!(!own_ranged(true, Some(t), ms(6000)), "6 秒前放的：不算");
     }
 
     use super::*;
