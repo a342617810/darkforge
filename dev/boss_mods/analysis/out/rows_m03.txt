@@ -1,0 +1,161 @@
+# Godrick overhaul 1.4  (m03, regulation 11601000)
+
+## AtkParam_Npc  新增 4 / 修改 0   （VINS 里一模一样的 4 行）
+  +4750135  [VINS=同]
+  +4750404  [VINS=同]
+  +4750425  [VINS=同]
+  +4750491  [VINS=同]
+
+## BehaviorParam  新增 12 / 修改 0   （VINS 里一模一样的 12 行）
+  +247500135  [VINS=同]
+  +247500394  [VINS=同]
+  +247500397  [VINS=同]
+  +247500398  [VINS=同]
+  +247500399  [VINS=同]
+  +247500401  [VINS=同]
+  +247500425  [VINS=同]
+  +247500430  [VINS=同]
+  +247500492  [VINS=同]
+  +247500493  [VINS=同]
+  +247500910  [VINS=同]
+  +247500915  [VINS=同]
+
+## Bullet  新增 104 / 修改 15   （VINS 里一模一样的 113 行）
+  +4750135  [VINS=同]
+  +4750136  [VINS=同]
+  +4750394  [VINS=同]
+  +4750395  [VINS=同]
+  +4750396  [VINS=同]
+  +4750397  [VINS=同]
+  +4750398  [VINS=同]
+  +4750399  [VINS=同]
+  +4750405  [VINS=不同]
+  +4750406  [VINS=同]
+  +4750407  [VINS=同]
+  +4750408  [VINS=同]
+  +4750425  [VINS=同]
+  +4750430  [VINS=同]
+  +4750431  [VINS=同]
+  +4750432  [VINS=同]
+  +4750493  [VINS=同]
+  +4750494  [VINS=不同]
+  +4750495  [VINS=不同]
+  +4750496  [VINS=同]
+  +4750497  [VINS=同]
+  +4750498  [VINS=同]
+  +4750810  [VINS=同]
+  +4750811  [VINS=同]
+  +4750812  [VINS=同]
+  +4750813  [VINS=同]
+  +4750814  [VINS=同]
+  +4750815  [VINS=同]
+  +4750816  [VINS=同]
+  +4750817  [VINS=同]
+  +4750818  [VINS=同]
+  +4750819  [VINS=同]
+  +4750820  [VINS=同]
+  +4750821  [VINS=同]
+  +4750822  [VINS=同]
+  +4750823  [VINS=同]
+  +4750824  [VINS=同]
+  +4750825  [VINS=同]
+  +4750826  [VINS=同]
+  +4750827  [VINS=同]
+  +4750828  [VINS=同]
+  +4750829  [VINS=不同]
+  +4750830  [VINS=同]
+  +4750831  [VINS=同]
+  +4750832  [VINS=同]
+  +4750833  [VINS=同]
+  +4750834  [VINS=同]
+  +4750835  [VINS=同]
+  +4750836  [VINS=同]
+  +4750837  [VINS=同]
+  +4750838  [VINS=同]
+  +4750839  [VINS=同]
+  +4750840  [VINS=同]
+  +4750841  [VINS=同]
+  +4750842  [VINS=同]
+  +4750843  [VINS=同]
+  +4750844  [VINS=同]
+  +4750845  [VINS=同]
+  +4750846  [VINS=同]
+  +4750847  [VINS=同]
+  +4750848  [VINS=同]
+  +4750850  [VINS=同]
+  +4750851  [VINS=同]
+  +4750852  [VINS=同]
+  +4750853  [VINS=同]
+  +4750854  [VINS=同]
+  +4750855  [VINS=同]
+  +4750856  [VINS=同]
+  +4750857  [VINS=同]
+  +4750858  [VINS=同]
+  +4750859  [VINS=同]
+  +4750860  [VINS=同]
+  +4750861  [VINS=同]
+  +4750862  [VINS=同]
+  +4750863  [VINS=同]
+  +4750864  [VINS=同]
+  +4750865  [VINS=同]
+  +4750866  [VINS=同]
+  +4750867  [VINS=同]
+  +4750868  [VINS=同]
+  +4750869  [VINS=同]
+  +4750870  [VINS=不同]
+  +4750871  [VINS=同]
+  +4750872  [VINS=同]
+  +4750873  [VINS=同]
+  +4750874  [VINS=同]
+  +4750875  [VINS=同]
+  +4750876  [VINS=同]
+  +4750877  [VINS=同]
+  +4750878  [VINS=同]
+  +4750879  [VINS=同]
+  +4750880  [VINS=同]
+  +4750881  [VINS=同]
+  +4750882  [VINS=同]
+  +4750883  [VINS=同]
+  +4750884  [VINS=同]
+  +4750885  [VINS=同]
+  +4750886  [VINS=同]
+  +4750887  [VINS=同]
+  +4750888  [VINS=同]
+  +4750910  [VINS=同]
+  +4750911  [VINS=同]
+  +4750915  [VINS=同]
+  +4750916  [VINS=同]
+  ~4750221  [VINS=同]: hitRadiusMax:4.5→3
+  ~4750393  [VINS=同]: sfxId_Bullet:-1→647504; life:0.5→0.6; HitBulletID:-1→4750850
+  ~4750402  [VINS=不同]: life:2→20
+  ~4750403  [VINS=同]: sfxId_Bullet:-1→647514; life:0.5→0.6; HitBulletID:-1→4750810; seId_Bullet1:-1→475006012
+  ~4750411  [VINS=同]: life:0.15→0.35
+  ~4750414  [VINS=同]: life:0.15→0.35
+  ~4750450  [VINS=同]: homingAngle:130→150
+  ~4750451  [VINS=同]: life:2→4.5; initVellocity:20→18; maxVellocity:20→18; minVellocity:20→18
+  ~4750470  [VINS=同]: homingAngle:90→110
+  ~4750471  [VINS=同]: life:2→4.5; initVellocity:20→18; maxVellocity:20→18; minVellocity:20→18
+  ~4750490  [VINS=同]: atkId_Bullet:4750490→4750495; hitRadius:0.5→1.5; dmgHitRecordLifeTime:30→1; numShoot:9→12; launchConditionType:5→0
+  ~4750491  [VINS=同]: atkId_Bullet:4750490→4750495; hitRadius:0.5→1.5; dmgHitRecordLifeTime:30→1; numShoot:6→9; launchConditionType:5→0
+  ~4750492  [VINS=同]: atkId_Bullet:4750490→1; life:0.3→0.1; initVellocity:0→50; maxVellocity:0→50; minVellocity:0→50; hitRadiusMax:1.5→0; dmgHitRecordLifeTime:5→0; HitBulletID:-1→4750493; shootAngleXZ:0→90; EmittePosType:0→2
+  ~4750551  [VINS=同]: life:0.15→0.35
+  ~4750554  [VINS=同]: life:0.15→0.35
+
+## BulletCreateLimitParam  新增 1 / 修改 0   （VINS 里一模一样的 1 行）
+  +57  [VINS=同]
+
+## NpcParam  新增 1 / 修改 1   （VINS 里一模一样的 0 行）
+  +46900009  [VINS=不同] hp=2046, getSoul=0, itemLotId_enemy=-1, itemLotId_map=-1, behaviorVariationId=46900, nameId=0, spEffectID0=-1, spEffectID1=16270, spEffectID2=16271, spEffectID3=7040, teamType=6, stamina=150, superArmorDurability=90
+  ~47500014  [VINS=不同]: hp:3354→7554; mp:0→8054; spEffectID24:-1→6031; SfxResBankId:-1→5120; SoundAddBankId:-1→5120; superArmorDurability:105→180
+
+## NpcThinkParam  新增 1 / 修改 0   （VINS 里一模一样的 1 行）
+  +46900901  [VINS=同] logicId=10000, battleGoalID=469000, eye_dist=64, ear_dist=0.1
+
+## SpEffectParam  新增 4 / 修改 0   （VINS 里一模一样的 3 行）
+  +14657  [VINS=同]
+  +14658  [VINS=同]
+  +14659  [VINS=不同]
+  +29010  [VINS=同]
+
+## SpEffectVfxParam  新增 1 / 修改 0   （VINS 里一模一样的 1 行）
+  +54109  [VINS=同]

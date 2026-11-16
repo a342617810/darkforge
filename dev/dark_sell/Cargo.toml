@@ -1,0 +1,19 @@
+[package]
+name = "dark_sell"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+# 本地副本：同时认 ELDEN RING 1.17.1（eldenring.exe 2.7.1.0）和 1.17.2（2.7.2.0）；游戏再更新时照 ../vendor/README-dark_reforged.txt 加一组地址
+eldenring = { path = "../vendor/fromsoftware-rs/crates/eldenring" }
+fromsoftware-shared = { path = "../vendor/fromsoftware-rs/crates/shared" }
+windows = { version = "0.61", features = ["Win32_Foundation", "Win32_System_LibraryLoader", "Win32_System_Memory", "Win32_System_Threading", "Win32_System_Diagnostics_Debug"] }
+
+[profile.release]
+# unwind：版本不对时库里会 panic，要能接住（abort 会直接带崩游戏）
+panic = "unwind"
+lto = true
+opt-level = 3

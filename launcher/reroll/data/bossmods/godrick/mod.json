@@ -1,0 +1,151 @@
+{
+ "key": "godrick",
+ "name": "Godrick overhaul",
+ "version": "1.4",
+ "nexus": 7155,
+ "boss": {
+  "zh": "接肢葛瑞克（+接肢贵族后裔）",
+  "en": "Godrick the Grafted (+ Grafted Scion)"
+ },
+ "chrs": [
+  4750,
+  4690
+ ],
+ "source": {
+  "archive": "Godrick overhaul 1.4-7155-1-4-1741806281.zip",
+  "sha256": "ad5dd167663df052495bcd67897dc0b7421f684b14c3c03651a9365924429ffa",
+  "regulation": "11601000"
+ },
+ "built_against": "11711000",
+ "files": {
+  "chr/c4750.anibnd.dcx": {
+   "sha256": "3ba62666783423cca6fc6a6d16b470530fe48a9025021a312e2b533e8130cb72",
+   "size": 115676
+  },
+  "chr/c4750.behbnd.dcx": {
+   "sha256": "977e2489ad9876e9df4912d1104bb5269785d8a011cbdf4c298882a5df534d0e",
+   "size": 62816
+  },
+  "chr/c4750_div00.anibnd.dcx": {
+   "sha256": "2ade4d2086efafb9161cc35a2f66d9e9b93cd1ad2899fe2a51bbbe1e2260f767",
+   "size": 1877392
+  },
+  "chr/c4750_div01.anibnd.dcx": {
+   "sha256": "3b3ccbe81c9a091d6127456ec7372b76ae57907dad209bef25fdd640805dafd8",
+   "size": 4039360
+  },
+  "chr/c4690.anibnd.dcx": {
+   "sha256": "efcbfd1d8692c2550b911a10ede533eb2d604c1eb32a5d7d292ae25d6b163504",
+   "size": 114234
+  },
+  "chr/c4690.behbnd.dcx": {
+   "sha256": "e3498fb182c43864fb49154797de096ae8d54879ef5ba5307c3e70ccaf244b05",
+   "size": 67856
+  },
+  "chr/c4690_div00.anibnd.dcx": {
+   "sha256": "5e524761eeb2029992d3ad4184c4b1c19ccb86941de8cb23d507030c31fa1115",
+   "size": 1709584
+  },
+  "chr/c4690_div01.anibnd.dcx": {
+   "sha256": "7a1c4b9347667c503179908c38dbba9b2e403c3e1a8ca23b8e461aded14174e8",
+   "size": 1621568
+  },
+  "chr/c4690_div02.anibnd.dcx": {
+   "sha256": "6c7444d8cbedd34ea47402ebd83a20fe397f41c5e6916c08ccbda390767f219d",
+   "size": 2063120
+  },
+  "action/script/c4750.hks": {
+   "sha256": "6b5e0e97203b54eb2f148bcff98c90c768ff9b86d443f6e1699a09160efd7b39",
+   "size": 35104
+  },
+  "script/475000_battle.luabnd.dcx": {
+   "sha256": "27b9f89c06328dc211fad9bbf8060779653e6e5e1aec660696fea57cfa97203c",
+   "size": 3728
+  }
+ },
+ "texts": {
+  "en": {},
+  "zh": {}
+ },
+ "fmg_texts": {},
+ "fx": [
+  440574,
+  647507,
+  647508,
+  647509
+ ],
+ "fx_res": [],
+ "arena": {
+  "map": "m10_00_00_00",
+  "msb_map": null,
+  "events": [
+   10002810,
+   10002812,
+   10002813,
+   10002814,
+   10002815,
+   10002816,
+   10002817,
+   10002811,
+   10002800
+  ],
+  "parts": [
+   "c4750_9001",
+   "AEG003_316_9003",
+   "AEG003_316_9004"
+  ],
+  "new_events": [
+   10002812,
+   10002813,
+   10002814,
+   10002815,
+   10002816,
+   10002817
+  ],
+  "replace_events": [
+   10002800,
+   10002810,
+   10002811
+  ],
+  "mod_events": [],
+  "ev0_ints": [],
+  "force_events": [],
+  "files": {
+   "event/m10_00_00_00.emevd.dcx": "138320f2f8e5963cd9e3fac77d3a559c5a5e5958f1bfa2ba0b410538c10f624a",
+   "map/mapstudio/m10_00_00_00.msb.dcx": "395b1c48437483776521f5e8a96074ab5ef6219d17d5b239212d90afbc044037"
+  }
+ },
+ "fixed": [
+  10000800
+ ],
+ "helpers": {
+  "10000216": 10000800
+ },
+ "boss_forms": [],
+ "params": {
+  "AtkParam_Npc add": 4,
+  "BehaviorParam add": 12,
+  "Bullet add": 104,
+  "Bullet patch": 15,
+  "BulletCreateLimitParam add": 1,
+  "NpcParam add": 1,
+  "NpcParam patch": 1,
+  "NpcThinkParam add": 1,
+  "SpEffectParam add": 4,
+  "SpEffectVfxParam add": 1
+ },
+ "skipped_rows": 1,
+ "log": [
+  "模组 regulation 版本 11601000（现在的原版 11711000）；同版本参照 8 个包",
+  "作者合并清单 145 行；其中 1 行和同版本原版一样（不用改）：[('Bullet', 4750404)]",
+  "事件 10002810：原版 + 模组插入的 2 条 + 模组改了内容的 0 条（另有 12 条只是重编时条件组编号不同，保持原版）",
+  "新事件 6 个（10002812, 10002813, 10002814, 10002815, 10002816, 10002817），构造事件里加了初始化",
+  "事件 10002811：按 edit_ins 改了 2 处",
+  "事件 10002811：第 4 条后面加了 Boss 血量归零就结束",
+  "事件 10002812：第 12 条后面加了 Boss 血量归零就结束",
+  "事件 10002800：等已死亡的条件上并了「房主 + 等够 8 秒」",
+  "NpcParam 46900009 → 46909900（新加的行换到段末，免得和随机器 / 重随新建的行撞）",
+  "NpcThinkParam 46900901 → 46909900（新加的行换到段末，免得和随机器 / 重随新建的行撞）",
+  "地图 m10_00_00_00：copied c4750_9001 (Enemy, model c4690, entity 10000216, npc 46909900, think 46909900)；copied AEG003_316_9003 (Asset, model AEG003_316, entity 10001896)；copied AEG003_316_9004 (Asset, model AEG003_316, entity 10001897)"
+ ]
+}

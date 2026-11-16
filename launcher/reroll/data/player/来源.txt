@@ -1,0 +1,14 @@
+c0000.hks：玩家角色的行为脚本，原版反编译整理版，来自 https://github.com/soulsmods/EldenRingHKS（对应 ER 1.17）。
+启动时 scripts.py（sc\hks.py）按 settings.json 的 no_fall_damage 改三处后写到覆盖包 out\scripts\action\script\c0000.hks：
+  1. FallCommonFunction 开头加 act(AddSpEffect, 360400)（长尾猫护符的“不受坠落伤害”效果）；
+  2. FallCommonFunction 里“坠落 60 米以上直接摔死”的判断去掉；
+  3. IsLandDead 里“落地高度超过 20 米摔死”的判断去掉。
+掉进无底深渊等即死区域（引擎给的坠落即死伤害）不受影响。游戏大版本更新后这个文件要换成对应版本。
+
+modules\REQS.lua、modules\WallJump.lua：蹬墙跳，来自 N 网 Modular Wall Jump（https://www.nexusmods.com/eldenring/mods/8500，作者 VulGyren，1-4 版）。
+本文件夹里是原样；按作者说明在玩家脚本的 global = {} 上面加两行 pcall(loadfile(... "modules\REQS.lua"/"modules\WallJump.lua"))，
+由 sc\hks.py 按 settings.json 的 wall_jump 加，模块和脚本一起写到覆盖包 action\script\。
+写出时改一处（sc\hks.py 的 WALL_JUMP_FIX）：WallJump.lua 的 CanWJ 每帧在空中调原版 ExecJumpMagic / ExecFallMagic / ExecFallAttack 当判断，
+这几个函数有输入就直接出招，跳劈和跳跃施法会和原版不一样（一离地就出、衔接不同、跳劈中能再出一次）；去掉这三个调用，
+只留「刚跳跃施法过 / 正在跳劈」两个纯判断，出招交回原版的跳跃 / 下落状态，蹬墙跳的条件不变。
+用法：在墙边（不在地面上）按跳跃键，能沿墙再跳一次，用来爬上矮墙和障碍；落地后重置。

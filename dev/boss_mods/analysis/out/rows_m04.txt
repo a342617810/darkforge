@@ -1,0 +1,357 @@
+# Inner Consort (Radahn) 1.06.6  (m04, regulation 11701000)
+
+## ActionButtonParam  新增 1 / 修改 0   （VINS 里一模一样的 1 行）
+  +206001  [VINS=同]
+
+## AtkParam_Npc  新增 29 / 修改 86   （VINS 里一模一样的 22 行）
+  +5220132  [VINS=同]
+  +5220133  [VINS=同]
+  +5220443  [VINS=不同]
+  +5220444  [VINS=同]
+  +5220505  [VINS=同]
+  +5220601  [VINS=不同]
+  +5220602  [VINS=同]
+  +5220603  [VINS=同]
+  +5220604  [VINS=同]
+  +5220605  [VINS=同]
+  +5220610  [VINS=同]
+  +5220611  [VINS=同]
+  +5220651  [VINS=同]
+  +5220656  [VINS=同]
+  +5220710  [VINS=同]
+  +5220711  [VINS=同]
+  +5220712  [VINS=同]
+  +5220720  [VINS=同]
+  +5220730  [VINS=同]
+  +5220731  [VINS=同]
+  +5220750  [VINS=不同]
+  +5220870  [VINS无]
+  +5220871  [VINS无]
+  +5220875  [VINS无]
+  +5220880  [VINS无]
+  +5220881  [VINS无]
+  +5220960  [VINS=同]
+  +5220961  [VINS=同]
+  +5220971  [VINS=同]
+  ~2200222  [VINS=同]: dmgLevel:10→9
+  ~5220100  [VINS=不同]: atkStam:80→120; atkSuperArmor:10→15
+  ~5220110  [VINS=不同]: atkStam:80→120; atkSuperArmor:10→15
+  ~5220120  [VINS=不同]: atkStam:40→60; atkSuperArmor:10→15
+  ~5220121  [VINS=不同]: atkStam:40→60; atkSuperArmor:10→15
+  ~5220122  [VINS=不同]: atkStam:40→60; atkSuperArmor:10→15
+  ~5220123  [VINS=不同]: atkStam:40→60; atkSuperArmor:10→15
+  ~5220130  [VINS=不同]: atkStam:30→60; atkSuperArmor:10→15
+  ~5220131  [VINS=不同]: atkStam:120→180; atkSuperArmor:10→15
+  ~5220140  [VINS=不同]: atkStam:80→120; atkSuperArmor:10→15
+  ~5220150  [VINS=不同]: atkStam:50→75; atkSuperArmor:10→15
+  ~5220151  [VINS=不同]: atkStam:50→75; atkSuperArmor:10→15
+  ~5220160  [VINS=不同]: atkStam:120→180; atkSuperArmor:30→45
+  ~5220161  [VINS=不同]: atkStam:120→180; atkSuperArmor:30→45
+  ~5220162  [VINS=不同]: atkStam:40→60; atkSuperArmor:10→15
+  ~5220163  [VINS=不同]: atkStam:40→60; atkSuperArmor:10→15
+  ~5220170  [VINS=不同]: atkStam:40→60; atkSuperArmor:10→15
+  ~5220171  [VINS=不同]: atkStam:40→60; atkSuperArmor:10→15
+  ~5220180  [VINS=不同]: atkStam:140→210; atkSuperArmor:30→45
+  ~5220181  [VINS=不同]: atkStam:40→60; atkSuperArmor:10→15
+  ~5220190  [VINS=不同]: atkStam:30→45; dmgLevel:1→2; atkSuperArmor:10→40
+  ~5220191  [VINS=不同]: atkStam:30→45; dmgLevel:1→2; atkSuperArmor:10→40; isInvalidatedByNoDamageInAir:0→1
+  ~5220200  [VINS=不同]: atkStam:100→150; atkSuperArmor:30→45
+  ~5220201  [VINS=不同]: atkStam:100→150; atkSuperArmor:30→45
+  ~5220202  [VINS=不同]: atkStam:60→90; atkSuperArmor:10→15
+  ~5220210  [VINS=不同]: atkStam:100→150; atkSuperArmor:30→45
+  ~5220211  [VINS=不同]: atkStam:60→90; atkSuperArmor:10→15
+  ~5220220  [VINS=不同]: atkStam:35→52; atkSuperArmor:10→15
+  ~5220221  [VINS=不同]: atkStam:10→15; atkSuperArmor:10→15
+  ~5220222  [VINS=不同]: atkStam:10→15; atkSuperArmor:10→15
+  ~5220223  [VINS=不同]: atkStam:10→15; atkSuperArmor:10→15
+  ~5220224  [VINS=不同]: atkStam:10→15; atkSuperArmor:10→15
+  ~5220225  [VINS=不同]: atkStam:10→15; atkSuperArmor:10→15
+  ~5220230  [VINS=不同]: atkStam:100→150; atkSuperArmor:30→45
+  ~5220231  [VINS=不同]: atkStam:100→150; atkSuperArmor:30→45
+  ~5220232  [VINS=不同]: atkStam:100→150; atkSuperArmor:30→45
+  ~5220240  [VINS=不同]: atkStam:100→150; atkSuperArmor:10→45
+  ~5220241  [VINS=不同]: atkStam:80→150; atkSuperArmor:10→45
+  ~5220242  [VINS=不同]: atkStam:80→120; atkSuperArmor:10→15
+  ~5220250  [VINS=不同]: atkStam:120→150; atkSuperArmor:10→15
+  ~5220251  [VINS=不同]: atkStam:100→150; atkSuperArmor:10→15
+  ~5220252  [VINS=不同]: atkStam:120→180; atkSuperArmor:10→15
+  ~5220260  [VINS=不同]: atkStam:100→150; atkSuperArmor:10→15
+  ~5220261  [VINS=不同]: atkStam:10→15; atkSuperArmor:10→15
+  ~5220262  [VINS=不同]: atkStam:20→30; atkSuperArmor:10→15
+  ~5220265  [VINS=不同]: atkStam:60→90; atkSuperArmor:20→30
+  ~5220270  [VINS=不同]: atkStam:100→150; atkSuperArmor:10→15
+  ~5220271  [VINS=不同]: atkStam:100→150; atkSuperArmor:50→75
+  ~5220280  [VINS=不同]: atkStam:10→15; atkSuperArmor:1→15
+  ~5220282  [VINS=不同]: atkStam:80→120; atkSuperArmor:10→15
+  ~5220310  [VINS=不同]: atkStam:100→150; atkSuperArmor:30→45
+  ~5220320  [VINS=不同]: atkStam:120→180; atkSuperArmor:10→15
+  ~5220321  [VINS=不同]: atkStam:100→150; atkSuperArmor:10→15
+  ~5220330  [VINS=不同]: atkStam:100→150; atkSuperArmor:10→15
+  ~5220331  [VINS=不同]: atkStam:10→15; atkSuperArmor:10→15
+  ~5220340  [VINS=不同]: atkStam:60→75; atkSuperArmor:10→15
+  ~5220341  [VINS=不同]: atkStam:60→75; atkSuperArmor:10→15
+  ~5220350  [VINS=不同]: atkStam:100→150; atkSuperArmor:10→15
+  ~5220360  [VINS=不同]: atkStam:100→150; atkSuperArmor:10→15
+  ~5220370  [VINS=不同]: atkStam:60→90; atkSuperArmor:10→15
+  ~5220371  [VINS=不同]: atkStam:60→90; atkSuperArmor:10→15
+  ~5220380  [VINS=不同]: atkStam:60→90; atkSuperArmor:10→15
+  ~5220390  [VINS=不同]: atkStam:60→90; atkSuperArmor:10→15
+  ~5220391  [VINS=不同]: atkStam:100→150; atkSuperArmor:10→15
+  ~5220400  [VINS=不同]: atkStam:100→150; atkSuperArmor:10→15
+  ~5220410  [VINS=不同]: atkStam:60→90; atkSuperArmor:10→15
+  ~5220420  [VINS=不同]: atkStam:60→90; atkSuperArmor:10→15
+  ~5220430  [VINS=不同]: atkStam:60→90; atkSuperArmor:10→15
+  ~5220431  [VINS=不同]: atkStam:60→90; atkSuperArmor:10→15
+  ~5220432  [VINS=不同]: atkStam:60→90; atkSuperArmor:10→15
+  ~5220433  [VINS=不同]: atkStam:60→90; atkSuperArmor:10→15
+  ~5220434  [VINS=不同]: atkStam:60→90; atkSuperArmor:10→15
+  ~5220435  [VINS=不同]: atkStam:60→90; atkSuperArmor:40→15
+  ~5220436  [VINS=不同]: atkStam:60→90; atkSuperArmor:10→15
+  ~5220440  [VINS=不同]: atkStam:100→150; atkSuperArmor:50→75
+  ~5220441  [VINS=不同]: atkStam:100→150; atkSuperArmor:50→75
+  ~5220442  [VINS=不同]: atkStam:100→150; atkSuperArmor:50→75
+  ~5220800  [VINS=不同]: atkStam:10→15; atkSuperArmor:10→15
+  ~5220810  [VINS=不同]: atkStam:10→15; atkSuperArmor:10→15
+  ~5220820  [VINS=不同]: atkStam:10→15; atkSuperArmor:10→15
+  ~5220830  [VINS=不同]: atkStam:10→15; atkSuperArmor:10→15
+  ~5220840  [VINS=不同]: atkStam:10→15; atkSuperArmor:10→15
+  ~5220850  [VINS=不同]: atkStam:100→150; atkSuperArmor:50→75
+  ~5220851  [VINS=不同]: atkStam:100→150; atkSuperArmor:50→75
+  ~5220900  [VINS=不同]: atkStam:10→150; atkSuperArmor:10→75
+  ~5220910  [VINS=不同]: atkStam:10→15; atkSuperArmor:10→15
+
+## BehaviorParam  新增 53 / 修改 0   （VINS 里一模一样的 47 行）
+  +225220604  [VINS=同]
+  +225220605  [VINS=同]
+  +225220606  [VINS=同]
+  +225220607  [VINS=同]
+  +252200311  [VINS=同]
+  +252200443  [VINS=同]
+  +252200444  [VINS=同]
+  +252200505  [VINS=同]
+  +252200601  [VINS=同]
+  +252200602  [VINS=同]
+  +252200603  [VINS=同]
+  +252200610  [VINS=同]
+  +252200618  [VINS=同]
+  +252200620  [VINS=同]
+  +252200628  [VINS=同]
+  +252200630  [VINS=同]
+  +252200640  [VINS=同]
+  +252200650  [VINS=同]
+  +252200654  [VINS=同]
+  +252200655  [VINS=同]
+  +252200656  [VINS=同]
+  +252200662  [VINS=同]
+  +252200663  [VINS=同]
+  +252200664  [VINS=同]
+  +252200665  [VINS=同]
+  +252200666  [VINS=同]
+  +252200667  [VINS=同]
+  +252200668  [VINS=同]
+  +252200670  [VINS=同]
+  +252200680  [VINS=同]
+  +252200690  [VINS=同]
+  +252200700  [VINS=同]
+  +252200701  [VINS=同]
+  +252200703  [VINS=同]
+  +252200710  [VINS=同]
+  +252200711  [VINS=同]
+  +252200712  [VINS=同]
+  +252200720  [VINS=同]
+  +252200730  [VINS=同]
+  +252200731  [VINS=同]
+  +252200750  [VINS=同]
+  +252200751  [VINS=同]
+  +252200870  [VINS无]
+  +252200871  [VINS无]
+  +252200875  [VINS无]
+  +252200876  [VINS无]
+  +252200880  [VINS无]
+  +252200881  [VINS无]
+  +252200960  [VINS=同]
+  +252200961  [VINS=同]
+  +252200970  [VINS=同]
+  +252200973  [VINS=同]
+  +252200980  [VINS=同]
+
+## Bullet  新增 120 / 修改 0   （VINS 里一模一样的 107 行）
+  +205220318  [VINS=同]
+  +205220443  [VINS=同]
+  +205220444  [VINS=同]
+  +205220503  [VINS=同]
+  +205220504  [VINS=同]
+  +205220505  [VINS=同]
+  +205220601  [VINS=同]
+  +205220602  [VINS=同]
+  +205220603  [VINS=同]
+  +205220604  [VINS=同]
+  +205220605  [VINS=同]
+  +205220606  [VINS=同]
+  +205220607  [VINS=同]
+  +205220608  [VINS=同]
+  +205220609  [VINS=同]
+  +205220610  [VINS=同]
+  +205220611  [VINS=同]
+  +205220612  [VINS=同]
+  +205220613  [VINS=同]
+  +205220614  [VINS=同]
+  +205220615  [VINS=同]
+  +205220616  [VINS=同]
+  +205220617  [VINS=同]
+  +205220618  [VINS=同]
+  +205220620  [VINS=同]
+  +205220621  [VINS=同]
+  +205220622  [VINS=同]
+  +205220623  [VINS=同]
+  +205220624  [VINS=同]
+  +205220625  [VINS=同]
+  +205220626  [VINS=同]
+  +205220627  [VINS=同]
+  +205220628  [VINS=同]
+  +205220629  [VINS=同]
+  +205220630  [VINS=同]
+  +205220631  [VINS=同]
+  +205220632  [VINS=同]
+  +205220633  [VINS=同]
+  +205220634  [VINS=同]
+  +205220635  [VINS=同]
+  +205220636  [VINS=同]
+  +205220637  [VINS=同]
+  +205220640  [VINS=同]
+  +205220641  [VINS=同]
+  +205220642  [VINS=同]
+  +205220643  [VINS=同]
+  +205220644  [VINS=同]
+  +205220645  [VINS=同]
+  +205220646  [VINS=同]
+  +205220647  [VINS=同]
+  +205220650  [VINS=同]
+  +205220651  [VINS=同]
+  +205220652  [VINS=同]
+  +205220654  [VINS=不同]
+  +205220655  [VINS=同]
+  +205220656  [VINS=同]
+  +205220660  [VINS=同]
+  +205220661  [VINS=同]
+  +205220662  [VINS=同]
+  +205220663  [VINS=同]
+  +205220664  [VINS=同]
+  +205220665  [VINS=同]
+  +205220666  [VINS=同]
+  +205220667  [VINS=同]
+  +205220668  [VINS=同]
+  +205220670  [VINS=同]
+  +205220671  [VINS=同]
+  +205220680  [VINS=同]
+  +205220681  [VINS=同]
+  +205220682  [VINS=同]
+  +205220690  [VINS=同]
+  +205220691  [VINS=同]
+  +205220692  [VINS=同]
+  +205220700  [VINS=同]
+  +205220701  [VINS=同]
+  +205220703  [VINS=同]
+  +205220704  [VINS=同]
+  +205220705  [VINS=同]
+  +205220706  [VINS=同]
+  +205220707  [VINS=同]
+  +205220708  [VINS=同]
+  +205220710  [VINS=同]
+  +205220711  [VINS=同]
+  +205220712  [VINS=同]
+  +205220720  [VINS=同]
+  +205220750  [VINS=同]
+  +205220751  [VINS=同]
+  +205220752  [VINS=同]
+  +205220753  [VINS=同]
+  +205220754  [VINS=同]
+  +205220755  [VINS=同]
+  +205220756  [VINS=同]
+  +205220800  [VINS=同]
+  +205220801  [VINS=同]
+  +205220802  [VINS=同]
+  +205220810  [VINS=同]
+  +205220870  [VINS无]
+  +205220871  [VINS无]
+  +205220875  [VINS无]
+  +205220876  [VINS无]
+  +205220877  [VINS无]
+  +205220880  [VINS无]
+  +205220881  [VINS无]
+  +205220882  [VINS无]
+  +205220883  [VINS无]
+  +205220884  [VINS无]
+  +205220885  [VINS无]
+  +205220960  [VINS=同]
+  +205220961  [VINS=同]
+  +205220962  [VINS=同]
+  +205220963  [VINS=同]
+  +205220970  [VINS=同]
+  +205220971  [VINS=同]
+  +205220972  [VINS=同]
+  +205220973  [VINS=同]
+  +205220980  [VINS=同]
+  +205220981  [VINS=同]
+  +205220982  [VINS=同]
+  +205220983  [VINS=同]
+  +205220984  [VINS=不同]
+
+## GameAreaParam  新增 0 / 修改 1   （VINS 里一模一样的 0 行）
+  ~20010800  [VINS=不同]: bonusSoul_single:500000→1000000
+
+## Magic  新增 1 / 修改 0   （VINS 里一模一样的 1 行）
+  +53013  [VINS=同]
+
+## NpcParam  新增 0 / 修改 6   （VINS 里一模一样的 0 行）
+  ~52200000  [VINS=不同]: hp:3168→3802; superArmorRecoverCorrection:0.2308→0.5; resist_blood:252→215; fireDamageCutRate:0.6→0.4; spEffectID18:6031→6032; spEffectID23:-1→10697; spEffectID26:-1→6097; spEffectID28:-1→10680; superArmorDurability:120→200; saRecoveryRate:0.29→0.15
+  ~52200001  [VINS=不同]: hp:3168→3802; superArmorRecoverCorrection:0.2308→0.5; resist_blood:252→215; fireDamageCutRate:0.6→0.4; spEffectID18:6031→6032; spEffectID23:-1→10697; spEffectID26:-1→6097; spEffectID28:-1→10680; superArmorDurability:120→200; saRecoveryRate:0.29→0.15
+  ~52200089  [VINS=不同]: hp:3168→3802; superArmorRecoverCorrection:0.2308→0.5; resist_blood:252→215; poisonGuardResist:0→50; diseaseGuardResist:0→50; bloodGuardResist:0→50; fireDamageCutRate:0.6→0.4; freezeGuardResist:0→50; spEffectID18:6031→6032; spEffectID23:-1→10697; spEffectID26:-1→6097; spEffectID28:-1→10680; superArmorDurability:120→200; saRecoveryRate:0.29→0.15
+  ~52201000  [VINS=不同]: hp:3168→3802; superArmorRecoverCorrection:0.2308→0.5; resist_blood:252→215; poisonGuardResist:0→50; diseaseGuardResist:0→50; bloodGuardResist:0→50; fireDamageCutRate:0.6→0.4; darkDamageCutRate:0.6→0.4; freezeGuardResist:0→50; spEffectID18:6031→6032; spEffectID23:-1→10697; superArmorDurability:120→200; saRecoveryRate:0.29→0.15
+  ~52201089  [VINS=不同]: hp:3168→3802; superArmorRecoverCorrection:0.2308→0.5; resist_blood:252→215; poisonGuardResist:0→50; diseaseGuardResist:0→50; bloodGuardResist:0→50; fireDamageCutRate:0.6→0.4; darkDamageCutRate:0.6→0.4; freezeGuardResist:0→50; spEffectID18:6031→6032; spEffectID22:-1→4005700; spEffectID23:-1→10697; superArmorDurability:120→200; saRecoveryRate:0.29→0.15
+  ~52202000  [VINS=不同]: hp:3168→3802; superArmorRecoverCorrection:0.2308→0.5; resist_blood:252→215; poisonGuardResist:0→50; diseaseGuardResist:0→50; bloodGuardResist:0→50; fireDamageCutRate:0.6→0.4; freezeGuardResist:0→50; spEffectID18:6031→6032; spEffectID23:-1→10697; spEffectID26:-1→6097; spEffectID28:-1→10680; superArmorDurability:120→200; saRecoveryRate:0.29→0.15
+
+## SpEffectParam  新增 33 / 修改 0   （VINS 里一模一样的 29 行）
+  +3053  [VINS=同]
+  +3062  [VINS=同]
+  +3072  [VINS=同]
+  +3094  [VINS=同]
+  +3189  [VINS=同]
+  +3198  [VINS=同]
+  +5050  [VINS=同]
+  +5051  [VINS=同]
+  +5052  [VINS=不同]
+  +5053  [VINS=同]
+  +10692  [VINS=同]
+  +10697  [VINS=同]
+  +10698  [VINS=同]
+  +12289  [VINS=同]
+  +12292  [VINS=同]
+  +12299  [VINS=同]
+  +13000  [VINS=同]
+  +13001  [VINS=同]
+  +13002  [VINS=同]
+  +13003  [VINS=同]
+  +13004  [VINS=同]
+  +13005  [VINS=同]
+  +13006  [VINS=同]
+  +13007  [VINS=同]
+  +18406  [VINS=不同]
+  +18407  [VINS=不同]
+  +18408  [VINS=同]
+  +18409  [VINS=不同]
+  +19685  [VINS=同]
+  +501013  [VINS=同]
+  +501014  [VINS=同]
+  +1632003  [VINS=同]
+  +4005700  [VINS=同]
+
+## SpEffectVfxParam  新增 8 / 修改 0   （VINS 里一模一样的 8 行）
+  +51902  [VINS=同]
+  +51903  [VINS=同]
+  +51904  [VINS=同]
+  +51905  [VINS=同]
+  +51906  [VINS=同]
+  +51907  [VINS=同]
+  +51908  [VINS=同]
+  +51909  [VINS=同]

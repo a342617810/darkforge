@@ -1,0 +1,219 @@
+{
+ "key": "rennala",
+ "name": "Rennala overhaul",
+ "version": "1.2",
+ "nexus": 7651,
+ "boss": {
+  "zh": "满月女王蕾娜菈",
+  "en": "Rennala, Queen of the Full Moon"
+ },
+ "chrs": [
+  2030,
+  2031,
+  2032,
+  2040
+ ],
+ "source": {
+  "archive": "Rennala overhaul-7651-1-2-1751353025.zip",
+  "sha256": "159a895660c5788634b345a68097758e5a88f317318cc432922344bfecd28989",
+  "regulation": "11601000"
+ },
+ "built_against": "11711000",
+ "files": {
+  "action/script/c2032.hks": {
+   "sha256": "6b5e0e97203b54eb2f148bcff98c90c768ff9b86d443f6e1699a09160efd7b39",
+   "size": 35104
+  },
+  "chr/c2030.anibnd.dcx": {
+   "sha256": "d527ceeda3897da71a0552ce67c403aada82aa7a25b3768e1af50e4edec82bb4",
+   "size": 630111
+  },
+  "chr/c2030.behbnd.dcx": {
+   "sha256": "5f3823719296e5b9042fbdacbe093ea36ae6d3c562cd705b0e3030386737930c",
+   "size": 53248
+  },
+  "chr/c2031.anibnd.dcx": {
+   "sha256": "6069ef67cb17b9d6414928c21feda6aa9ee9bf08e2ede3f8c5f4be3007fb4f16",
+   "size": 6001206
+  },
+  "chr/c2031.behbnd.dcx": {
+   "sha256": "5324422300d9970eae6771ba395a2ebff8b9de7bf813713664786c5db20924a2",
+   "size": 62304
+  },
+  "chr/c2031.chrbnd.dcx": {
+   "sha256": "333d59b3b7596bd45a933a954a156ab4594589f91ee483ddabac951768dc6d95",
+   "size": 1832400
+  },
+  "chr/c2032.anibnd.dcx": {
+   "sha256": "624d688916cacd858540a141c025f5eec14679fec79c09a359e51dee7ef7d855",
+   "size": 592857
+  },
+  "chr/c2032.behbnd.dcx": {
+   "sha256": "522c460a6d2e7ecc1850e2c3b91cc6c9005a902bf55555050b5a08f12c1af9d1",
+   "size": 32224
+  },
+  "chr/c2032.chrbnd.dcx": {
+   "sha256": "d75146465650c05d8a92cea4ff0d5d89a64fbbf3606ab29304d177a8ec0b94f7",
+   "size": 3268336
+  },
+  "chr/c2032_h.texbnd.dcx": {
+   "sha256": "d453cf76842c2cfd1fc1ff5bc298edcb672e8f3069aecdd56e29b2dff38b44c9",
+   "size": 11632544
+  },
+  "chr/c2032_l.texbnd.dcx": {
+   "sha256": "6c15e371af1b000e58adbd8f62aee4ed344eda7d21c227934a1c341c43d7b10e",
+   "size": 2679296
+  },
+  "script/203000_battle.luabnd.dcx": {
+   "sha256": "803c4133d55129bc8cfc498a9a12139b56a6aed691a271c262547ab6dae15f88",
+   "size": 2352
+  },
+  "script/203100_battle.luabnd.dcx": {
+   "sha256": "930fe5e6371ef07b613e01c05c16cdc9aba85209f44657174854eb06cbe586f4",
+   "size": 4400
+  }
+ },
+ "texts": {
+  "en": {},
+  "zh": {}
+ },
+ "fmg_texts": {},
+ "fx": [
+  620334,
+  620335,
+  620346,
+  620347,
+  620348,
+  620354,
+  620355,
+  620356,
+  620357,
+  620358,
+  620359,
+  620364,
+  620365,
+  620366,
+  620367,
+  620368,
+  620369,
+  620374,
+  620375,
+  620376,
+  620377,
+  620378,
+  620379,
+  620380,
+  620381,
+  620382,
+  620393,
+  620394,
+  620395,
+  620396,
+  620397,
+  620398
+ ],
+ "fx_res": [],
+ "arena": {
+  "map": "m14_00_00_00",
+  "events": [
+   14002810,
+   14012490,
+   14012491,
+   14012492,
+   14012493,
+   14012494,
+   14012495,
+   14012496,
+   14012497,
+   14012498
+  ],
+  "parts": [
+   "=c2031_9000",
+   "=c4070_9000",
+   "=c4070_9001",
+   "=c4070_9002",
+   "=c4070_9003",
+   "=c4290_9000",
+   "=c4500_9000",
+   "=c4600_9000",
+   "c2031_9001",
+   "c2031_9006",
+   "c2031_9007",
+   "c2031_9008",
+   "c2031_9009",
+   "c2031_9003",
+   "c2031_9004",
+   "c2031_9005",
+   "c2031_9002"
+  ],
+  "new_events": [
+   14012490,
+   14012491,
+   14012492,
+   14012493,
+   14012494,
+   14012495,
+   14012496,
+   14012497,
+   14012498
+  ],
+  "replace_events": [
+   14002810
+  ],
+  "mod_events": [],
+  "ev0_ints": [],
+  "force_events": [
+   14002810
+  ],
+  "files": {
+   "event/m14_00_00_00.emevd.dcx": "07067dd51ec41e98ffaa5d2e6be504241a29cc3138896078ec5365611b3ac9a0",
+   "map/mapstudio/m14_00_00_00.msb.dcx": "8264378b6132f6c5874d4c228b06667e0d92324cbc57f3bdc521a7432bd66c7a"
+  }
+ },
+ "fixed": [
+  14000801,
+  14000800
+ ],
+ "helpers": {
+  "14000843": 14000800,
+  "14000844": 14000800,
+  "14000835": 14000800,
+  "14000836": 14000800,
+  "14000837": 14000800,
+  "14000838": 14000800,
+  "14000847": 14000800,
+  "14000848": 14000800,
+  "14000849": 14000800
+ },
+ "boss_forms": [],
+ "params": {
+  "AtkParam_Npc add": 15,
+  "AtkParam_Npc patch": 4,
+  "BehaviorParam add": 29,
+  "Bullet add": 79,
+  "Bullet patch": 10,
+  "NpcParam add": 7,
+  "NpcParam patch": 11,
+  "NpcThinkParam add": 1,
+  "SpEffectParam add": 9,
+  "SpEffectVfxParam add": 1
+ },
+ "skipped_rows": 1,
+ "log": [
+  "模组 regulation 版本 11601000（现在的原版 11711000）；同版本参照 7 个包",
+  "作者合并清单 170 行；其中 4 行和同版本原版一样（不用改）：[('SpEffectParam', 5052), ('SpEffectParam', 5053), ('SpEffectParam', 5054), ('SpEffectParam', 5055)]",
+  "事件 14002810：原版 + 模组插入的 1 条 + 模组改了内容的 0 条（另有 0 条只是重编时条件组编号不同，保持原版）",
+  "新事件 9 个（14012490, 14012491, 14012492, 14012493, 14012494, 14012495, 14012496, 14012497, 14012498），构造事件里加了初始化",
+  "NpcParam 20109021 → 20109900（新加的行换到段末，免得和随机器 / 重随新建的行撞）",
+  "NpcParam 20310025 → 20319900（新加的行换到段末，免得和随机器 / 重随新建的行撞）",
+  "NpcParam 21300635 → 21309900（新加的行换到段末，免得和随机器 / 重随新建的行撞）",
+  "NpcParam 37022225 → 37029900（新加的行换到段末，免得和随机器 / 重随新建的行撞）",
+  "NpcParam 51301300 → 51309900（新加的行换到段末，免得和随机器 / 重随新建的行撞）",
+  "NpcParam 51400020 → 51409900（新加的行换到段末，免得和随机器 / 重随新建的行撞）",
+  "NpcParam 53000685 → 53009901（新加的行换到段末，免得和随机器 / 重随新建的行撞）",
+  "NpcThinkParam 51400020 → 51409900（新加的行换到段末，免得和随机器 / 重随新建的行撞）",
+  "地图 m14_00_00_00 做在额外赐福的固定地图上（raya_library）",
+  "地图 m14_00_00_00 自动比对：删 0、换 8、加 9；排除 ['AEG099_060_9000', 'c0000_9000', 'c1000_9000']",
+  "地图 m14_00_00_00：replaced c2031_9000 (Enemy, model c2031, entity 14000800, npc 20310024, think 20310000)；replaced c4070_9000 (Enemy, model c4070, entity 0, npc 40708024, think 40708000)；replaced c4070_9001 (Enemy, model c4070, entity 0, npc 40708024, think 40708000)；replaced c4070_9002 (Enemy, model c4070, entity 0, npc 40708024, think 40708000)；replaced c4070_9003 (Enemy, model c4070, entity 0, npc 40708024, think 40708000)；replaced c4290_9000 (Enemy, model c2010, entity 14000840, npc 20109900, think 20109000)；replaced c4500_9000 (Enemy, model c4502, entity 14000846, npc 45008024, think 45008000)；replaced c4600_9000 (Enemy, model c4604, entity 14000845, npc 46008024, think 46008000)；copied c2031_9001 (Enemy, model c2031, entity 14000843, npc 20319900, think 20310000)；copied c2031_9006 (Enemy, model c2130, entity 14000835, npc 21300534, think -1)；copied c2031_9007 (Enemy, model c5130, entity 14000836, npc 51301099, think -1)；copied c2031_9008 (Enemy, model c3702, entity 14000837, npc 37022021, think -1)；copied c2031_9009 (Enemy, model c5300, entity 14000838, npc 53000082, think -1)；copied c2031_9003 (Enemy, model c2032, entity 14000849, npc 51409900, think 51409900)；copied c2031_9004 (Enemy, model c2032, entity 14000848, npc 51409900, think 51409900)；copied c2031_9005 (Enemy, model c2032, entity 14000847, npc 51409900, think 51409900)；copied c2031_9002 (Enemy, model c2031, entity 14000844, npc 20319900, think 20310000)"
+ ]
+}

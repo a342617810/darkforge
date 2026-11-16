@@ -1,0 +1,21 @@
+{
+ "_说明": "自动更新的来源（launcher\\update.py --check / --fetch）：同时读各来源的版本清单（每个来源的地址按顺序试），先读到的那边说了算；下载地址只认这个来源 hosts 里的网站，下不了换另一边。仓库 xp271/darkforge_update（公开、不开源）在 Gitee（国内快）和 GitHub（国外快）各有一份，发布脚本 dev\\tools\\publish_update.py 两边一起发",
+ "sources": [
+  {
+   "name": "gitee",
+   "manifest": [
+    "https://gitee.com/xp271/darkforge_update/raw/master/latest.json",
+    "https://gitee.com/api/v5/repos/xp271/darkforge_update/contents/latest.json"
+   ],
+   "hosts": ["gitee.com"]
+  },
+  {
+   "name": "github",
+   "manifest": [
+    "https://raw.githubusercontent.com/xp271/darkforge_update/main/latest.json",
+    "https://api.github.com/repos/xp271/darkforge_update/contents/latest.json"
+   ],
+   "hosts": ["github.com", "githubusercontent.com"]
+  }
+ ]
+}

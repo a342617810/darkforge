@@ -1,0 +1,114 @@
+﻿暗黑重铸 精英敌人列表
+====================================================================
+
+规则
+- 精英名单现在用在敌人随机上：一键重随敌人前往随机器的自定义敌人预设里写指定，
+  各地区普通敌人位置里精英的目标比例见 launcher\reroll\settings.json 的 elite_share_by_band
+  （前期 5% → DLC 后期 30%），下次随机化敌人生效；古龙 c4500 / c4510 前期一律不放（early_ban_models）。
+- 精英的掉落：原版的照旧，额外的未鉴定装备按下一个地区的档掉；DLC 后期的精英每杀再平均多掉 1 件传说（settings.json 的 elite_enemies / elite_last_legendary_mean）。
+  Boss 版（下面各类的 Boss、小 Boss、永恒监牢里的）不算精英，按 Boss 的规则给。
+- 名单文件：launcher\reroll\data\elite_families.json（本体，按敌人族编号）、elite_dlc.json（DLC 和后加的几组，可自行增删）。
+
+
+本体精英
+--------------------------------------------------------------------
+以前按 RNG Lands 原包的掉落表判定（原表只放史诗 / 传说的敌人），现在固定成名单。
+
+  恶兆                    Omen
+  法姆亚兹拉兽人          Beastman of Farum Azula
+  巨型蝲蛄                Giant Crayfish
+  古龙（普通敌人版）      Ancient Dragon
+  巨犬                    Giant Dog
+  巨鸦                    Giant Crow
+  腐败巨鸦                Bloodbane Giant Crow
+  蛆脸                    Wormface
+  大蛆脸                  Large Wormface
+  雪原巨魔                Snowfield Troll
+  符文熊                  Runebear
+  坠落鹰兵                Fallen Hawks Soldier
+  （另有 1 类未命名的特殊敌人）
+
+
+DLC 精英（按名单，名单文件：launcher\reroll\data\elite_dlc.json，可自行增删）
+--------------------------------------------------------------------
+按玩家讨论和血量、卢恩挑选。
+
+核心：
+  黑骑士                  Black Knight
+  火焰骑士                Fire Knight
+  咒剑士                  Curseblade
+  神鸟战士                Divine Bird Warrior
+  巨魔                    Troll
+  巨魔骑士                Troll Knight
+  符文熊                  Runebear
+  巨型蝲蛄                Giant Crayfish
+  溃烂树灵                Ulcerated Tree Spirit
+  熔岩土龙                Magma Wyrm
+  尖峰飞龙                Jagged Peak Drake
+  河马                    Hippopotamus
+  恶兆猎人                Omenkiller
+  巨型指虫                Colossal Fingercreeper（本体和 DLC 的都算）
+
+可选：
+  铁匠魔像                Smith Golem
+  血魔头目                Chief Bloodfiend
+  守卫魔像                Guardian Golem
+  提比亚水手              Tibia Mariner
+  亚人剑圣                Demi-Human Swordmaster
+  抓人少女人偶            Abductor Virgin
+  巨型腐败肉块            Large Putrid Flesh
+
+
+魔像和骑士类（本体 + DLC，按名单，同一个文件里的 knights_golems 一组）
+--------------------------------------------------------------------
+  守卫魔像（本体）        Guardian Golem
+  流放骑士                Banished Knight
+  猎犬骑士                Bloodhound Knight
+  腐败骑士                Cleanrot Knight
+  坩埚骑士（本体和 DLC）  Crucible Knight
+  葛瑞克骑士              Godrick Knight
+  罗德尔骑士              Leyndell Knight
+  红狮子骑士              Redmane Knight
+  圣树骑士                Haligtree Knight
+  巨魔骑士（本体）        Troll Knight
+  （铁匠魔像、DLC 守卫魔像、黑骑士、火焰骑士、DLC 巨魔骑士已在上面）
+  它们的 Boss 版（永恒监牢、小 Boss、双人 Boss）不算。
+
+
+常见难缠敌人（本体 + DLC，按名单，同一个文件里的 community 一组）
+--------------------------------------------------------------------
+网上评论里常说的难缠杂兵 / 小 Boss 级普通敌人，原表判不出来的。
+
+  黑刀刺客                Black Knife Assassin
+  接肢后裔                Grafted Scion
+  黄金树墓地看守犬        Erdtree Burial Watchdog
+  结晶人                  Crystalian
+  火焰祭司                Fire Prelate
+  石像鬼                  Gargoyle
+  杜鹃骑士                Cuckoo Knight
+  陵墓骑士                Mausoleum Knight
+  疯狂南瓜头              Mad Pumpkin Head
+  狮子混种（本体和 DLC）  Leonine Misbegotten
+  黄金树化身              Erdtree Avatar（原版王城、深根底层各有一只普通敌人版）
+  龙树守卫                Draconic Tree Sentinel
+  辉石龙                  Glintstone Dragon
+  龙装士兵                Dragonkin Soldier
+  熔岩土龙（本体）        Magma Wyrm
+  溃烂树灵（本体）        Ulcerated Tree Spirit
+  坟墓守卫决斗者          Grave Warden Duelist
+  神皮贵族                Godskin Noble
+  号角审问官（DLC）       Hornsent Inquisitor
+  胖号角审问官（DLC）     Fat Hornsent Inquisitor
+  老狮子（DLC）           Elder Lion
+  大型巨嘴小恶魔（DLC）   Large Bigmouth Imp
+  巨型巨嘴小恶魔（DLC）   Massive Bigmouth Imp
+
+  敌人随机时，这些普通敌人版和别的普通敌人一起打乱，可能出现在任何普通敌人的位置
+  （比如黄金树化身顶替了盖利德的拉塔恩士兵）；它们的 Boss 版只和 Boss 互换。
+
+
+不算精英的
+--------------------------------------------------------------------
+- Boss（含野外 Boss、夜晚 Boss、龙、永恒监牢）。
+- 有角战士等在游戏数据里算 Boss 类的敌人。
+- 小型动物、野生动物、NPC、甲虫：保持原样。

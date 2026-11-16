@@ -1,0 +1,716 @@
+//! RNG Lands 装备锁定。
+//!
+//! 物品弹出菜单（背包里选中物品后的「使用 / 放置原地 / 丢弃 …」）末尾加一项「锁定」/「解锁」。
+//!   菜单由游戏函数 POPUP 构建：先建好各选项（文字 + std::function 动作），再逐项 ADD_ITEM 进构建器，最后 FINALIZE 生成菜单。
+//!   这里 hook POPUP（记下这次的物品信息，标记「正在建物品菜单」）和 FINALIZE（在物品菜单里追加我们的选项）。
+//!   文字编号 4190 锁定 / 4191 解锁（GR_MenuText + GR_LineHelp，bossres.py 写进 menu_dlc02）。
+//! 物品：POPUP 第 4 个参数（物品上下文）+0x4c 物品编号、+0x50 物品实例句柄（高 4 位 8 武器 / 9 防具 / A 护符 / B 道具）。
+//!   只给武器、防具、护符加选项。句柄不固定（强化武器、读档后会换），所以锁定按（存档格子, 类别, 编号）记，
+//!   武器编号去掉强化等级（末两位，和 dark_sell 的 sell_key 一样）：强化后仍是锁定的；同一种的几件一起锁定（和护符一样）。
+//!   名单在 %APPDATA%\EldenRing\DarkReforged\角色记录\lock_items.txt（和配方、存档放一起，整合包换目录 / 更新不丢；
+//!   2026-10-29 以前在 EldenRing 根目录的 DarkReforged_lock_items.txt，新位置没有时读旧的），
+//!   一行「格子<TAB>类别（0 武器 / 1 防具 / 2 护符）<TAB>编号<TAB>角色名」（角色名只是方便看）；还没有这个文件时读一次
+//!   旧版写在 DLL 旁边的 lock_items.txt（下次改动时写到新位置，旧文件不动）；旧版按句柄记的行（「格子<TAB>句柄<TAB>编号」，
+//!   十六进制）读的时候换成新键，下次改动时按新格式写回。
+//! 选一次选项游戏会调两次动作：同一件 0.5 秒内只算一次。
+//! 格子左上的锁图标（背包、仓库）：
+//!   - OPEN_FILE（游戏读界面文件）读到 02_020_inventory / 03_050_itembox.gfx 时，用 gfx::patch 往格子元件里加一个
+//!     矢量锁 RngLock，把 MemoryFile 的数据指针换成改好的（磁盘上的文件不动，不管是原版还是别的 mod 的界面文件）；
+//!   - BIND（格子绑定子元素）前用游戏的 ResolvePath 把 RngLock 解析进我们自己分配的元素包装（0x60 字节，不释放），默认隐藏；
+//!   - REFRESH（格子按数据刷新）后按数据 +0x50 的物品实例句柄是否锁定设置可见。
+//! 武器补正格加宽（dark_core 把补正字母换成数字后三位数放不下，用户 2026-10-29）：同一个 OPEN_FILE 读到
+//!   02_055_detailstatus_weapon1 / 03_030_comparison_equip_weapon1.gfx 时用 gfx::widen_scaling 把补正那几格加宽。
+//! 认 eldenring.exe 2.7.1.0（1.17.1）和 2.7.2.0（1.17.2）：按各函数开头的字节认版本，都对不上就什么都不做，只在 dark_lock.log 里记一行。
+
+mod gfx;
+
+use std::cell::Cell;
+use std::ffi::CStr;
+use std::collections::HashMap;
+use std::fs;
+use std::path::PathBuf;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::{Mutex, OnceLock};
+
+use eldenring::cs::{EquipInventoryData, GameDataMan, GameMan};
+use fromsoftware_shared::FromStatic;
+use windows::Win32::Foundation::HMODULE;
+use windows::Win32::System::LibraryLoader::{GetModuleFileNameW, GetModuleHandleW};
+use windows::Win32::System::Memory::{
+    MEM_COMMIT, MEM_RESERVE, PAGE_EXECUTE_READWRITE, PAGE_PROTECTION_FLAGS, VirtualAlloc, VirtualProtect,
+};
+
+// ---- 游戏函数：每个支持的 exe 版本一组 RVA；按各函数开头的字节认版本
+struct Rvas {
+    version: &'static str,
+    popup: usize,       // 建物品弹出菜单 (?, ?, 物品信息*, 物品上下文*, ?)
+    finalize: usize,    // 菜单构建器 → 菜单 (构建器, 输出*, ?)
+    add_item: usize,    // 构建器加一项 (构建器, 文字对*, std::function*, 0) -> 构建器
+    text_label: usize,  // 文字对的选项文字 (out, GR_MenuText 编号)
+    text_help: usize,   // 文字对的底部说明 (out, GR_LineHelp 编号)
+    text_dtor: usize,   // 文字对析构
+    result2: usize,     // 动作的返回值（引用计数对象，代码 2）
+    call_fin: usize,    // POPUP 里调 FINALIZE 的那条 call
+    open_file: usize,   // CSScaleformFileOpener::OpenFile (opener, 路径, flags, mode) -> MemoryFile*（地址出自 ERNativeUI）
+    memfile_vt: usize,  // MemoryFile 虚表：+0x18 数据指针、+0x20 长度、+0x24 读取位置、+0x28 有效
+    memfile_vt0: usize, // 虚表第 0 项（核对用）
+    bind: usize,        // 物品格子绑定子元素 (格子, 根元素*)
+    refresh: usize,     // 物品格子按数据刷新 (格子, 数据*)
+    resolve: usize,     // 元素包装 ResolvePath (根元素*, 输出包装*, 名字) -> 输出包装*
+    setvis: usize,      // 元素包装设可见 (包装*, bool)
+    /// FINALIZE 开头 16 字节（末尾是调 __chkstk 的 call，偏移随版本变；其他函数的开头各版本一样）
+    finalize_head: [u8; 16],
+}
+
+static VERSIONS: [Rvas; 2] = [
+    Rvas {
+        version: "2.7.1.0（1.17.1）",
+        popup: 0x8fc570,
+        finalize: 0x78e780,
+        add_item: 0x745600,
+        text_label: 0x7617c0,
+        text_help: 0x7615e0,
+        text_dtor: 0x743ae0,
+        result2: 0x7a80d0,
+        call_fin: 0x8fd02d,
+        open_file: 0xd6d280,
+        memfile_vt: 0x2ba7d70,
+        memfile_vt0: 0xce9730,
+        bind: 0x900940,
+        refresh: 0x900610,
+        resolve: 0x74b140,
+        setvis: 0x734190,
+        finalize_head: [0x40, 0x55, 0x56, 0x57, 0x41, 0x56, 0x41, 0x57, 0xb8, 0x10, 0x33, 0x00, 0x00, 0xe8, 0x8e, 0xf6],
+    },
+    // 1.17.2：界面代码整体后移 0x4B0，读文件 / 虚表那一段后移 0x16F0 / 0x22B0
+    Rvas {
+        version: "2.7.2.0（1.17.2）",
+        popup: 0x8fca20,
+        finalize: 0x78ec30,
+        add_item: 0x745ab0,
+        text_label: 0x761c70,
+        text_help: 0x761a90,
+        text_dtor: 0x743f90,
+        result2: 0x7a8580,
+        call_fin: 0x8fd4dd,
+        open_file: 0xd6e970,
+        memfile_vt: 0x2baa020,
+        memfile_vt0: 0xceae20,
+        bind: 0x900df0,
+        refresh: 0x900ac0,
+        resolve: 0x74b5f0,
+        setvis: 0x734640,
+        finalize_head: [0x40, 0x55, 0x56, 0x57, 0x41, 0x56, 0x41, 0x57, 0xb8, 0x10, 0x33, 0x00, 0x00, 0xe8, 0x0e, 0x09],
+    },
+];
+
+impl Rvas {
+    /// 核对用的（RVA, 开头字节）
+    fn checks(&self) -> [(usize, &[u8]); 13] {
+        [
+            (self.open_file, &[0x40, 0x55, 0x53, 0x56, 0x57, 0x41, 0x54, 0x41, 0x56, 0x41, 0x57, 0x48, 0x8d, 0x6c, 0x24, 0xd9]),
+            (self.bind, &[0x48, 0x8b, 0xc4, 0x48, 0x89, 0x50, 0x10, 0x55, 0x48, 0x8d, 0x68, 0xa1, 0x48, 0x81, 0xec, 0x90]),
+            (self.refresh, &[0x40, 0x55, 0x56, 0x57, 0x41, 0x56, 0x41, 0x57, 0x48, 0x8d, 0x6c, 0x24, 0xc9, 0x48, 0x81, 0xec]),
+            (self.resolve, &[0x4c, 0x89, 0x44, 0x24, 0x18, 0x4c, 0x89, 0x4c, 0x24, 0x20, 0x55, 0x53, 0x56, 0x57, 0x41, 0x56]),
+            (self.setvis, &[0x40, 0x53, 0x48, 0x83, 0xec, 0x20, 0x48, 0x8b, 0x01, 0x0f, 0xb6, 0xda, 0xff, 0x50, 0x08, 0x8b]),
+            (self.popup, &[0x40, 0x55, 0x53, 0x56, 0x57, 0x41, 0x54, 0x41, 0x55, 0x41, 0x56, 0x41, 0x57, 0x48, 0x8d, 0xac]),
+            (self.finalize, &self.finalize_head),
+            (self.add_item, &[0x4c, 0x89, 0x4c, 0x24, 0x20, 0x55, 0x53, 0x56, 0x57, 0x48, 0x8d, 0xac, 0x24, 0x68, 0xfe, 0xff]),
+            (self.text_label, &[0x48, 0x89, 0x4c, 0x24, 0x08, 0x53, 0x48, 0x83, 0xec, 0x40, 0x48, 0xc7, 0x44, 0x24, 0x38, 0xfe]),
+            (self.text_help, &[0x4c, 0x8b, 0xdc, 0x57, 0x48, 0x81, 0xec, 0x90, 0x00, 0x00, 0x00, 0x49, 0xc7, 0x43, 0xa8, 0xfe]),
+            (self.text_dtor, &[0x48, 0x89, 0x4c, 0x24, 0x08, 0x57, 0x48, 0x83, 0xec, 0x30, 0x48, 0xc7, 0x44, 0x24, 0x20, 0xfe]),
+            (self.result2, &[0x48, 0x89, 0x4c, 0x24, 0x08, 0x53, 0x48, 0x83, 0xec, 0x30, 0x48, 0xc7, 0x44, 0x24, 0x28, 0xfe]),
+            (self.call_fin, &[0xe8, 0x4e, 0x17, 0xe9, 0xff]), // call FINALIZE：两个版本的相对偏移一样
+        ]
+    }
+}
+
+/// 格子数据里物品实例句柄的位置
+const DATA_HANDLE: usize = 0x50;
+const TEXT_LOCK: u32 = 4190;
+const TEXT_UNLOCK: u32 = 4191;
+const MAX_POPUP_LOGS: u32 = 3;
+
+type PopupFn = unsafe extern "C" fn(usize, usize, usize, usize, usize) -> usize;
+type FinalizeFn = unsafe extern "C" fn(usize, usize, usize, usize) -> usize;
+type AddItemFn = unsafe extern "C" fn(usize, *mut u8, *mut usize, usize) -> usize;
+type TextFn = unsafe extern "C" fn(*mut u8, u32) -> usize;
+type DtorFn = unsafe extern "C" fn(*mut u8);
+type ResultFn = unsafe extern "C" fn(*mut usize) -> *mut usize;
+type OpenFileFn = unsafe extern "C" fn(usize, *const u8, i32, i32) -> usize;
+type CellFn = unsafe extern "C" fn(usize, usize, usize, usize) -> usize;
+type ResolveFn = unsafe extern "C" fn(usize, *mut u8, *const u8, usize) -> usize;
+type SetVisFn = unsafe extern "C" fn(*mut u8, u8);
+
+static DIR: OnceLock<PathBuf> = OnceLock::new();
+static BASE: AtomicUsize = AtomicUsize::new(0);
+/// 认出来的版本（install 里设，挂钩之前）
+static RV: OnceLock<&'static Rvas> = OnceLock::new();
+static ORIG_POPUP: AtomicUsize = AtomicUsize::new(0);
+static ORIG_FIN: AtomicUsize = AtomicUsize::new(0);
+static POPUP_LOGS: AtomicUsize = AtomicUsize::new(0);
+static ORIG_OPEN: AtomicUsize = AtomicUsize::new(0);
+static ORIG_BIND: AtomicUsize = AtomicUsize::new(0);
+static ORIG_REFRESH: AtomicUsize = AtomicUsize::new(0);
+/// 格子 → 它的 RngLock 元素包装
+static CELL_LOCKS: Mutex<Option<HashMap<usize, usize>>> = Mutex::new(None);
+/// 改过的界面文件：（长度, FNV 哈希）→ 改好的字节（MovieDef 会一直用这个指针，所以永不释放）；None = 不用改
+/// 界面文件的改写函数（gfx::patch 加锁图标 / gfx::widen_scaling 加宽补正格）
+type GfxPatch = fn(&[u8]) -> Result<Option<Vec<u8>>, String>;
+
+static GFX_CACHE: Mutex<Option<HashMap<(usize, u64), Option<&'static [u8]>>>> = Mutex::new(None);
+/// 锁定键：（存档格子, 类别 0 武器 / 1 防具 / 2 护符, 编号（武器去掉强化等级））
+type Key = (i32, u8, u32);
+/// 这次物品菜单的物品：（键, 物品编号）；不是装备 / 没进存档就是 None
+static CURRENT: Mutex<Option<(Key, u32)>> = Mutex::new(None);
+/// 锁定名单：键 → 角色名
+static LOCKED: Mutex<Option<HashMap<Key, String>>> = Mutex::new(None);
+static LAST_TOGGLE: Mutex<Option<(Key, std::time::Instant)>> = Mutex::new(None);
+/// 句柄 → 物品编号（当前角色的背包 + 仓库），和建表的时间
+static ITEM_IDS: Mutex<Option<(HashMap<u32, u32>, std::time::Instant)>> = Mutex::new(None);
+/// 物品上下文里编号、句柄的位置
+const CTX_ID: usize = 0x4c;
+const CTX_HANDLE: usize = 0x50;
+
+thread_local! {
+    static IN_POPUP: Cell<u32> = const { Cell::new(0) };
+}
+
+fn dir() -> PathBuf {
+    DIR.get().cloned().unwrap_or_else(|| PathBuf::from("."))
+}
+
+fn log(msg: &str) {
+    use std::io::Write;
+    if let Ok(mut f) = fs::OpenOptions::new().create(true).append(true).open(dir().join("dark_lock.log")) {
+        let t = local_time();
+        let _ = writeln!(f, "{:02}:{:02}:{:02}.{:03} {msg}", t.hour, t.min, t.sec, t.ms);
+    }
+}
+
+/// 本地时间：日志每行开头写时:分:秒.毫秒，加载时写一行日期（直接调 kernel32，不用给 windows crate 加特性）
+#[repr(C)]
+#[derive(Default)]
+struct LocalTime {
+    year: u16,
+    month: u16,
+    _weekday: u16,
+    day: u16,
+    hour: u16,
+    min: u16,
+    sec: u16,
+    ms: u16,
+}
+
+#[link(name = "kernel32")]
+unsafe extern "system" {
+    fn GetLocalTime(t: *mut LocalTime);
+}
+
+fn local_time() -> LocalTime {
+    let mut t = LocalTime::default();
+    unsafe { GetLocalTime(&mut t) };
+    t
+}
+
+fn module_dir(h: u64) -> PathBuf {
+    let mut buf = [0u16; 1024];
+    let n = unsafe { GetModuleFileNameW(Some(HMODULE(h as *mut _)), &mut buf) } as usize;
+    let p = PathBuf::from(String::from_utf16_lossy(&buf[..n]));
+    p.parent().map(|d| d.to_path_buf()).unwrap_or_else(|| PathBuf::from("."))
+}
+
+fn hex(b: &[u8]) -> String {
+    b.iter().map(|x| format!("{x:02x}")).collect::<Vec<_>>().join(" ")
+}
+
+fn rv() -> &'static Rvas {
+    RV.get().copied().unwrap_or(&VERSIONS[0])
+}
+
+fn addr(rva: usize) -> usize {
+    BASE.load(Ordering::Relaxed) + rva
+}
+
+// ---- 锁定名单（%APPDATA%\EldenRing\DarkReforged\角色记录\lock_items.txt，一行一个键；没有 APPDATA 就放 DLL 旁边）
+/// 联机（Seamless Co-op 加载了）时放 角色记录\联机\（见 ersc_loaded）
+fn lock_file() -> PathBuf {
+    std::env::var_os("APPDATA")
+        .map(|a| {
+            let d = PathBuf::from(a).join("EldenRing").join("DarkReforged").join("角色记录");
+            if ersc_loaded() { d.join("联机") } else { d }.join("lock_items.txt")
+        })
+        .unwrap_or_else(old_lock_file)
+}
+
+/// Seamless Co-op（ersc.dll）加载了没有：加载了游戏就只用联机存档（ER0000.rng.co2，格子编号和单机各算各的），
+/// 角色记录要放 角色记录\联机\（dev\coop\联机计划.md 1.1，dark_core 的 coop.rs 同样判断）。查到一次就记住；没加载时每次现查
+fn ersc_loaded() -> bool {
+    static ERSC: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+    if ERSC.load(std::sync::atomic::Ordering::Relaxed) {
+        return true;
+    }
+    let on = unsafe { GetModuleHandleW(windows::core::w!("ersc.dll")) }.is_ok();
+    if on {
+        ERSC.store(true, std::sync::atomic::Ordering::Relaxed);
+    }
+    on
+}
+
+/// 2026-10-29 以前的名单位置：%APPDATA%\EldenRing 根目录（启动器会搬进 角色记录\，这里兜底）
+fn root_lock_file() -> Option<PathBuf> {
+    std::env::var_os("APPDATA").map(|a| PathBuf::from(a).join("EldenRing").join("DarkReforged_lock_items.txt"))
+}
+
+/// 旧版（0.5.2 以前）的名单位置：DLL 旁边
+fn old_lock_file() -> PathBuf {
+    dir().join("lock_items.txt")
+}
+
+/// 句柄的类别：8 武器 / 9 防具 / A 护符 → 0 / 1 / 2，其他（道具等）None
+fn cat_of(handle: u32) -> Option<u8> {
+    match handle >> 28 {
+        0x8 => Some(0),
+        0x9 => Some(1),
+        0xA => Some(2),
+        _ => None,
+    }
+}
+
+/// 锁定用的编号：去掉类别位；武器再去掉强化等级（末两位），强化前后是同一个键
+fn key_id(cat: u8, id: u32) -> u32 {
+    let pid = id & 0x0FFF_FFFF;
+    if cat == 0 { pid - pid % 100 } else { pid }
+}
+
+/// 名单的一行 →（键, 角色名）：新格式「格子 类别 编号(十进制) 角色名」；旧格式「格子 句柄 编号 角色名」（句柄 8 位十六进制）
+fn parse_line(line: &str) -> Option<(Key, String)> {
+    let f: Vec<&str> = line.split('\t').collect();
+    if f.len() < 3 {
+        return None;
+    }
+    let slot = f[0].parse::<i32>().ok()?;
+    let name = f.get(3).unwrap_or(&"").to_string();
+    let (cat, id) = if f[1].len() == 8 {
+        (cat_of(u32::from_str_radix(f[1], 16).ok()?)?, u32::from_str_radix(f[2], 16).ok()?)
+    } else {
+        (f[1].parse::<u8>().ok().filter(|c| *c <= 2)?, f[2].parse::<u32>().ok()?)
+    };
+    Some(((slot, cat, key_id(cat, id)), name))
+}
+
+fn with_locked<R>(f: impl FnOnce(&mut HashMap<Key, String>) -> R) -> R {
+    let mut g = LOCKED.lock().unwrap();
+    let map = g.get_or_insert_with(|| {
+        // 联机时不退回旧位置（那些是单机角色的）
+        let text = fs::read_to_string(lock_file())
+            .or_else(|e| if ersc_loaded() { Err(e) } else { root_lock_file().map_or(Err(e), fs::read_to_string) })
+            .or_else(|e| if ersc_loaded() { Err(e) } else { fs::read_to_string(old_lock_file()) })
+            .unwrap_or_default();
+        text.lines().filter_map(parse_line).collect()
+    });
+    f(map)
+}
+
+fn save_locked(map: &HashMap<Key, String>) {
+    let mut v: Vec<_> = map.iter().collect();
+    v.sort_by_key(|(k, _)| **k);
+    let mut out = String::from("# 格子\t类别（0 武器 / 1 防具 / 2 护符）\t编号（武器不含强化等级）\t角色名\n");
+    for ((slot, cat, id), name) in v {
+        out += &format!("{slot}\t{cat}\t{id}\t{name}\n");
+    }
+    let p = lock_file();
+    if let Some(d) = p.parent() {
+        let _ = fs::create_dir_all(d);
+    }
+    if fs::write(&p, out).is_err() {
+        log(&format!("锁定名单写不进 {}", p.display()));
+    }
+}
+
+/// 当前角色背包 + 仓库里的 句柄 → 物品编号
+fn scan_inventory() -> HashMap<u32, u32> {
+    let mut m = HashMap::new();
+    let Ok(gdm) = (unsafe { GameDataMan::instance() }) else { return m };
+    let pgd = &gdm.main_player_game_data;
+    let mut add = |inv: &EquipInventoryData| {
+        for it in inv.items_data.items() {
+            let h: u32 = unsafe { std::mem::transmute_copy(&it.gaitem_handle) };
+            m.insert(h, it.item_id.into_inner());
+        }
+    };
+    add(&pgd.equipment.equip_inventory_data);
+    if let Some(st) = &pgd.storage {
+        add(st);
+    }
+    m
+}
+
+/// 句柄 → 物品编号：表 1 秒内有效；查不到时重建，但 0.2 秒内不重复建（格子刷新很频繁）
+fn item_id(handle: u32) -> Option<u32> {
+    let mut g = ITEM_IDS.lock().unwrap();
+    if let Some((m, t)) = g.as_ref() {
+        let age = t.elapsed().as_millis();
+        if let Some(id) = m.get(&handle).filter(|_| age < 1000) {
+            return Some(*id);
+        }
+        if age < 200 {
+            return None;
+        }
+    }
+    let m = std::panic::catch_unwind(scan_inventory).ok()?;
+    let r = m.get(&handle).copied();
+    *g = Some((m, std::time::Instant::now()));
+    r
+}
+
+/// 当前角色：（存档格子, 角色名）；没进存档（等级 0）或读不到就是 None
+fn character() -> Option<(i32, String)> {
+    std::panic::catch_unwind(|| {
+        let gm = unsafe { GameMan::instance() }.ok()?;
+        let gdm = unsafe { GameDataMan::instance() }.ok()?;
+        let pgd = &gdm.main_player_game_data;
+        if pgd.level == 0 || gm.save_slot < 0 {
+            return None;
+        }
+        let n = pgd.character_name.iter().position(|&c| c == 0).unwrap_or(pgd.character_name.len());
+        Some((gm.save_slot, String::from_utf16_lossy(&pgd.character_name[..n])))
+    })
+    .ok()
+    .flatten()
+}
+
+// ---- 我们的 std::function 实现（MSVC _Func_base：_Copy, _Move, _Do_call, _Target_type, _Delete_this, _Get）
+#[repr(C)]
+struct LockFn {
+    vtable: *const VTable,
+    key: Key,
+    id: u32,
+}
+
+#[repr(C)]
+struct VTable([*const (); 6]);
+unsafe impl Sync for VTable {}
+
+static VTABLE: VTable = VTable([
+    fn_copy as *const (),
+    fn_copy as *const (),
+    fn_call as *const (),
+    fn_target as *const (),
+    fn_delete as *const (),
+    fn_get as *const (),
+]);
+
+/// 总是在堆上复制一份（不放进 std::function 的内部缓冲区）：游戏那边看到指针不在缓冲区里，就会用 _Delete_this(true) 释放
+unsafe extern "C" fn fn_copy(this: *const LockFn, _where: *mut u8) -> *mut LockFn {
+    Box::into_raw(Box::new(LockFn { vtable: &VTABLE, key: unsafe { (*this).key }, id: unsafe { (*this).id } }))
+}
+
+unsafe extern "C" fn fn_target(_this: *const LockFn) -> usize {
+    0
+}
+
+unsafe extern "C" fn fn_delete(this: *mut LockFn, dealloc: u8) {
+    if dealloc != 0 {
+        drop(unsafe { Box::from_raw(this) });
+    }
+}
+
+unsafe extern "C" fn fn_get(this: *const LockFn) -> *const LockFn {
+    this
+}
+
+/// 选中「锁定 / 解锁」：切换锁定，返回游戏的结果对象
+unsafe extern "C" fn fn_call(this: *const LockFn, ret: *mut usize, arg: usize) -> *mut usize {
+    let (key, id) = unsafe { ((*this).key, (*this).id) };
+    let dup = {
+        let mut last = LAST_TOGGLE.lock().unwrap();
+        let dup = matches!(*last, Some((k, t)) if k == key && t.elapsed().as_millis() < 500);
+        *last = Some((key, std::time::Instant::now()));
+        dup
+    };
+    if !dup {
+        let name = character().map(|c| c.1).unwrap_or_default();
+        let now = with_locked(|m| {
+            let now = m.remove(&key).is_none();
+            if now {
+                m.insert(key, name.clone());
+            }
+            save_locked(m);
+            now
+        });
+        log(&format!("{}：格子 {} 类别 {} 编号 {}（物品编号 {id:08x}，{name}，参数 {arg:#x}）", if now { "锁定" } else { "解锁" }, key.0, key.1, key.2));
+    }
+    let mut tmp = 0usize;
+    unsafe {
+        let mk: ResultFn = std::mem::transmute(addr(rv().result2));
+        mk(&mut tmp);
+        *ret = tmp;
+    }
+    ret
+}
+
+// ---- hook
+unsafe extern "C" fn popup_hook(a: usize, b: usize, info: usize, ctx: usize, e: usize) -> usize {
+    let mut key = None;
+    if ctx != 0 {
+        let (id, h) = unsafe { (*((ctx + CTX_ID) as *const u32), *((ctx + CTX_HANDLE) as *const u32)) };
+        if let Some(cat) = cat_of(h) {
+            key = character().map(|(slot, _)| ((slot, cat, key_id(cat, id)), id));
+        }
+    }
+    if info != 0 {
+        let raw = unsafe { std::slice::from_raw_parts(info as *const u8, 0x58) };
+        if POPUP_LOGS.fetch_add(1, Ordering::Relaxed) < MAX_POPUP_LOGS as usize {
+            let c = if ctx != 0 { hex(unsafe { std::slice::from_raw_parts(ctx as *const u8, 0x88) }) } else { "-".into() };
+            log(&format!("物品菜单：a={a:#x} b={b:#x} e={e:#x}\n  信息 {}\n  上下文 {c}", hex(raw)));
+        }
+    }
+    *CURRENT.lock().unwrap() = key;
+    IN_POPUP.with(|c| c.set(c.get() + 1));
+    let orig: PopupFn = unsafe { std::mem::transmute(ORIG_POPUP.load(Ordering::Relaxed)) };
+    let r = unsafe { orig(a, b, info, ctx, e) };
+    IN_POPUP.with(|c| c.set(c.get() - 1));
+    r
+}
+
+unsafe extern "C" fn finalize_hook(builder: usize, out: usize, x: usize, y: usize) -> usize {
+    if IN_POPUP.with(|c| c.get()) > 0 {
+        if let Some(key) = *CURRENT.lock().unwrap() {
+            if let Err(e) = std::panic::catch_unwind(|| unsafe { add_lock_item(builder, key) }) {
+                log(&format!("加选项出错：{e:?}"));
+            }
+        }
+    }
+    let orig: FinalizeFn = unsafe { std::mem::transmute(ORIG_FIN.load(Ordering::Relaxed)) };
+    unsafe { orig(builder, out, x, y) }
+}
+
+#[repr(C, align(16))]
+struct TextPair([u8; 0x70]);
+
+unsafe fn add_lock_item(builder: usize, (key, item): (Key, u32)) {
+    let locked = with_locked(|m| m.contains_key(&key));
+    let id = if locked { TEXT_UNLOCK } else { TEXT_LOCK };
+    unsafe {
+        let label: TextFn = std::mem::transmute(addr(rv().text_label));
+        let help: TextFn = std::mem::transmute(addr(rv().text_help));
+        let dtor: DtorFn = std::mem::transmute(addr(rv().text_dtor));
+        let add: AddItemFn = std::mem::transmute(addr(rv().add_item));
+        let mut pair = TextPair([0; 0x70]);
+        label(pair.0.as_mut_ptr(), id);
+        help(pair.0.as_mut_ptr().add(0x38), id);
+        let mut func = [0usize; 8]; // std::function：实现指针在 +0x38
+        func[7] = Box::into_raw(Box::new(LockFn { vtable: &VTABLE, key, id: item })) as usize;
+        add(builder, pair.0.as_mut_ptr(), func.as_mut_ptr(), 0); // 会复制一份并释放 func 里的这份
+        dtor(pair.0.as_mut_ptr());
+    }
+}
+
+// ---- 格子上的锁图标
+fn fnv(b: &[u8]) -> u64 {
+    b.iter().fold(0xcbf29ce484222325u64, |h, &c| (h ^ c as u64).wrapping_mul(0x100000001b3))
+}
+
+/// 把 MemoryFile 换成改好的界面文件（f：改写函数，没得改返回 None）
+unsafe fn patch_memory_file(file: usize, f: GfxPatch) -> Result<String, String> {
+    unsafe {
+        if *(file as *const usize) != addr(rv().memfile_vt) {
+            return Err("不是 MemoryFile".into());
+        }
+        let bytes = *((file + 0x18) as *const *const u8);
+        let len = *((file + 0x20) as *const i32);
+        let (cursor, valid) = (*((file + 0x24) as *const i32), *((file + 0x28) as *const u8));
+        if bytes.is_null() || len < 21 || cursor != 0 || valid != 1 {
+            return Err(format!("状态不对（长度 {len} 位置 {cursor} 有效 {valid}）"));
+        }
+        let src = std::slice::from_raw_parts(bytes, len as usize);
+        let mut g = GFX_CACHE.lock().unwrap();
+        let cache = g.get_or_insert_with(HashMap::new);
+        let key = (src.len(), fnv(src));
+        let out = match cache.get(&key) {
+            Some(x) => *x,
+            None => {
+                let x = f(src)?.map(|v| &*Box::leak(v.into_boxed_slice()));
+                cache.insert(key, x);
+                x
+            }
+        };
+        let Some(out) = out else { return Ok("没有要改的 / 已经改过，不改".into()) };
+        *((file + 0x18) as *mut *const u8) = out.as_ptr();
+        *((file + 0x20) as *mut i32) = out.len() as i32;
+        *((file + 0x24) as *mut i32) = 0;
+        Ok(format!("{len} → {} 字节", out.len()))
+    }
+}
+
+unsafe extern "C" fn open_file_hook(opener: usize, path: *const u8, flags: i32, mode: i32) -> usize {
+    let orig: OpenFileFn = unsafe { std::mem::transmute(ORIG_OPEN.load(Ordering::Relaxed)) };
+    let file = unsafe { orig(opener, path, flags, mode) };
+    if file != 0 && !path.is_null() {
+        let p = unsafe { CStr::from_ptr(path as *const std::ffi::c_char) }.to_string_lossy().to_lowercase();
+        let f: Option<GfxPatch> = if p.ends_with("02_020_inventory.gfx") || p.ends_with("03_050_itembox.gfx") {
+            Some(gfx::patch)
+        } else if p.ends_with("02_055_detailstatus_weapon1.gfx") || p.ends_with("03_030_comparison_equip_weapon1.gfx") {
+            Some(gfx::widen_scaling)
+        } else {
+            None
+        };
+        if let Some(f) = f {
+            match std::panic::catch_unwind(|| unsafe { patch_memory_file(file, f) }) {
+                Ok(Ok(m)) => log(&format!("界面文件 {p}：{m}")),
+                Ok(Err(e)) => log(&format!("界面文件 {p}：没改（{e}）")),
+                Err(_) => log(&format!("界面文件 {p}：改写出错（没改）")),
+            }
+        }
+    }
+    file
+}
+
+#[repr(C, align(16))]
+struct Elem([u8; 0x60]);
+
+unsafe extern "C" fn bind_hook(cell: usize, root: usize, x: usize, y: usize) -> usize {
+    // 根元素是按值传进来的临时对象，原函数结尾会析构它，所以要在调原函数之前解析
+    let w = Box::leak(Box::new(Elem([0; 0x60]))).0.as_mut_ptr();
+    let name = [gfx::LOCK_NAME.as_bytes(), b"\0"].concat();
+    unsafe {
+        let resolve: ResolveFn = std::mem::transmute(addr(rv().resolve));
+        resolve(root, w, name.as_ptr(), 0);
+    }
+    let orig: CellFn = unsafe { std::mem::transmute(ORIG_BIND.load(Ordering::Relaxed)) };
+    let r = unsafe { orig(cell, root, x, y) };
+    unsafe {
+        let setvis: SetVisFn = std::mem::transmute(addr(rv().setvis));
+        setvis(w, 0);
+    }
+    CELL_LOCKS.lock().unwrap().get_or_insert_with(HashMap::new).insert(cell, w as usize);
+    r
+}
+
+/// 格子上的物品锁没锁：句柄换成编号再查（这个角色一件都没锁就不用查背包）
+fn is_locked(handle: u32) -> bool {
+    let (Some(cat), Some((slot, _))) = (cat_of(handle), character()) else { return false };
+    if !with_locked(|m| m.keys().any(|k| k.0 == slot)) {
+        return false;
+    }
+    item_id(handle).is_some_and(|id| with_locked(|m| m.contains_key(&(slot, cat, key_id(cat, id)))))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_old_and_new() {
+        // 旧格式：按句柄（十六进制）；武器编号去掉强化等级
+        assert_eq!(parse_line("6\t80831123\t0bc04530\tD"), Some(((6, 0, 197150000), "D".into())));
+        assert_eq!(parse_line("2\t90800010\t10123456\t"), Some(((2, 1, 0x00123456), "".into())));
+        assert_eq!(parse_line("2\ta0001f40\t20001f40\tX"), Some(((2, 2, 0x1f40), "X".into())));
+        assert_eq!(parse_line("2\tb0000001\t00000001\tX"), None); // 道具不算
+        // 新格式：类别 + 十进制编号；强化过的武器编号也换成基础编号
+        assert_eq!(parse_line("6\t0\t197150004\tD"), Some(((6, 0, 197150000), "D".into())));
+        assert_eq!(parse_line("6\t2\t4150\tD"), Some(((6, 2, 4150), "D".into())));
+        assert_eq!(parse_line("6\t3\t4150\tD"), None);
+        assert_eq!(parse_line("# 格子\t类别\t编号\t角色名"), None);
+        assert_eq!(key_id(0, 197150004), 197150000);
+        assert_eq!(key_id(1, 0x10000000 | 1234), 1234);
+    }
+}
+
+unsafe extern "C" fn refresh_hook(cell: usize, data: usize, x: usize, y: usize) -> usize {
+    let orig: CellFn = unsafe { std::mem::transmute(ORIG_REFRESH.load(Ordering::Relaxed)) };
+    let r = unsafe { orig(cell, data, x, y) };
+    if data != 0 {
+        let w = CELL_LOCKS.lock().unwrap().as_ref().and_then(|m| m.get(&cell).copied());
+        if let Some(w) = w {
+            let h = unsafe { *((data + DATA_HANDLE) as *const u32) };
+            let show = is_locked(h);
+            unsafe {
+                let setvis: SetVisFn = std::mem::transmute(addr(rv().setvis));
+                setvis(w as *mut u8, show as u8);
+            }
+        }
+    }
+    r
+}
+
+/// 内联 hook：目标开头写 `mov rax, hook; jmp rax`（12 字节）+ nop 补到 stolen，跳板 = 原来的 stolen 字节 + 跳回。
+/// stolen 必须正好是完整指令的边界、且这些指令里没有 rip 相对寻址（各 hook 点都核对过）
+unsafe fn detour(target: usize, hook: usize, stolen: usize) -> Result<usize, String> {
+    unsafe {
+        let tramp = VirtualAlloc(None, 64, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE) as *mut u8;
+        if tramp.is_null() {
+            return Err("VirtualAlloc 失败".into());
+        }
+        std::ptr::copy_nonoverlapping(target as *const u8, tramp, stolen);
+        let back = tramp.add(stolen);
+        back.copy_from_nonoverlapping([0xFF, 0x25, 0, 0, 0, 0].as_ptr(), 6);
+        (back.add(6) as *mut usize).write_unaligned(target + stolen);
+        let mut old = PAGE_PROTECTION_FLAGS(0);
+        VirtualProtect(target as *const _, stolen, PAGE_EXECUTE_READWRITE, &mut old).map_err(|e| format!("VirtualProtect：{e}"))?;
+        let mut patch = vec![0x90u8; stolen];
+        patch[0] = 0x48;
+        patch[1] = 0xB8;
+        patch[2..10].copy_from_slice(&hook.to_le_bytes());
+        patch[10] = 0xFF;
+        patch[11] = 0xE0;
+        std::ptr::copy_nonoverlapping(patch.as_ptr(), target as *mut u8, stolen);
+        let mut tmp = PAGE_PROTECTION_FLAGS(0);
+        let _ = VirtualProtect(target as *const _, stolen, old, &mut tmp);
+        Ok(tramp as usize)
+    }
+}
+
+/// 这个版本的各函数开头字节、MemoryFile 虚表是否都对得上
+fn matches(base: usize, v: &Rvas) -> Result<(), String> {
+    for (rva, bytes) in v.checks() {
+        let mem = unsafe { std::slice::from_raw_parts((base + rva) as *const u8, bytes.len()) };
+        if mem != bytes {
+            return Err(format!("exe+{rva:#x} 的字节对不上（{}）", hex(mem)));
+        }
+    }
+    let vt0 = unsafe { *((base + v.memfile_vt) as *const usize) };
+    if vt0 != base + v.memfile_vt0 {
+        return Err(format!("MemoryFile 虚表对不上（{:#x}）", vt0.wrapping_sub(base)));
+    }
+    Ok(())
+}
+
+fn install() -> Result<&'static Rvas, String> {
+    let base = unsafe { GetModuleHandleW(None) }.map_err(|e| format!("GetModuleHandle：{e}"))?.0 as usize;
+    BASE.store(base, Ordering::Relaxed);
+    let mut why = Vec::new();
+    let Some(v) = VERSIONS.iter().find(|v| matches(base, v).map_err(|e| why.push(format!("按 {}：{e}", v.version))).is_ok()) else {
+        return Err(format!("游戏版本不是 2.7.1.0 / 2.7.2.0（{}）", why.join("；")));
+    };
+    let _ = RV.set(v);
+    unsafe {
+        // 开头 13 字节：push×8 + mov / lea；绑定 12 字节：mov rax,rsp / mov [rax+10],rdx / push rbp / lea rbp,[rax-5f]；读文件 16 字节：push×7 + lea
+        // （两个版本这几段字节一样）
+        ORIG_FIN.store(detour(base + v.finalize, finalize_hook as *const () as usize, 13)?, Ordering::Relaxed);
+        ORIG_POPUP.store(detour(base + v.popup, popup_hook as *const () as usize, 13)?, Ordering::Relaxed);
+        ORIG_OPEN.store(detour(base + v.open_file, open_file_hook as *const () as usize, 16)?, Ordering::Relaxed);
+        ORIG_BIND.store(detour(base + v.bind, bind_hook as *const () as usize, 12)?, Ordering::Relaxed);
+        ORIG_REFRESH.store(detour(base + v.refresh, refresh_hook as *const () as usize, 13)?, Ordering::Relaxed);
+    }
+    Ok(v)
+}
+
+/// # Safety
+/// 由加载器（YAFSML / me3）调用，不要自己调用。
+#[unsafe(no_mangle)]
+pub unsafe extern "system" fn DllMain(hmodule: u64, reason: u32, _reserved: *mut std::ffi::c_void) -> i32 {
+    if reason != 1 {
+        return 1;
+    }
+    let _ = DIR.set(module_dir(hmodule));
+    std::panic::set_hook(Box::new(|info| log(&format!("panic：{info}"))));
+    let t = local_time();
+    log(&format!("==== {}-{:02}-{:02} 加载（进程 {}）", t.year, t.month, t.day, std::process::id()));
+    match install() {
+        Ok(v) => log(&format!("dark_lock 已加载（eldenring.exe {}）：物品弹出菜单里加「锁定 / 解锁」，背包 / 仓库格子显示锁图标", v.version)),
+        Err(e) => log(&format!("dark_lock 不工作：{e}")),
+    }
+    1
+}

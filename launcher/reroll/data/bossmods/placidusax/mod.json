@@ -1,0 +1,157 @@
+{
+ "key": "placidusax",
+ "name": "Ancient Elden Lord",
+ "version": "1.01.3",
+ "nexus": 9413,
+ "boss": {
+  "zh": "龙王普拉顿桑克斯（+贝勒）",
+  "en": "Dragonlord Placidusax (+ Bayle)"
+ },
+ "chrs": [
+  4520,
+  5120
+ ],
+ "source": {
+  "archive": "Ancient Elden Lord (Version 1.01.3) 9413 v1.01.3 2026-08-27T16-22Z IDyEfZX9w.zip",
+  "sha256": "19b8b24b21d9b9b1ef8d96f80be247d4e935156a74e869c9f40383a5ea2d5a82",
+  "regulation": "11701000"
+ },
+ "built_against": "11711000",
+ "files": {
+  "chr/c4520.anibnd.dcx": {
+   "sha256": "c091f423ed3cc6178501ce6b011a03215f0cc0b7cde7a62cf06058a651b7660f",
+   "size": 264964
+  },
+  "chr/c4520.behbnd.dcx": {
+   "sha256": "61538e9a8a3e473b7f20e2538b28ff39df4cd271f1308fef5ccca3058aa3ec52",
+   "size": 187088
+  },
+  "chr/c4520.chrbnd.dcx": {
+   "sha256": "030d12dfd6ffc65ae069775daad2da9c49b4d1270b921e63b2a4b20bd31b8b19",
+   "size": 10662864
+  },
+  "script/452000_battle.luabnd.dcx": {
+   "sha256": "1191968797bd9a030cab8ae08907ccfcde611944a69cb60ff9154756a881b702",
+   "size": 5056
+  },
+  "script/512000_battle.luabnd.dcx": {
+   "sha256": "5c9e31832fa5ce6e0c4a44dd475cf41415ca459ad65a3d4e1d35ea836e527eec",
+   "size": 5664
+  },
+  "map/m13/m13_00_00_00/m13_00_00_00_0000.btl.dcx": {
+   "sha256": "8ce946cb2abf7806b1530b79aa8fc434cca9b1d33f56d1542c08896acf409730",
+   "size": 12747
+  }
+ },
+ "texts": {
+  "en": {},
+  "zh": {}
+ },
+ "fmg_texts": {
+  "GR_MenuText": {
+   "dest": "menu",
+   "en": {
+    "331310": "ELDEN LORD FALLEN"
+   },
+   "zh": {
+    "331310": "ELDEN LORD FALLEN"
+   }
+  },
+  "PlaceName": {
+   "dest": "item",
+   "en": {
+    "130011": "The Eye of the Storm"
+   },
+   "zh": {
+    "130011": "风暴之眼"
+   }
+  }
+ },
+ "fx": [
+  645222,
+  645223,
+  645251,
+  645255,
+  645258,
+  645259,
+  645260,
+  645268,
+  645269,
+  645273,
+  645274,
+  645275,
+  645276,
+  645284,
+  645297,
+  645298,
+  647285
+ ],
+ "fx_res": [],
+ "arena": {
+  "map": "m13_00_00_00",
+  "events": [
+   13002830,
+   13002840,
+   13002831,
+   13002833,
+   13002836,
+   13002837,
+   13002838,
+   13002842,
+   13002843,
+   13002844,
+   13002845
+  ],
+  "parts": [
+   "c0000_9033",
+   "AEG099_060_9011",
+   "c1000_9911"
+  ],
+  "new_events": [
+   13002831,
+   13002833,
+   13002836,
+   13002837,
+   13002838,
+   13002842,
+   13002843,
+   13002844,
+   13002845
+  ],
+  "replace_events": [],
+  "mod_events": [
+   13002830,
+   13002840
+  ],
+  "ev0_ints": [
+   13001961
+  ],
+  "files": {
+   "event/m13_00_00_00.emevd.dcx": "4d30d3f1845a4ca3fc1a154590f163b54c04736b27c0774f0cec8b04ba1a717a",
+   "map/mapstudio/m13_00_00_00.msb.dcx": "01647fe97e2b4c758bf31831d9eb5746c3db14090a8b8a8148395a55992c7039"
+  }
+ },
+ "fixed": [
+  13000830
+ ],
+ "helpers": {},
+ "params": {
+  "AtkParam_Npc add": 15,
+  "BehaviorParam add": 16,
+  "BonfireWarpParam add": 1,
+  "Bullet add": 35,
+  "FeTextEffectParam patch": 1,
+  "NpcParam patch": 6,
+  "SpEffectParam add": 25,
+  "SpEffectVfxParam add": 1
+ },
+ "skipped_rows": 116,
+ "log": [
+  "模组 regulation 版本 11701000（现在的原版 11711000）；同版本参照 2 个包",
+  "事件 13002830：换成模组版（14 条指令，原版 14 条）",
+  "事件 13002840：换成模组版（8 条指令，原版 8 条）",
+  "构造事件加：Register Bonfire",
+  "新事件 9 个（13002831, 13002833, 13002836, 13002837, 13002838, 13002842, 13002843, 13002844, 13002845），构造事件里加了初始化",
+  "地图 m13_00_00_00：copied c0000_9033 (Player, model c0000, entity 13000991)；copied AEG099_060_9011 (Asset, model AEG099_060, entity 13001961)；copied c1000_9911 (Enemy, model c1000, entity 13000961, npc 10000000, think 1)"
+ ]
+}

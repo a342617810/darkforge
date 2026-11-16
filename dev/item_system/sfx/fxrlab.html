@@ -1,0 +1,32 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>fxrlab</title>
+<!-- 生成特效文件：fxrlab.py 起服务器后打开 fxrlab.html?build=<本目录的生成脚本>[&out=debug]（见 ..\自制特效.md） -->
+<body style="font: 14px/1.5 monospace; background: #222; color: #ddd; padding: 16px">
+<pre id="log"></pre>
+<script type="module">
+const log = s => { document.getElementById('log').textContent += s + '\n' }
+const q = new URLSearchParams(location.search)
+try {
+  const FX = await import('https://cdn.jsdelivr.net/npm/@cccode/fxr@31.0.0/+esm')
+  window.FX = FX
+  const name = q.get('build')
+  if (!name) {
+    log('没给 ?build=<生成脚本>，库已载入（window.FX）')
+  } else {
+    const dest = q.get('out') === 'debug' ? '/out/debug/' : '/out/'
+    const mod = await import('./' + name + '?t=' + Date.now())
+    const files = await mod.build(FX)
+    for (const [fn, buf] of Object.entries(files)) {
+      const r = await fetch(dest + fn, { method: 'PUT', body: buf })
+      const j = FX.FXR.read(buf, FX.Game.EldenRing).toJSON()     // 读回来核对一遍
+      log(`${fn}  ${buf.byteLength} 字节  写回 ${r.status}  编号 ${j.id}  节点 ${j.root.nodes.length}  状态 ${JSON.stringify(j.states)}`)
+    }
+    log('完成')
+  }
+  document.title = 'fxrlab 完成'
+} catch (e) {
+  log('出错：' + (e.stack || e))
+  document.title = 'fxrlab 出错'
+}
+</script>

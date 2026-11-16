@@ -1,0 +1,402 @@
+
+== m01 Mohg 2.00 Complete m12_05_00_00.msb.dcx   新增 0 / 删除 0 / 改 1
+  新增类型: {}
+   ~ PART Enemy c0000_9005 位置/属性
+       原: model=c0000 ent=12050412 pos=<1870.51, -622.11, 1207.83> CollisionPartName=h003900 MapStudioLayer=-1021
+       模: {2} model=c0000 ent=12050830 pos=<1615.2196, -505.7771, 1207.5199> CollisionPartName=h006000 MapStudioLayer=-1
+
+== m02 Ancient Elden Lord (Placidusax) 1.01.3 m13_00_00_00.msb.dcx   新增 3 / 删除 0 / 改 2
+  新增类型: {('PART', 'Player'): 1, ('PART', 'Asset'): 2}
+   + PART Player c0000_9033 model=c0000 ent=13000991 pos=<58.591087, -177.82117, 425.08228> MapStudioLayer=-1
+   ~ PART Enemy c1000_9010 位置
+       原: model=c1000 ent=13000960 pos=<64.068, -74.273, 497.517> CollisionPartName=h014200 MapStudioLayer=-1
+       模: model=c1000 ent=13000960 pos=<64.068, -74.26388, 497.517> CollisionPartName=h014200 MapStudioLayer=-1
+   ~ PART Enemy c1000_9011 属性
+       原: model=c1000 ent=13000100 pos=<19.401, -38.995, 413.145> CollisionPartName=h007500 MapStudioLayer=-1
+       模: {2} model=c1000 ent=13000100 pos=<19.401, -38.995, 413.145> CollisionPartName=h007500 MapStudioLayer=-1
+
+== m03 Godrick overhaul 1.4 m10_00_00_00.msb.dcx   新增 3 / 删除 1 / 改 0
+  新增类型: {('PART', 'Enemy'): 1, ('PART', 'Asset'): 2}
+   + PART Enemy c4750_9001 model=c4690 ent=10000216 pos=<-220.094, 75.81, 334.762> CollisionPartName=h014000 MapStudioLayer=-1
+   - PART Asset AEG099_630_9006
+
+== m04 Inner Consort (Radahn) 1.06.6 m20_01_00_00.msb.dcx   新增 8 / 删除 0 / 改 1
+  新增类型: {('PART', 'Enemy'): 1, ('PART', 'Asset'): 7}
+   + PART Enemy c1000_9013 model=c1000 ent=20010997 pos=<-172.5663, 287.463, -193.38637> CollisionPartName=h006700 MapStudioLayer=3
+   ~ PART Asset AEG099_090_9001 位置
+       原: model=AEG099_090 ent=20011199 pos=<-258.876, 301.964, -157.079> MapStudioLayer=-1
+       模: model=AEG099_090 ent=20011199 pos=<-346.59113, 314.23944, -111.710686> MapStudioLayer=-1
+
+== m04 Inner Consort (Radahn) 1.06.6 m20_01_00_99.msb.dcx   新增 0 / 删除 0 / 改 0
+  新增类型: {}
+
+== m06 Inner Serpent (Messmer) 1.04.2 m21_01_00_00.msb.dcx   新增 1 / 删除 0 / 改 0
+  新增类型: {('PART', 'Asset'): 1}
+
+== m07 Midra overhaul 1.16.1 m28_00_00_00.msb.dcx   新增 110 / 删除 52 / 改 15
+  新增类型: {('REGION', 'EnvironmentMapPoint'): 3, ('REGION', 'EnvironmentMapEffectBox'): 2, ('PART', 'Enemy'): 3, ('PART', 'Asset'): 102}
+   + PART Enemy c5051_9001 model=c5051 ent=28000806 pos=<-3.9113698, 17, -130.98343> CollisionPartName=h008000 MapStudioLayer=-1
+   + PART Enemy c5051_9002 model=c5051 ent=28000807 pos=<-6.269544, 17, -132.61151> CollisionPartName=h008000 MapStudioLayer=-1
+   + PART Enemy c5051_9003 model=c5051 ent=28000805 pos=<-3.2426689, 17, -126.675095> CollisionPartName=h008000 MapStudioLayer=-1
+   - PART Asset AEG074_538_1005
+   - PART Asset AEG074_549_1003
+   - PART Asset AEG074_549_1004
+   - PART Asset AEG074_549_1005
+   - PART Asset AEG074_549_1006
+   - PART Asset AEG074_550_1000
+   - PART Asset AEG074_550_1001
+   - PART Asset AEG074_550_1002
+   - PART Asset AEG074_550_1004
+   - PART Asset AEG074_550_1005
+   - PART Asset AEG074_550_1006
+   - PART Asset AEG074_550_1007
+   - PART Asset AEG074_550_1009
+   - PART Asset AEG074_550_1010
+   - PART Asset AEG074_550_1011
+   ~ REGION EnvironmentMapPoint Env_Point206 位置
+       原: ent=0 pos=<-10.566, 19.492, -85.565> rot=<-0, -173, -0> MapID2=33554432 MapID=-1
+       模: ent=0 pos=<-10.566, 21.315022, -85.565> rot=<0, -173, 0> MapID2=33554432 MapID=-1
+   ~ REGION EnvironmentMapEffectBox Env_Box206 位置
+       原: ent=0 pos=<-12.719, 15, -103.098> rot=<-0, -173, 0> MapID=-1
+       模: ent=0 pos=<-12.719, 1.7651048, -103.098> rot=<0, -173, 0> MapID=-1
+   ~ PART Asset AEG074_005_1021 位置
+       原: model=AEG074_005 ent=0 pos=<-24.192068, 17, -127.31659> MapStudioLayer=-1
+       模: model=AEG074_005 ent=0 pos=<-23.817629, 30.29398, -127.436874> MapStudioLayer=-1
+   ~ PART Asset AEG074_005_1024 位置
+       原: model=AEG074_005 ent=0 pos=<-24.358328, 17, -126.12848> MapStudioLayer=-1
+       模: model=AEG074_005 ent=0 pos=<-23.98389, 30.29398, -126.248764> MapStudioLayer=-1
+   ~ PART Asset AEG074_005_1025 位置
+       原: model=AEG074_005 ent=0 pos=<-24.75054, 17, -121.191956> MapStudioLayer=-1
+       模: model=AEG074_005 ent=0 pos=<-24.376104, 30.29398, -121.31224> MapStudioLayer=-1
+   ~ PART Asset AEG074_005_1026 位置
+       原: model=AEG074_005 ent=0 pos=<-7.660448, 17.390137, -127.170456> MapStudioLayer=-1
+       模: model=AEG074_005 ent=0 pos=<-7.286007, 30.684116, -127.29074> MapStudioLayer=-1
+   ~ PART Asset AEG074_005_1027 位置
+       原: model=AEG074_005 ent=0 pos=<-7.306692, 17, -128.41827> MapStudioLayer=-1
+       模: model=AEG074_005 ent=0 pos=<-6.932251, 30.29398, -128.53856> MapStudioLayer=-1
+   ~ PART Asset AEG074_005_1028 位置
+       原: model=AEG074_005 ent=0 pos=<-6.54479, 17, -127.50763> MapStudioLayer=-1
+       模: model=AEG074_005 ent=0 pos=<-6.170348, 30.29398, -127.627914> MapStudioLayer=-1
+   ~ PART Asset AEG074_095_1001 属性
+       原: model=AEG074_095 ent=0 pos=<-10.969518, 0, -88.85013> MapStudioLayer=-1
+       模: model=AEG074_095 ent=28002999 pos=<-10.969518, 0, -88.85013> MapStudioLayer=-1
+   ~ PART Asset AEG074_521_1000 位置
+       原: model=AEG074_521 ent=0 pos=<-14.317889, 17.175262, -130.85352> MapStudioLayer=-1
+       模: model=AEG074_521 ent=0 pos=<-13.943449, 30.469242, -130.9738> MapStudioLayer=-1
+   ~ PART Asset AEG074_521_1008 位置
+       原: model=AEG074_521 ent=0 pos=<-19.014484, 17.175262, -130.82764> MapStudioLayer=-1
+       模: model=AEG074_521 ent=0 pos=<-18.640045, 30.469242, -130.94792> MapStudioLayer=-1
+   ~ PART Asset AEG074_521_1009 位置
+       原: model=AEG074_521 ent=0 pos=<-23.479103, 17, -125.258224> MapStudioLayer=-1
+       模: model=AEG074_521 ent=0 pos=<-23.104666, 30.29398, -125.37851> MapStudioLayer=-1
+   ~ PART Asset AEG074_541_1000 位置
+       原: model=AEG074_541 ent=0 pos=<-16.397614, 17, -132.5528> MapStudioLayer=-1
+       模: model=AEG074_541 ent=0 pos=<-16.023174, 30.29398, -132.67308> MapStudioLayer=-1
+   ~ PART Asset AEG074_541_1001 位置
+       原: model=AEG074_541 ent=0 pos=<-10.497853, 17, -131.21442> MapStudioLayer=-1
+       模: model=AEG074_541 ent=0 pos=<-10.123411, 30.29398, -131.3347> MapStudioLayer=-1
+   ~ PART Asset AEG074_541_1002 位置
+       原: model=AEG074_541 ent=0 pos=<-21.697119, 17, -130.06757> MapStudioLayer=-1
+       模: model=AEG074_541 ent=0 pos=<-21.32268, 30.29398, -130.18785> MapStudioLayer=-1
+
+== m07 Midra overhaul 1.16.1 m61_12_10_02.msb.dcx   新增 0 / 删除 0 / 改 0
+  新增类型: {}
+
+== m07 Midra overhaul 1.16.1 m61_24_20_01.msb.dcx   新增 0 / 删除 0 / 改 0
+  新增类型: {}
+
+== m07 Midra overhaul 1.16.1 m61_49_40_00.msb.dcx   新增 0 / 删除 0 / 改 2
+  新增类型: {}
+   ~ PART Collision h494002 位置
+       原: model=h494002 ent=0 pos=<0, 0, 0> PlayRegionID=-1 MapStudioLayer=-1
+       模: model=h494002 ent=0 pos=<0, -2, 0> PlayRegionID=-1 MapStudioLayer=-1
+   ~ PART ConnectCollision h494002_0000 位置
+       原: model=h494002 ent=0 pos=<0, 0, 0> MapStudioLayer=-1
+       模: model=h494002 ent=0 pos=<0, -2, 0> MapStudioLayer=-1
+
+== m08 Rellana overhaul 1.0 m61_48_44_00.msb.dcx   新增 65 / 删除 52 / 改 28
+  新增类型: {('PART', 'Enemy'): 1, ('PART', 'Asset'): 64}
+   + PART Enemy c5300 Rellana Phantom model=c5300 ent=2048440801 pos=<-56.306274, 417.3368, 50.169315> MapStudioLayer=-1
+   - REGION Sound hata26
+   - REGION Sound hata27
+   - REGION Sound hata30
+   - REGION Sound hata31
+   - PART Asset AEG070_020_2037
+   - PART Asset AEG070_020_2042
+   - PART Asset AEG070_020_2044
+   - PART Asset AEG070_020_2045
+   - PART Asset AEG070_020_2085
+   - PART Asset AEG070_021_2129
+   - PART Asset AEG070_024_2035
+   - PART Asset AEG070_024_2037
+   - PART Asset AEG070_024_2038
+   - PART Asset AEG070_024_2040
+   - PART Asset AEG070_024_2042
+   ~ REGION EnvironmentMapPoint Env_point300 位置
+       原: ent=0 pos=<-56.316, 433.044, 39.472> rot=<-0, 5, 0> MapID2=33554432 MapID=-1
+       模: ent=0 pos=<-54.261303, 433.044, 39.29224> rot=<-0, 5, 0> MapID2=33554432 MapID=-1
+   ~ REGION EnvironmentMapPoint Env_point847 位置
+       原: ent=0 pos=<-55.838, 429, 39.16> rot=<-0, -0, 0> MapID2=33554432 MapID=-1
+       模: ent=0 pos=<-55.78304, 429, 39.749588> rot=<-0, -0, 0> MapID2=33554432 MapID=-1
+   ~ REGION EnvironmentMapEffectBox Env_Box101 位置
+       原: ent=0 pos=<0, 216, 0> rot=<-0, -0, 0> MapID=-1
+       模: ent=0 pos=<-76.7545, 216, 0> rot=<-0, -0, 0> MapID=-1
+   ~ REGION EnvironmentMapEffectBox Env_Box847 位置
+       原: ent=0 pos=<-55.838, 421.846, 39.16> rot=<-0, -0, 0> MapID=-1
+       模: ent=0 pos=<-55.838, 419.79758, 39.16> rot=<-0, -0, 0> MapID=-1
+   ~ PART Asset AEG070_020_2038 位置
+       原: model=AEG070_020 ent=0 pos=<-77.44644, 447.00003, 55.722145> UnkT54PartName=AEG070_020_2038 MapStudioLayer=-1
+       模: model=AEG070_020 ent=0 pos=<-77.44643, 427.25125, 55.722145> UnkT54PartName=AEG070_020_2038 MapStudioLayer=-1
+   ~ PART Asset AEG070_020_2041 位置
+       原: model=AEG070_020 ent=0 pos=<-32.258682, 446.99997, 51.768986> UnkT54PartName=AEG070_020_2041 MapStudioLayer=-1
+       模: model=AEG070_020 ent=0 pos=<-32.258682, 427.2862, 51.768944> UnkT54PartName=AEG070_020_2041 MapStudioLayer=-1
+   ~ PART Asset AEG070_020_2043 位置
+       原: model=AEG070_020 ent=0 pos=<-34.69901, 447, 23.875523> UnkT54PartName=AEG070_020_2043 MapStudioLayer=-1
+       模: model=AEG070_020 ent=0 pos=<-34.69901, 427.28622, 23.875484> UnkT54PartName=AEG070_020_2043 MapStudioLayer=-1
+   ~ PART Asset AEG070_020_2046 位置
+       原: model=AEG070_020 ent=0 pos=<-79.88683, 447.00003, 27.828695> UnkT54PartName=AEG070_020_2046 MapStudioLayer=-1
+       模: model=AEG070_020 ent=0 pos=<-79.88682, 427.25125, 27.828693> UnkT54PartName=AEG070_020_2046 MapStudioLayer=-1
+   ~ PART Asset AEG070_023_2146 位置
+       原: model=AEG070_023 ent=0 pos=<-78.14368, 447.00003, 47.752586> UnkT54PartName=AEG070_023_2146 MapStudioLayer=-1
+       模: model=AEG070_023 ent=0 pos=<-77.79941, 427.25125, 51.687454> UnkT54PartName=AEG070_023_2146 MapStudioLayer=-1
+   ~ PART Asset AEG070_023_2156 位置
+       原: model=AEG070_023 ent=0 pos=<-32.955887, 447, 43.799435> UnkT54PartName=AEG070_023_2156 MapStudioLayer=-1
+       模: model=AEG070_023 ent=0 pos=<-32.955887, 427.28622, 43.799397> UnkT54PartName=AEG070_023_2156 MapStudioLayer=-1
+   ~ PART Asset AEG070_023_2163 位置
+       原: model=AEG070_023 ent=0 pos=<-34.00179, 447, 31.845104> UnkT54PartName=AEG070_023_2163 MapStudioLayer=-1
+       模: model=AEG070_023 ent=0 pos=<-34.34751, 427.28622, 27.893213> UnkT54PartName=AEG070_023_2163 MapStudioLayer=-1
+   ~ PART Asset AEG070_023_2165 位置
+       原: model=AEG070_023 ent=0 pos=<-79.18953, 447, 35.79828> UnkT54PartName=AEG070_023_2165 MapStudioLayer=-1
+       模: model=AEG070_023 ent=0 pos=<-79.189514, 427.25122, 35.79828> UnkT54PartName=AEG070_023_2165 MapStudioLayer=-1
+   ~ PART Asset AEG070_024_2036 位置
+       原: model=AEG070_024 ent=0 pos=<-77.446434, 447.00003, 55.72214> UnkT54PartName=AEG070_024_2036 MapStudioLayer=-1
+       模: model=AEG070_024 ent=0 pos=<-77.44642, 427.25125, 55.722145> UnkT54PartName=AEG070_024_2036 MapStudioLayer=-1
+   ~ PART Asset AEG070_024_2041 位置
+       原: model=AEG070_024 ent=0 pos=<-32.258682, 446.99997, 51.768986> UnkT54PartName=AEG070_024_2041 MapStudioLayer=-1
+       模: model=AEG070_024 ent=0 pos=<-32.258682, 427.2862, 51.768944> UnkT54PartName=AEG070_024_2041 MapStudioLayer=-1
+   ~ PART Asset AEG070_024_2043 位置
+       原: model=AEG070_024 ent=0 pos=<-34.69901, 447.00003, 23.875526> UnkT54PartName=AEG070_024_2043 MapStudioLayer=-1
+       模: model=AEG070_024 ent=0 pos=<-34.69901, 427.28625, 23.875488> UnkT54PartName=AEG070_024_2043 MapStudioLayer=-1
+   ~ PART Asset AEG070_024_2044 位置
+       原: model=AEG070_024 ent=0 pos=<-79.88683, 447.00003, 27.828695> UnkT54PartName=AEG070_024_2044 MapStudioLayer=-1
+       模: model=AEG070_024 ent=0 pos=<-79.88682, 427.25125, 27.828693> UnkT54PartName=AEG070_024_2044 MapStudioLayer=-1
+   ~ PART Asset AEG070_025_2120 位置
+       原: model=AEG070_025 ent=0 pos=<-33.478783, 447.00003, 37.82225> UnkT54PartName=AEG070_025_2120 MapStudioLayer=-1
+       模: model=AEG070_025 ent=0 pos=<-33.478783, 427.28625, 37.822212> UnkT54PartName=AEG070_025_2120 MapStudioLayer=-1
+   ~ PART Asset AEG070_025_2121 位置
+       原: model=AEG070_025 ent=0 pos=<-78.66661, 447.00003, 41.77542> UnkT54PartName=AEG070_025_2121 MapStudioLayer=-1
+       模: model=AEG070_025 ent=0 pos=<-78.666595, 427.25125, 41.77542> UnkT54PartName=AEG070_025_2121 MapStudioLayer=-1
+   ~ PART Asset AEG070_522_2002 位置
+       原: model=AEG070_522 ent=0 pos=<-43.418503, 426.9689, 54.891685> UnkT54PartName=AEG070_522_2002 MapStudioLayer=-1
+       模: model=AEG070_522 ent=0 pos=<-36.199055, 426.9689, 54.891685> UnkT54PartName=AEG070_522_2002 MapStudioLayer=-1
+   ~ PART Asset AEG070_522_2003 位置
+       原: model=AEG070_522 ent=0 pos=<-65.56478, 426.9689, 56.812096> UnkT54PartName=AEG070_522_2003 MapStudioLayer=-1
+       模: model=AEG070_522 ent=0 pos=<-71.18588, 426.9689, 56.812096> UnkT54PartName=AEG070_522_2003 MapStudioLayer=-1
+   ~ PART Asset AEG070_522_2004 位置/属性
+       原: model=AEG070_522 ent=0 pos=<-74.59835, 426.9689, 49.780663> UnkT54PartName=AEG070_522_2004 MapStudioLayer=-1
+       模: model=AEG070_522 ent=0 pos=<-75.8293, 426.9689, 24.280384> UnkT54PartName=AEG070_522_2003 MapStudioLayer=-1
+   ~ PART Asset AEG070_522_2005 位置
+       原: model=AEG070_522 ent=0 pos=<-76.565025, 426.9689, 33.498802> UnkT54PartName=AEG070_522_2005 MapStudioLayer=-1
+       模: model=AEG070_522 ent=0 pos=<-79.22266, 430.3407, 35.76909> UnkT54PartName=AEG070_522_2005 MapStudioLayer=-1
+   ~ PART Asset AEG070_522_2007 位置/属性
+       原: model=AEG070_522 ent=0 pos=<-35.967438, 426.9689, 49.197502> UnkT54PartName=AEG070_522_2007 MapStudioLayer=-1
+       模: model=AEG070_522 ent=0 pos=<-77.72332, 430.3407, 51.72157> UnkT54PartName=AEG070_522_2005 MapStudioLayer=-1
+   ~ PART Asset AEG070_522_2006 位置
+       原: model=AEG070_522 ent=0 pos=<-38.362244, 426.9689, 30.597572> UnkT54PartName=AEG070_522_2006 MapStudioLayer=-1
+       模: model=AEG070_522 ent=0 pos=<-34.390305, 430.33856, 27.915754> UnkT54PartName=AEG070_522_2006 MapStudioLayer=-1
+   ~ PART Asset AEG070_550_2002 位置
+       原: model=AEG070_550 ent=0 pos=<-36.476826, 434, 4.289224> UnkT54PartName=AEG070_550_2002 MapStudioLayer=-1
+       模: model=AEG070_550 ent=0 pos=<-36.30588, 434, 4.2742686> UnkT54PartName=AEG070_550_2002 MapStudioLayer=-1
+   ~ PART Asset AEG070_562_2000 位置
+       原: model=AEG070_562 ent=0 pos=<-78.66662, 447.00003, 41.775417> UnkT54PartName=AEG070_562_2000 MapStudioLayer=-1
+       模: model=AEG070_562 ent=0 pos=<-78.6666, 427.25125, 41.775417> UnkT54PartName=AEG070_562_2000 MapStudioLayer=-1
+   ~ PART Asset AEG070_562_2001 位置
+       原: model=AEG070_562 ent=0 pos=<-33.478786, 447.00003, 37.82225> UnkT54PartName=AEG070_562_2001 MapStudioLayer=-1
+       模: model=AEG070_562 ent=0 pos=<-33.478786, 427.28625, 37.822212> UnkT54PartName=AEG070_562_2001 MapStudioLayer=-1
+   ~ PART Asset AEG099_053_9000 位置
+       原: model=AEG099_053 ent=2048441100 pos=<-74.754, 427.015, 25.586> UnkT54PartName=AEG099_053_9000 MapStudioLayer=-1
+       模: model=AEG099_053 ent=2048441100 pos=<-81.46524, 427.015, 20.079401> UnkT54PartName=AEG099_053_9000 MapStudioLayer=-1
+
+== m09 Rennala overhaul 1.2 m14_00_00_00.msb.dcx   新增 9 / 删除 0 / 改 11
+  新增类型: {('PART', 'Enemy'): 9}
+   + PART Enemy c2031_9001 model=c2031 ent=14000843 pos=<81.68377, -838.729, -8.233495> CollisionPartName=h009200 MapStudioLayer=-1021
+   + PART Enemy c2031_9006 model=c2130 ent=14000835 pos=<85.61112, -838.52374, -31.890303> CollisionPartName=h009200 MapStudioLayer=-1021
+   + PART Enemy c2031_9007 model=c5130 ent=14000836 pos=<87.87018, -838.52374, -31.459366> CollisionPartName=h009200 MapStudioLayer=-1021
+   + PART Enemy c2031_9008 model=c3702 ent=14000837 pos=<89.537766, -838.52374, -31.141258> CollisionPartName=h009200 MapStudioLayer=-1021
+   + PART Enemy c2031_9009 model=c5300 ent=14000838 pos=<91.75395, -838.52374, -30.718498> CollisionPartName=h009200 MapStudioLayer=-1021
+   + PART Enemy c2031_9003 model=c2032 ent=14000849 pos=<79.77876, -838.729, 1.7528753> CollisionPartName=h009200 MapStudioLayer=-1021
+   + PART Enemy c2031_9004 model=c2032 ent=14000848 pos=<78.70494, -838.729, 7.3820696> CollisionPartName=h009200 MapStudioLayer=-1021
+   + PART Enemy c2031_9005 model=c2032 ent=14000847 pos=<77.51675, -838.729, 13.6108> CollisionPartName=h009200 MapStudioLayer=-1021
+   + PART Enemy c2031_9002 model=c2031 ent=14000844 pos=<82.330536, -838.729, -11.623971> CollisionPartName=h009200 MapStudioLayer=-1021
+   ~ PART Enemy c1000_9000 位置/属性
+       原: model=c1000 ent=14000950 pos=<32.863, 153.616, -20.344> CollisionPartName=h009100 MapStudioLayer=-1021
+       模: model=c1000 ent=14000950 pos=<97.47395, 153.616, -46.981606> CollisionPartName=h009000 MapStudioLayer=-1021
+   ~ PART Enemy c2031_9000 位置
+       原: model=c2031 ent=14000800 pos=<70.65, -838.729, -23.325> CollisionPartName=h009200 MapStudioLayer=-1021
+       模: model=c2031 ent=14000800 pos=<83.535, -838.729, -17.938> CollisionPartName=h009200 MapStudioLayer=-1021
+   ~ PART Enemy c4070_9000 属性
+       原: model=c4070 ent=14000841 pos=<102.871, -838.729, -8.702> CollisionPartName=h009200 MapStudioLayer=-1021
+       模: model=c4070 ent=0 pos=<102.871, -838.729, -8.702> CollisionPartName=h009200 MapStudioLayer=-1021
+   ~ PART Enemy c4070_9001 属性
+       原: model=c4070 ent=14000842 pos=<102.867, -838.729, -7.474> CollisionPartName=h009200 MapStudioLayer=-1021
+       模: model=c4070 ent=0 pos=<102.867, -838.729, -7.474> CollisionPartName=h009200 MapStudioLayer=-1021
+   ~ PART Enemy c4070_9002 属性
+       原: model=c4070 ent=14000843 pos=<102.992, -838.729, -6.191> CollisionPartName=h009200 MapStudioLayer=-1021
+       模: model=c4070 ent=0 pos=<102.992, -838.729, -6.191> CollisionPartName=h009200 MapStudioLayer=-1021
+   ~ PART Enemy c4070_9003 属性
+       原: model=c4070 ent=14000844 pos=<103.002, -838.729, -4.927> CollisionPartName=h009200 MapStudioLayer=-1021
+       模: model=c4070 ent=0 pos=<103.002, -838.729, -4.927> CollisionPartName=h009200 MapStudioLayer=-1021
+   ~ PART Enemy c4290_9000 属性
+       原: model=c4290 ent=14000840 pos=<68.84, -838.729, -30.124> CollisionPartName=h009200 MapStudioLayer=-1021
+       模: model=c2010 ent=14000840 pos=<68.84, -838.729, -30.124> CollisionPartName=h009200 MapStudioLayer=-1021
+   ~ PART Enemy c4500_9000 属性
+       原: model=c4500 ent=14000846 pos=<102.443, -838.539, -7.077> CollisionPartName=h009200 MapStudioLayer=-1021
+       模: model=c4502 ent=14000846 pos=<102.443, -838.539, -7.077> CollisionPartName=h009200 MapStudioLayer=-1021
+   ~ PART Enemy c4600_9000 属性
+       原: model=c4600 ent=14000845 pos=<103.521, -838.729, -1.913> CollisionPartName=h009200 MapStudioLayer=-1021
+       模: model=c4604 ent=14000845 pos=<103.521, -838.729, -1.913> CollisionPartName=h009200 MapStudioLayer=-1021
+   ~ PART Player c0000_9000 位置
+       原: model=c0000 ent=14000980 pos=<29.34, 154.06, -18.73> MapStudioLayer=-1
+       模: model=c0000 ent=14000980 pos=<98.73816, 154.12271, -47.547134> MapStudioLayer=-1
+   ~ PART Asset AEG099_060_9000 位置/属性
+       原: model=AEG099_060 ent=14001950 pos=<32.863, 154.116, -20.344> UnkT54PartName=h009100 MapStudioLayer=-1
+       模: model=AEG099_060 ent=14001950 pos=<97.47395, 154.116, -46.981606> UnkT54PartName=h009000 MapStudioLayer=-1
+
+== m10 Rykard overhaul 1.0 m16_00_00_00.msb.dcx   新增 45 / 删除 0 / 改 0
+  新增类型: {('PART', 'Enemy'): 10, ('PART', 'Asset'): 35}
+   + PART Enemy c4710_9009 model=c4712 ent=16000802 pos=<84.24169, -439.508, -71.02199> CollisionPartName=h016000 MapStudioLayer=-1
+   + PART Enemy c4710_9010 model=c4712 ent=16000803 pos=<80.08539, -439.508, -69.72067> CollisionPartName=h016000 MapStudioLayer=-1
+   + PART Enemy c4710_9002 model=c5170 ent=0 pos=<-20.814774, -474.9069, -222.06163> CollisionPartName=h016000 MapStudioLayer=-1
+   + PART Enemy c4710_9003 model=c4720 ent=0 pos=<-17.921175, -474.7706, -212.54604> CollisionPartName=h016000 MapStudioLayer=-1
+   + PART Enemy c4710_9005 model=c4510 ent=0 pos=<-11.517416, -475.76746, -237.82695> CollisionPartName=h016000 MapStudioLayer=-1
+   + PART Enemy c4710_9006 model=c5120 ent=0 pos=<-39.911, -476.99338, -231.7948> CollisionPartName=h016000 MapStudioLayer=-1
+   + PART Enemy c4710_9007 model=c5860 ent=0 pos=<-30.681343, -477.91318, -264.9025> CollisionPartName=h016000 MapStudioLayer=-1
+   + PART Enemy c4710_9008 model=c4600 ent=0 pos=<-35.18329, -477.91318, -248.56078> CollisionPartName=h016000 MapStudioLayer=-1
+   + PART Enemy c4710_9004 model=c4721 ent=0 pos=<-21.86478, -474.9069, -215.39381> CollisionPartName=h016000 MapStudioLayer=-1
+   + PART Enemy c4710_9011 model=c5130 ent=0 pos=<-32.53703, -476.54044, -222.99069> CollisionPartName=h016000 MapStudioLayer=-1
+
+== m11 The Second Release (Morgott) 1.01 m11_00_00_00.msb.dcx   新增 2 / 删除 1 / 改 0
+  新增类型: {('PART', 'Enemy'): 2}
+   + PART Enemy c2130_9001 model=c2130 ent=11000809 pos=<44.29443, 64.963, -420.05588> CollisionPartName=h020100 MapStudioLayer=-1021
+   + PART Enemy c2130_9002 model=c2190 ent=11000899 pos=<42.207268, 64.963, -417.25195> CollisionPartName=h020100 MapStudioLayer=-1021
+   - PART Enemy c0000_9060
+
+== m12 Unalloyed Malenia 1.06 m15_00_00_00.msb.dcx   新增 47 / 删除 2 / 改 26
+  新增类型: {('REGION', 'SpawnPoint'): 5, ('REGION', 'Other'): 2, ('PART', 'Enemy'): 36, ('PART', 'Player'): 1, ('PART', 'Asset'): 3}
+   + PART Enemy c2120_9014 model=c2125 ent=15100841 pos=<-19.952744, 46.005497, 465.6466> CollisionPartName=h015000 MapStudioLayer=-1021
+   + PART Enemy c2125_9001 2 phase_0001 model=c2120 ent=15001860 pos=<-1.6662953, 37.789722, 477.15512> CollisionPartName=h015000 MapStudioLayer=-1021
+   + PART Enemy c2120_Clone 1_0002 model=c2125 ent=15000904 pos=<-21.378496, 53.269093, 473.36063> CollisionPartName=h015000 MapStudioLayer=-1021
+   + PART Enemy c2120_9011 model=c2130 ent=151515861 pos=<-0.99898136, 37.467644, 493.06238> CollisionPartName=h015000 MapStudioLayer=-1021
+   + PART Enemy c2120_9012 model=c3300 ent=15500865 pos=<-25.95449, 56.40294, 532.00024> CollisionPartName=h015000 MapStudioLayer=-1021
+   + PART Enemy c2120_9006 model=c2125 ent=15000801 pos=<-26.867405, 53.269093, 481.925> CollisionPartName=h015000 MapStudioLayer=-1021
+   + PART Enemy c2120_9007 model=c2125 ent=15000806 pos=<-27.928062, 54.5581, 483.57993> CollisionPartName=h015000 MapStudioLayer=-1021
+   + PART Enemy c2120_9008 model=c2125 ent=15000807 pos=<-27.928062, 54.5581, 483.57993> CollisionPartName=h015000 MapStudioLayer=-1021
+   + PART Enemy c2120_9009 model=c2125 ent=15000808 pos=<-27.928062, 54.5581, 483.57993> CollisionPartName=h015000 MapStudioLayer=-1021
+   + PART Enemy c2120_9010 model=c2125 ent=15000809 pos=<-27.928062, 54.5581, 483.57993> CollisionPartName=h015000 MapStudioLayer=-1021
+   + PART Enemy c2120_clone {2} model=c2125 ent=15000811 pos=<-27.928062, 54.5581, 483.57993> CollisionPartName=h015000 MapStudioLayer=-1021
+   + PART Enemy c2120_clone_0001 model=c2125 ent=15000812 pos=<-27.928062, 54.5581, 483.57993> CollisionPartName=h015000 MapStudioLayer=-1021
+   + PART Enemy c2120_clone_0002 model=c2125 ent=15000813 pos=<-27.928062, 54.5581, 483.57993> CollisionPartName=h015000 MapStudioLayer=-1021
+   + PART Enemy c2120_clone_0003 model=c2125 ent=15000814 pos=<-27.928062, 54.5581, 483.57993> CollisionPartName=h015000 MapStudioLayer=-1021
+   + PART Enemy c2120_clone_0004 model=c2125 ent=15000815 pos=<-27.928062, 54.5581, 483.57993> CollisionPartName=h015000 MapStudioLayer=-1021
+   + PART Enemy c2120_clone_0005 model=c2125 ent=15000816 pos=<-27.928062, 54.5581, 483.57993> CollisionPartName=h015000 MapStudioLayer=-1021
+   + PART Enemy c2120_clone_0006 model=c2125 ent=15000817 pos=<-27.928062, 54.5581, 483.57993> CollisionPartName=h015000 MapStudioLayer=-1021
+   + PART Enemy c2120_clone_0007 model=c2125 ent=15000818 pos=<-27.928062, 54.5581, 483.57993> CollisionPartName=h015000 MapStudioLayer=-1021
+   + PART Enemy c2120_clone_0008 model=c2125 ent=15000819 pos=<-27.928062, 54.5581, 483.57993> CollisionPartName=h015000 MapStudioLayer=-1021
+   + PART Enemy c2120_clone_0009 model=c2125 ent=15000820 pos=<-27.928062, 54.5581, 483.57993> CollisionPartName=h015000 MapStudioLayer=-1021
+   + PART Enemy c2120_clone_0010 model=c2125 ent=15000821 pos=<-27.928062, 54.5581, 483.57993> CollisionPartName=h015000 MapStudioLayer=-1021
+   + PART Enemy c2120_clone_0011 model=c2125 ent=15000822 pos=<-27.928062, 54.5581, 483.57993> CollisionPartName=h015000 MapStudioLayer=-1021
+   + PART Enemy c2120_clone_0012 model=c2125 ent=15000823 pos=<-27.928062, 54.5581, 483.57993> CollisionPartName=h015000 MapStudioLayer=-1021
+   + PART Enemy c2120_clone_0013 model=c2125 ent=15000824 pos=<-27.928062, 54.5581, 483.57993> CollisionPartName=h015000 MapStudioLayer=-1021
+   + PART Enemy c2120_clone_0014 model=c2125 ent=15000825 pos=<-27.928062, 54.5581, 483.57993> CollisionPartName=h015000 MapStudioLayer=-1021
+   + PART Enemy c2120_clone_0015 model=c2125 ent=15000826 pos=<-27.928062, 54.5581, 483.57993> CollisionPartName=h015000 MapStudioLayer=-1021
+   + PART Enemy c2120_clone_0016 model=c2125 ent=15000827 pos=<-27.928062, 54.5581, 483.57993> CollisionPartName=h015000 MapStudioLayer=-1021
+   + PART Enemy c2120_clone_0017 model=c2125 ent=15000828 pos=<-27.928062, 54.5581, 483.57993> CollisionPartName=h015000 MapStudioLayer=-1021
+   + PART Enemy c2120_clone_0018 model=c2125 ent=15000829 pos=<-27.928062, 54.5581, 483.57993> CollisionPartName=h015000 MapStudioLayer=-1021
+   + PART Enemy c2120_clone_0019 model=c2125 ent=15000830 pos=<-27.928062, 54.5581, 483.57993> CollisionPartName=h015000 MapStudioLayer=-1021
+   + PART Enemy c2120_clone_0020 model=c2125 ent=15000831 pos=<-27.928062, 54.5581, 483.57993> CollisionPartName=h015000 MapStudioLayer=-1021
+   + PART Enemy c2120_clone_0021 model=c2125 ent=15000832 pos=<-27.928062, 54.5581, 483.57993> CollisionPartName=h015000 MapStudioLayer=-1021
+   + PART Enemy c2120_clone_0022 model=c2125 ent=15000833 pos=<-27.928062, 54.5581, 483.57993> CollisionPartName=h015000 MapStudioLayer=-1021
+   + PART Enemy c2120_clone_0023 model=c2125 ent=15000834 pos=<-27.928062, 54.5581, 483.57993> CollisionPartName=h015000 MapStudioLayer=-1021
+   + PART Enemy c2120_9013 model=c3800 ent=15000876 pos=<-13.9291115, 54.194847, 461.73743> CollisionPartName=h015000 MapStudioLayer=-1021
+   + PART Enemy Bloom 20 model=c4483 ent=15000874 pos=<-1.2942696, 51.845848, 474.0346> CollisionPartName=h015000 MapStudioLayer=-1021
+   + PART Player c0000_2291 model=c0000 ent=986020996 pos=<38.700535, 54.646, 515.7219> MapStudioLayer=0
+   - PART MapPiece m100076_2000
+   - PART Asset AEG097_000_1000
+   ~ REGION PlayArea �ץ쥤�I�� 位置/属性
+       原: 1500012 �ܥ�����������ȏ��� ent=0 pos=<144.428, 430.836, 212.352> rot=<0, -134.34, 0> MapID=-1
+       模: 1500010 �ܥ����������ڲ��� ent=0 pos=<144.503, 430.763, 217.313> rot=<0, 44.03, 0> MapID=-1
+   ~ PART Enemy c2120_9000 位置
+       原: model=c2120 ent=15000800 pos=<-18.968, 52.343, 466.271> CollisionPartName=h015000 MapStudioLayer=-1021
+       模: model=c2120 ent=15000800 pos=<-19.952744, 52.577805, 465.6466> CollisionPartName=h015000 MapStudioLayer=-1021
+   ~ PART Enemy c2120_9001 位置/属性
+       原: model=c2120 ent=15000801 pos=<-25.949, 51.59, 480.492> CollisionPartName=h015000 MapStudioLayer=-1021
+       模: model=c2120 ent=15100840 pos=<-20.414911, 50.790718, 466.9801> CollisionPartName=h015000 MapStudioLayer=-1021
+   ~ PART Enemy c2120_9002 位置/属性
+       原: model=c2120 ent=15000802 pos=<-25.949, 51.59, 480.492> CollisionPartName=h015000 MapStudioLayer=-1021
+       模: model=c2125 ent=15000802 pos=<-27.928062, 54.5581, 483.57993> CollisionPartName=h015000 MapStudioLayer=-1021
+   ~ PART Enemy c2120_9003 位置/属性
+       原: model=c2120 ent=15000803 pos=<-25.949, 51.59, 480.492> CollisionPartName=h015000 MapStudioLayer=-1021
+       模: model=c2125 ent=15000803 pos=<-25.949, 57.586197, 480.492> CollisionPartName=h015000 MapStudioLayer=-1021
+   ~ PART Enemy c2120_9004 位置/属性
+       原: model=c2120 ent=15000804 pos=<-25.949, 51.59, 480.492> CollisionPartName=h015000 MapStudioLayer=-1021
+       模: model=c2125 ent=15000804 pos=<-25.949, 58.512585, 480.492> CollisionPartName=h015000 MapStudioLayer=-1021
+   ~ PART Enemy c2120_9005 位置/属性
+       原: model=c2120 ent=15000805 pos=<-25.949, 51.59, 480.492> CollisionPartName=h015000 MapStudioLayer=-1021
+       模: model=c2125 ent=15000805 pos=<-25.949, 60.829605, 480.492> CollisionPartName=h015000 MapStudioLayer=-1021
+   ~ PART Asset AEG260_032_3000 位置
+       原: model=AEG260_032 ent=0 pos=<-18.977283, 51.853718, 466.0814> MapStudioLayer=-1
+       模: model=AEG260_032 ent=0 pos=<-19.883343, 52.05561, 465.46698> MapStudioLayer=-1
+   ~ PART Asset AEG267_000_0500 属性
+       原: model=AEG267_000 ent=15001686 pos=<54.596935, 479.5037, 330.67612> UnkT54PartName=h004300 MapStudioLayer=-1
+       模: model=AEG267_000 ent=15001686 pos=<54.596935, 479.5037, 330.67612> UnkT54PartName=Bloom 3 MapStudioLayer=-1
+   ~ PART Asset AEG267_000_0501 属性
+       原: model=AEG267_000 ent=15001680 pos=<85.475555, 503.58524, 221.7347> UnkT54PartName=h003000 MapStudioLayer=-1
+       模: model=AEG267_000 ent=15001680 pos=<85.475555, 503.58524, 221.7347> UnkT54PartName=Bloom 16 MapStudioLayer=-1
+   ~ PART Asset AEG267_002_1027 属性
+       原: model=AEG267_002 ent=0 pos=<23.438148, 451.48578, 234.23712> UnkT54PartName=h005800 MapStudioLayer=-1
+       模: model=AEG267_002 ent=0 pos=<23.438148, 451.48578, 234.23712> UnkT54PartName=c8100_9003 MapStudioLayer=-1
+   ~ PART Asset AEG267_002_1035 属性
+       原: model=AEG267_002 ent=0 pos=<38.432854, 481.0285, 338.49738> UnkT54PartName=h004300 MapStudioLayer=-1
+       模: model=AEG267_002 ent=0 pos=<38.432854, 481.0285, 338.49738> UnkT54PartName=Bloom 3 MapStudioLayer=-1
+   ~ PART Asset AEG267_002_1036 属性
+       原: model=AEG267_002 ent=0 pos=<40.443855, 480.99982, 340.30756> UnkT54PartName=h004300 MapStudioLayer=-1
+       模: model=AEG267_002 ent=0 pos=<40.443855, 480.99982, 340.30756> UnkT54PartName=Bloom 3 MapStudioLayer=-1
+   ~ PART Asset AEG267_004_1002 属性
+       原: model=AEG267_004 ent=0 pos=<96.090836, 437.5622, 217.10413> UnkT54PartName=h007100 MapStudioLayer=-1
+       模: model=AEG267_004 ent=0 pos=<96.090836, 437.5622, 217.10413> UnkT54PartName=c0000_9005 MapStudioLayer=-1
+   ~ PART Asset AEG267_012_0500 属性
+       原: model=AEG267_012 ent=15001684 pos=<45.49928, 470.19467, 319.7376> UnkT54PartName=h004300 MapStudioLayer=-1
+       模: model=AEG267_012 ent=15001684 pos=<45.49928, 470.19467, 319.7376> UnkT54PartName=Bloom 3 MapStudioLayer=-1
+   ~ PART Asset AEG267_013_0500 属性
+       原: model=AEG267_013 ent=15001682 pos=<33.84754, 495.25, 268.43988> UnkT54PartName=h003800 MapStudioLayer=-1
+       模: model=AEG267_013 ent=15001682 pos=<33.84754, 495.25, 268.43988> UnkT54PartName=Bloom 8 MapStudioLayer=-1
+   ~ PART Asset AEG267_014_0500 属性
+       原: model=AEG267_014 ent=15001692 pos=<38.12915, 454.39478, 242.5887> UnkT54PartName=h005900 MapStudioLayer=-1
+       模: model=AEG267_014 ent=15001692 pos=<38.12915, 454.39478, 242.5887> UnkT54PartName=Bloom 20 MapStudioLayer=-1
+   ~ PART Asset AEG267_014_0501 属性
+       原: model=AEG267_014 ent=15001694 pos=<48.46065, 448.48093, 231.75421> UnkT54PartName=h006300 MapStudioLayer=-1
+       模: model=AEG267_014 ent=15001694 pos=<48.46065, 448.48093, 231.75421> UnkT54PartName=c0000_9001 MapStudioLayer=-1
+   ~ PART Asset AEG267_015_0500 属性
+       原: model=AEG267_015 ent=15001688 pos=<25.018515, 448.89508, 234.1235> UnkT54PartName=h005800 MapStudioLayer=-1
+       模: model=AEG267_015 ent=15001688 pos=<25.018515, 448.89508, 234.1235> UnkT54PartName=c8100_9003 MapStudioLayer=-1
+   ~ PART Asset AEG267_018_0500 属性
+       原: model=AEG267_018 ent=15001696 pos=<162.00938, 360.5, 357.68878> UnkT54PartName=h007700 MapStudioLayer=-1
+       模: model=AEG267_018 ent=15001696 pos=<162.00938, 360.5, 357.68878> UnkT54PartName=c0000_9009 MapStudioLayer=-1
+   ~ PART Asset AEG267_021_0500 属性
+       原: model=AEG267_021 ent=15001580 pos=<124.20467, 223.57951, 500.12628> UnkT54PartName=h009900 MapStudioLayer=-1
+       模: model=AEG267_021 ent=15001580 pos=<124.20467, 223.57951, 500.12628> UnkT54PartName=h002400 MapStudioLayer=-1
+   ~ PART Asset AEG267_022_0500 属性
+       原: model=AEG267_022 ent=15001582 pos=<43.789543, 194.167, 608.86707> UnkT54PartName=h012000 MapStudioLayer=-1
+       模: model=AEG267_022 ent=15001582 pos=<43.789543, 194.167, 608.86707> UnkT54PartName=h004600 MapStudioLayer=-1
+   ~ PART Asset AEG267_023_0500 属性
+       原: model=AEG267_023 ent=15001622 pos=<94.672325, 437.549, 218.32103> UnkT54PartName=h007100 MapStudioLayer=-1
+       模: model=AEG267_023 ent=15001622 pos=<94.672325, 437.549, 218.32103> UnkT54PartName=c0000_9005 MapStudioLayer=-1
+   ~ PART Asset AEG267_023_0501 属性
+       原: model=AEG267_023 ent=15001621 pos=<88.62543, 503.574, 219.3725> UnkT54PartName=h003500 MapStudioLayer=-1
+       模: model=AEG267_023 ent=15001621 pos=<88.62543, 503.574, 219.3725> UnkT54PartName=Bloom 11 MapStudioLayer=-1
+   ~ PART Asset AEG267_023_0504 属性
+       原: model=AEG267_023 ent=15001521 pos=<121.33215, 223.59, 498.14505> UnkT54PartName=h010000 MapStudioLayer=-1
+       模: model=AEG267_023 ent=15001521 pos=<121.33215, 223.59, 498.14505> UnkT54PartName=h002500 MapStudioLayer=-1
+   ~ PART Asset AEG267_026_0500 属性
+       原: model=AEG267_026 ent=15001625 pos=<149.35924, 249.991, 367.5116> UnkT54PartName=h007700 MapStudioLayer=-1
+       模: model=AEG267_026 ent=15001625 pos=<149.35924, 249.991, 367.5116> UnkT54PartName=c0000_9009 MapStudioLayer=-1

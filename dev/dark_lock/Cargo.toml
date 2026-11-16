@@ -1,0 +1,18 @@
+[package]
+name = "dark_lock"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+# 和 dark_sell 用同一份本地副本（同时认 1.17.1 / 1.17.2，见 ../vendor/README-dark_reforged.txt）
+eldenring = { path = "../vendor/fromsoftware-rs/crates/eldenring" }
+fromsoftware-shared = { path = "../vendor/fromsoftware-rs/crates/shared" }
+windows = { version = "0.61", features = ["Win32_Foundation", "Win32_System_LibraryLoader", "Win32_System_Memory"] }
+
+[profile.release]
+panic = "unwind"
+lto = true
+opt-level = 3

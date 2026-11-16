@@ -1,0 +1,6 @@
+{
+ "_说明": "按实际参数逐条核对后整句改写的词条（英文原句 → 中文）。2026-10-21 子代理核对 385 种词条后的结论；通用规则（连锁版说明、咆哮与吐息、出血条件）在 fix_affix_zh.py 里。",
+ "Repeatedly hitting enemies with melee attacks charge your weapon with medium glintstone power. Once fully charged spawn small glintstone shards for 3 seconds that assault enemies.\nEffect can trigger once every 5 seconds\n\nDon't stack with same or other [on hit] effects of same rarity": "持续以近战攻击命中敌人会为武器积蓄中等辉石之力。蓄满后 4 秒内每 0.5 秒生成小型辉石碎片攻击敌人。\n效果每 5 秒最多触发一次\n\n与同稀有度的相同或其他［命中时］效果不叠加",
+ "Repeatedly hitting enemies with melee attacks charge your weapon with medium glintstone power. Once fully charged spawn small glintstone shards for 3 seconds that assault enemies.\nEffect can trigger once every 5 seconds\n\nDon't stack with same or other [on hit] effects of same rarity\noverride effect delay to 5 seconds, and trigger chain release": "持续以近战攻击命中敌人会为武器积蓄中等辉石之力。蓄满后 4 秒内每 0.25 秒生成小型辉石碎片攻击敌人。\n效果每 5 秒最多触发一次\n\n与同稀有度的相同或其他［命中时］效果不叠加\n连锁版：触发所需的命中次数更少，触发后4秒内每0.25秒连续释放",
+ "Repeatedly hitting enemies with melee will trigger dragon stomp\nEffect can trigger once every 12 seconds\n\nDon't stack with same or other [on hit] effects of same rarity": "持续以近战攻击命中敌人会触发龙踏，每5秒一次（持续12秒）\n效果每 12 秒最多触发一次\n\n与同稀有度的相同或其他［命中时］效果不叠加"
+}

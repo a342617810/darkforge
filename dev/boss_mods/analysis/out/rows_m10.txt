@@ -1,0 +1,105 @@
+# Rykard overhaul 1.0  (m10, regulation 11601000)
+
+## AtkParam_Npc  新增 5 / 修改 4   （VINS 里一模一样的 4 行）
+  +4710392  [VINS=不同]
+  +4710640  [VINS=不同]
+  +4710641  [VINS=不同]
+  +4710650  [VINS=不同]
+  +4710651  [VINS=不同]
+  ~4710100  [VINS=同]: atkPhys:260→220
+  ~4710101  [VINS=同]: atkPhys:260→160; dmgLevel:3→2
+  ~4710390  [VINS=同]: spEffectId0:-1→47101244; hit0_DmyPoly1:72→71
+  ~4710391  [VINS=同]: hit0_Radius:5.5→1; hit0_DmyPoly1:72→71
+
+## BehaviorParam  新增 10 / 修改 0   （VINS 里一模一样的 10 行）
+  +247100392  [VINS=同]
+  +247100525  [VINS=同]
+  +247100526  [VINS=同]
+  +247100640  [VINS=同]
+  +247100641  [VINS=同]
+  +247100642  [VINS=同]
+  +247100650  [VINS=同]
+  +247100651  [VINS=同]
+  +247100652  [VINS=同]
+  +247100653  [VINS=同]
+
+## Bullet  新增 26 / 修改 16   （VINS 里一模一样的 42 行）
+  +4710525  [VINS=同]
+  +4710526  [VINS=同]
+  +4710527  [VINS=同]
+  +4710528  [VINS=同]
+  +4710529  [VINS=同]
+  +4710562  [VINS=同]
+  +4710627  [VINS=同]
+  +4710628  [VINS=同]
+  +4710629  [VINS=同]
+  +4710640  [VINS=同]
+  +4710641  [VINS=同]
+  +4710642  [VINS=同]
+  +4710643  [VINS=同]
+  +4710644  [VINS=同]
+  +4710645  [VINS=同]
+  +4710646  [VINS=同]
+  +4710650  [VINS=同]
+  +4710963  [VINS=同]
+  +4710964  [VINS=同]
+  +4710965  [VINS=同]
+  +4710970  [VINS=同]
+  +4710971  [VINS=同]
+  +4710972  [VINS=同]
+  +4710973  [VINS=同]
+  +4710974  [VINS=同]
+  +4710975  [VINS=同]
+  ~4710561  [VINS=同]: life:0.5→0.4; hitRadius:3→1.3; hitRadiusMax:3→1.3
+  ~4710601  [VINS=同]: hitRadius:16→13; hitRadiusMax:17→14
+  ~4710620  [VINS=同]: intervalCreateTimeMin:0.3→0.4; intervalCreateTimeMax:0.3→0.4
+  ~4710621  [VINS=同]: intervalCreateTimeMin:0.3→0.4; intervalCreateTimeMax:0.3→0.4
+  ~4710622  [VINS=同]: intervalCreateTimeMin:0.3→0.4; intervalCreateTimeMax:0.3→0.4
+  ~4710623  [VINS=同]: intervalCreateTimeMin:0.3→0.4; intervalCreateTimeMax:0.3→0.4
+  ~4710624  [VINS=同]: sfxId_Bullet:647100→-1
+  ~4710625  [VINS=同]: sfxId_Bullet:647101→-1
+  ~4710720  [VINS=同]: life:0.1→0.05
+  ~4710721  [VINS=同]: life:0.1→0.05
+  ~4710730  [VINS=同]: life:0.25→0.15; hitRadius:2.4→1.6; hitRadiusMax:2.4→1.6
+  ~4710780  [VINS=同]: life:0.1→0.05
+  ~4710781  [VINS=同]: life:0.1→0.05
+  ~4710790  [VINS=同]: life:0.25→0.15; hitRadius:2.4→1.6; hitRadiusMax:2.4→1.6
+  ~4710900  [VINS=同]: hitRadius:150→120
+  ~4710962  [VINS=同]: hitRadiusMax:4.5→3.8
+
+## EquipParamWeapon  新增 0 / 修改 1   （VINS 里一模一样的 0 行）
+  ~17030000  [VINS=不同]: weakF_DamageRate:1→0.3
+
+## LockCamParam  新增 5 / 修改 5   （VINS 里一模一样的 5 行）
+  +4715  [VINS=同]
+  +4716  [VINS=同]
+  +4717  [VINS=同]
+  +4718  [VINS=同]
+  +4719  [VINS=同]
+  ~4710  [VINS=不同]: camDistTarget:3.8→12; chrOrgOffset_Y:1.45→2.4
+  ~4711  [VINS=不同]: camDistTarget:5→12; chrOrgOffset_Y:2→2.4
+  ~4712  [VINS=不同]: camDistTarget:4.4→12; chrOrgOffset_Y:1.7→2.4
+  ~4713  [VINS=不同]: camDistTarget:8→12; chrOrgOffset_Y:1.55→2.4
+  ~4714  [VINS=不同]: camDistTarget:12→30; rotRangeMinX:0→-50; chrOrgOffset_Y:1.55→2.7
+
+## NpcParam  新增 2 / 修改 2   （VINS 里一模一样的 2 行）
+  +47101039  [VINS=同] hp=9999, getSoul=0, itemLotId_enemy=-1, itemLotId_map=-1, behaviorVariationId=0, nameId=0, spEffectID0=0, spEffectID1=0, spEffectID2=0, spEffectID3=0, teamType=8, stamina=50, superArmorDurability=9999
+  +47101040  [VINS=同] hp=9999, getSoul=0, itemLotId_enemy=-1, itemLotId_map=-1, behaviorVariationId=0, nameId=0, spEffectID0=0, spEffectID1=5333, spEffectID2=5360, spEffectID3=7120, teamType=8, stamina=50, superArmorDurability=9999
+  ~47100038  [VINS=不同]: lockDist:60→120; isWeakF:0→1; neutralDamageCutRate:0.9→0.6; slashDamageCutRate:0.9→0.6; blowDamageCutRate:0.65→0.55; thrustDamageCutRate:0.9→0.5; magicDamageCutRate:0.6→1; thunderDamageCutRate:0.8→1; darkDamageCutRate:0.6→1.2; lockCameraParamId:-1→4710; superArmorDurability:120→180
+  ~47101038  [VINS=不同]: spEffectID7:0→14750; partsDamageRate2:1.5→1; lockDist:60→120; isWeakF:0→1; modelDispMask20:1→0; modelDispMask21:1→0; neutralDamageCutRate:0.9→0.6; slashDamageCutRate:0.9→0.6; blowDamageCutRate:0.65→0.55; thrustDamageCutRate:0.9→0.5; magicDamageCutRate:0.6→1; thunderDamageCutRate:0.8→1; darkDamageCutRate:0.6→1.2; lockCameraParamId:-1→4710; superArmorDurability:120→180
+
+## SpEffectParam  新增 11 / 修改 0   （VINS 里一模一样的 9 行）
+  +47101234  [VINS=不同]
+  +47101235  [VINS=同]
+  +47101236  [VINS=同]
+  +47101237  [VINS=同]
+  +47101238  [VINS=同]
+  +47101239  [VINS=同]
+  +47101240  [VINS=同]
+  +47101241  [VINS=同]
+  +47101242  [VINS=同]
+  +47101243  [VINS=同]
+  +47101244  [VINS=不同]
+
+## SpEffectVfxParam  新增 1 / 修改 0   （VINS 里一模一样的 1 行）
+  +47101243  [VINS=同]

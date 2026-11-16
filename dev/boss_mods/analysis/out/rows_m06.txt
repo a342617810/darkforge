@@ -1,0 +1,171 @@
+# Inner Serpent (Messmer) 1.04.2  (m06, regulation 11701000)
+
+## ActionButtonParam  新增 1 / 修改 0   （VINS 里一模一样的 0 行）
+  +206003  [VINS无]
+
+## AtkParam_Npc  新增 15 / 修改 0   （VINS 里一模一样的 14 行）
+  +5130290  [VINS=同]
+  +5130299  [VINS=同]
+  +5130365  [VINS=同]
+  +5130603  [VINS=同]
+  +5130660  [VINS=同]
+  +5130661  [VINS=同]
+  +5130680  [VINS=同]
+  +5130900  [VINS=同]
+  +5130901  [VINS=同]
+  +5130928  [VINS=不同]
+  +5130930  [VINS=同]
+  +5130931  [VINS=同]
+  +5130940  [VINS=同]
+  +5130941  [VINS=同]
+  +5141131  [VINS=同]
+
+## BehaviorParam  新增 25 / 修改 0   （VINS 里一模一样的 25 行）
+  +251300290  [VINS=同]
+  +251300291  [VINS=同]
+  +251300292  [VINS=同]
+  +251300293  [VINS=同]
+  +251300294  [VINS=同]
+  +251300295  [VINS=同]
+  +251300296  [VINS=同]
+  +251300297  [VINS=同]
+  +251300298  [VINS=同]
+  +251300299  [VINS=同]
+  +251300365  [VINS=同]
+  +251300603  [VINS=同]
+  +251300660  [VINS=同]
+  +251300680  [VINS=同]
+  +251300690  [VINS=同]
+  +251300691  [VINS=同]
+  +251300900  [VINS=同]
+  +251300910  [VINS=同]
+  +251300920  [VINS=同]
+  +251300928  [VINS=同]
+  +251300930  [VINS=同]
+  +251300940  [VINS=同]
+  +251400300  [VINS=同]
+  +251400305  [VINS=同]
+  +251410131  [VINS=同]
+
+## Bullet  新增 72 / 修改 0   （VINS 里一模一样的 71 行）
+  +205130291  [VINS=同]
+  +205130292  [VINS=同]
+  +205130293  [VINS=同]
+  +205130294  [VINS=同]
+  +205130295  [VINS=同]
+  +205130296  [VINS=同]
+  +205130297  [VINS=同]
+  +205130298  [VINS=同]
+  +205130299  [VINS=同]
+  +205130603  [VINS=同]
+  +205130660  [VINS=同]
+  +205130661  [VINS=同]
+  +205130680  [VINS=同]
+  +205130681  [VINS=同]
+  +205130682  [VINS=同]
+  +205130683  [VINS=同]
+  +205130684  [VINS=同]
+  +205130690  [VINS=同]
+  +205130691  [VINS=同]
+  +205130692  [VINS=同]
+  +205130693  [VINS=同]
+  +205130694  [VINS=同]
+  +205130695  [VINS=同]
+  +205130696  [VINS=同]
+  +205130697  [VINS=同]
+  +205130698  [VINS=同]
+  +205130699  [VINS=同]
+  +205130900  [VINS=同]
+  +205130901  [VINS=同]
+  +205130902  [VINS=同]
+  +205130903  [VINS=同]
+  +205130904  [VINS=同]
+  +205130905  [VINS=同]
+  +205130906  [VINS=同]
+  +205130907  [VINS=同]
+  +205130908  [VINS=同]
+  +205130910  [VINS=不同]
+  +205130920  [VINS=同]
+  +205130921  [VINS=同]
+  +205130922  [VINS=同]
+  +205130923  [VINS=同]
+  +205130924  [VINS=同]
+  +205130925  [VINS=同]
+  +205130926  [VINS=同]
+  +205130927  [VINS=同]
+  +205130928  [VINS=同]
+  +205130930  [VINS=同]
+  +205130931  [VINS=同]
+  +205130932  [VINS=同]
+  +205130933  [VINS=同]
+  +205130934  [VINS=同]
+  +205130935  [VINS=同]
+  +205130936  [VINS=同]
+  +205130937  [VINS=同]
+  +205130938  [VINS=同]
+  +205130940  [VINS=同]
+  +205130941  [VINS=同]
+  +205130942  [VINS=同]
+  +205130943  [VINS=同]
+  +205130944  [VINS=同]
+  +205130945  [VINS=同]
+  +205130946  [VINS=同]
+  +205130947  [VINS=同]
+  +205130948  [VINS=同]
+  +205140300  [VINS=同]
+  +205140301  [VINS=同]
+  +205140302  [VINS=同]
+  +205140303  [VINS=同]
+  +205140304  [VINS=同]
+  +205140305  [VINS=同]
+  +205140306  [VINS=同]
+  +205140307  [VINS=同]
+
+## EquipParamWeapon  新增 0 / 修改 1   （VINS 里一模一样的 0 行）
+  ~17030000  [VINS=不同]: weakF_DamageRate:1→12
+
+## GameAreaParam  新增 0 / 修改 1   （VINS 里一模一样的 1 行）
+  ~21010800  [VINS=同]: bonusSoul_single:400000→500000
+
+## NpcParam  新增 0 / 修改 10   （VINS 里一模一样的 0 行）
+  ~51300000  [VINS=不同]: hp:2963→3747; resist_poison:154→308; resist_desease:154→308; resist_blood:154→308; spEffectID20:-1→12338; superArmorDurability:120→150
+  ~51300001  [VINS=不同]: hp:2963→3747; resist_poison:154→308; resist_desease:154→308; resist_blood:154→308; spEffectID20:-1→12338; superArmorDurability:120→150
+  ~51300099  [VINS=不同]: hp:2963→3747; spEffectID3:20007090→20007120; GameClearSpEffectID:20007490→20007520; resist_poison:154→308; resist_desease:154→308; resist_blood:154→308; spEffectID20:-1→12338; superArmorDurability:120→150
+  ~51301000  [VINS=不同]: hp:2963→3747; resist_poison:154→308; resist_desease:154→308; resist_blood:154→308; spEffectID20:-1→12338; superArmorDurability:120→150
+  ~51301099  [VINS=不同]: hp:2963→3747; spEffectID3:20007090→20007120; GameClearSpEffectID:20007490→20007520; resist_poison:154→308; resist_desease:154→308; resist_blood:154→308; spEffectID20:-1→12338; superArmorDurability:120→150
+  ~51310000  [VINS=不同]: hp:2963→3747; resist_poison:154→308; resist_desease:154→308; resist_blood:154→308; spEffectID20:-1→12338; superArmorDurability:120→150
+  ~51320000  [VINS=不同]: hp:2963→3747; resist_poison:154→308; resist_desease:154→308; resist_blood:154→308; spEffectID19:-1→12338; superArmorDurability:120→150
+  ~51400000  [VINS=不同]: hp:2963→3747; resist_poison:154→616; resist_desease:154→616; resist_blood:154→616; isWeakF:0→1; neutralDamageCutRate:0.8→0.1; slashDamageCutRate:1→0.1; blowDamageCutRate:0.8→0.1; thrustDamageCutRate:0.8→0.1; magicDamageCutRate:0.8→0.1; fireDamageCutRate:0.6→0.05; thunderDamageCutRate:0.8→0.1; darkDamageCutRate:1→0.6; resist_freeze:112→224; spEffectID17:-1→11900; spEffectID18:-1→11937; spEffectID19:-1→11943; spEffectID20:-1→11948; spEffectID21:-1→5851; superArmorDurability:120→150
+  ~51400001  [VINS=不同]: hp:2963→3747; resist_poison:154→616; resist_desease:154→616; resist_blood:154→616; isWeakF:0→1; neutralDamageCutRate:0.8→0.1; slashDamageCutRate:1→0.1; blowDamageCutRate:0.8→0.1; thrustDamageCutRate:0.8→0.1; magicDamageCutRate:0.8→0.1; fireDamageCutRate:0.6→0.05; thunderDamageCutRate:0.8→0.1; darkDamageCutRate:1→0.6; resist_freeze:112→224; spEffectID17:-1→11900; spEffectID18:-1→11937; spEffectID19:-1→11943; spEffectID20:-1→11948; spEffectID21:-1→5851; superArmorDurability:120→150
+  ~51400099  [VINS=不同]: hp:2963→3747; resist_poison:154→616; resist_desease:154→616; resist_blood:154→616; isWeakF:0→1; neutralDamageCutRate:0.8→0.1; slashDamageCutRate:1→0.1; blowDamageCutRate:0.8→0.1; thrustDamageCutRate:0.8→0.1; magicDamageCutRate:0.8→0.1; fireDamageCutRate:0.6→0.05; thunderDamageCutRate:0.8→0.1; darkDamageCutRate:1→0.6; resist_freeze:112→224; spEffectID17:-1→11900; spEffectID18:-1→11937; spEffectID19:-1→11943; spEffectID20:-1→11948; spEffectID21:-1→5851; superArmorDurability:120→150
+
+## SpEffectParam  新增 19 / 修改 0   （VINS 里一模一样的 19 行）
+  +12320  [VINS=同]
+  +12323  [VINS=同]
+  +12324  [VINS=同]
+  +12325  [VINS=同]
+  +12326  [VINS=同]
+  +12327  [VINS=同]
+  +12328  [VINS=同]
+  +12329  [VINS=同]
+  +12330  [VINS=同]
+  +12331  [VINS=同]
+  +12332  [VINS=同]
+  +12333  [VINS=同]
+  +12334  [VINS=同]
+  +12335  [VINS=同]
+  +12336  [VINS=同]
+  +12338  [VINS=同]
+  +12339  [VINS=同]
+  +12340  [VINS=同]
+  +12341  [VINS=同]
+
+## SpEffectVfxParam  新增 4 / 修改 0   （VINS 里一模一样的 1 行）
+  +9015  [VINS=同]
+  +51910  [VINS=不同]
+  +51911  [VINS=不同]
+  +51912  [VINS=不同]
+
+## ThrowParam  新增 1 / 修改 1   （VINS 里一模一样的 2 行）
+  +34513010  [VINS=同]
+  ~34513000  [VINS=同]: throwType:0→8

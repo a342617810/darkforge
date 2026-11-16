@@ -1,0 +1,21 @@
+[package]
+name = "dark_core"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+# 和 dark_sell / dark_lock / dark_wings 用同一份本地副本（同时认 1.17.1 / 1.17.2，见 ../vendor/README-dark_reforged.txt）
+eldenring = { path = "../vendor/fromsoftware-rs/crates/eldenring" }
+fromsoftware-shared = { path = "../vendor/fromsoftware-rs/crates/shared" }
+windows = { version = "0.61", features = ["Win32_Foundation", "Win32_System_LibraryLoader", "Win32_System_Memory", "Win32_System_Threading", "Win32_System_Diagnostics_Debug", "Win32_UI_Input_KeyboardAndMouse", "Win32_UI_Input_XboxController", "Win32_UI_WindowsAndMessaging"] }
+# 容器验证扫内存找文字占位
+memchr = "2"
+
+[profile.release]
+# unwind：版本不对时库里会 panic，要能接住（abort 会直接带崩游戏）
+panic = "unwind"
+lto = true
+opt-level = 3

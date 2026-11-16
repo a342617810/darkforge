@@ -1,0 +1,179 @@
+# Rennala overhaul 1.2  (m09, regulation 11601000)
+
+## AtkParam_Npc  新增 15 / 修改 4   （VINS 里一模一样的 13 行）
+  +2101  [VINS=同]
+  +2030240  [VINS=不同]
+  +2031177  [VINS=不同]
+  +2031178  [VINS=不同]
+  +2031251  [VINS=同]
+  +2031305  [VINS=同]
+  +2031320  [VINS=同]
+  +2031350  [VINS=同]
+  +2031360  [VINS=同]
+  +2031365  [VINS=同]
+  +2031366  [VINS=同]
+  +2031367  [VINS=同]
+  +2031380  [VINS=不同]
+  +2031390  [VINS=同]
+  +2031400  [VINS=同]
+  ~2030140  [VINS=不同]: atkMag:280→9280; atkObj:100→0
+  ~2031161  [VINS=不同]: atkMag:0→500; dmgLevel:0→4; atkPow_forSfx:1→2; atkDir_forSfx:0→2; atkPow_forSe:0→1; dmgLevel_vsPlayer:0→4
+  ~2031800  [VINS=同]: hit0_Radius:4→2; atkMag:1→50
+  ~2040120  [VINS=同]: spAttribute:0→24
+
+## BehaviorParam  新增 29 / 修改 0   （VINS 里一模一样的 29 行）
+  +220300151  [VINS=同]
+  +220300340  [VINS=同]
+  +220310111  [VINS=同]
+  +220310177  [VINS=同]
+  +220310178  [VINS=同]
+  +220310300  [VINS=同]
+  +220310305  [VINS=同]
+  +220310310  [VINS=同]
+  +220310311  [VINS=同]
+  +220310320  [VINS=同]
+  +220310330  [VINS=同]
+  +220310350  [VINS=同]
+  +220310355  [VINS=同]
+  +220310360  [VINS=同]
+  +220310365  [VINS=同]
+  +220310370  [VINS=同]
+  +220310380  [VINS=同]
+  +220310390  [VINS=同]
+  +220310400  [VINS=同]
+  +220310401  [VINS=同]
+  +220310405  [VINS=同]
+  +220310410  [VINS=同]
+  +220310420  [VINS=同]
+  +220310430  [VINS=同]
+  +220310431  [VINS=同]
+  +220310440  [VINS=同]
+  +220310450  [VINS=同]
+  +220310460  [VINS=同]
+  +220310470  [VINS=同]
+
+## Bullet  新增 79 / 修改 10   （VINS 里一模一样的 88 行）
+  +2031111  [VINS=同]
+  +2031116  [VINS=同]
+  +2031164  [VINS=同]
+  +2031165  [VINS=同]
+  +2031177  [VINS=同]
+  +2031178  [VINS=同]
+  +2031179  [VINS=同]
+  +2031300  [VINS=同]
+  +2031301  [VINS=同]
+  +2031310  [VINS=同]
+  +2031311  [VINS=同]
+  +2031312  [VINS=同]
+  +2031313  [VINS=同]
+  +2031314  [VINS=同]
+  +2031315  [VINS=同]
+  +2031316  [VINS=同]
+  +2031317  [VINS=同]
+  +2031318  [VINS=同]
+  +2031319  [VINS=同]
+  +2031320  [VINS=同]
+  +2031321  [VINS=同]
+  +2031322  [VINS=同]
+  +2031323  [VINS=同]
+  +2031324  [VINS=同]
+  +2031330  [VINS=同]
+  +2031331  [VINS=同]
+  +2031332  [VINS=同]
+  +2031333  [VINS=同]
+  +2031334  [VINS=同]
+  +2031350  [VINS=同]
+  +2031351  [VINS=同]
+  +2031355  [VINS=同]
+  +2031356  [VINS=同]
+  +2031360  [VINS=同]
+  +2031361  [VINS=同]
+  +2031362  [VINS=同]
+  +2031365  [VINS=同]
+  +2031366  [VINS=同]
+  +2031370  [VINS=同]
+  +2031380  [VINS=同]
+  +2031381  [VINS=同]
+  +2031382  [VINS=同]
+  +2031383  [VINS=同]
+  +2031384  [VINS=同]
+  +2031385  [VINS=同]
+  +2031390  [VINS=同]
+  +2031391  [VINS=同]
+  +2031392  [VINS=同]
+  +2031400  [VINS=同]
+  +2031405  [VINS=同]
+  +2031406  [VINS=同]
+  +2031410  [VINS=同]
+  +2031420  [VINS=同]
+  +2031421  [VINS=同]
+  +2031422  [VINS=同]
+  +2031423  [VINS=同]
+  +2031424  [VINS=同]
+  +2031425  [VINS=同]
+  +2031440  [VINS=同]
+  +2031441  [VINS=同]
+  +2031450  [VINS=同]
+  +2031451  [VINS=同]
+  +2031452  [VINS=同]
+  +2031453  [VINS=同]
+  +2031460  [VINS=同]
+  +2031461  [VINS=同]
+  +2031470  [VINS=同]
+  +2031471  [VINS=同]
+  +2031472  [VINS=同]
+  +2031473  [VINS=同]
+  +2031474  [VINS=同]
+  +220300340  [VINS=同]
+  +220300341  [VINS=同]
+  +220300342  [VINS=同]
+  +220300390  [VINS=同]
+  +220300391  [VINS=同]
+  +220300397  [VINS=不同]
+  +220300398  [VINS=同]
+  +220300399  [VINS=同]
+  ~2031150  [VINS=同]: life:5→20; accelInRange:0.7→3; attachEffectType:5→2
+  ~2031151  [VINS=同]: life:8→20; accelInRange:15→30; hitRadius:1.1→0.5; attachEffectType:5→2
+  ~2031160  [VINS=同]: shootInterval:0.09→0.2; hitRadius:0.5→0.8; hitRadiusMax:0.5→0.8; HitBulletID:-1→2031177
+  ~2031161  [VINS=同]: atkId_Bullet:2031161→2031160; hitRadius:0.5→0.8; hitRadiusMax:0.5→0.8; isPenetrateMap:0→1; intervalCreateBulletId:2031162→-1
+  ~2031175  [VINS=同]: initVellocity:120→200; maxVellocity:120→200; hitRadius:0.5→0.8; hitRadiusMax:0.5→0.8; isPenetrateMap:0→1
+  ~2031176  [VINS=同]: initVellocity:120→200; maxVellocity:120→200; hitRadius:0.5→0.8; hitRadiusMax:0.5→0.8
+  ~2031180  [VINS=同]: life:1.2→0.8
+  ~2031183  [VINS=同]: life:1.2→0.8
+  ~2031185  [VINS=同]: life:1.2→0.8
+  ~2040121  [VINS=同]: spEffectId0:0→25020
+
+## NpcParam  新增 7 / 修改 11   （VINS 里一模一样的 10 行）
+  +20109021  [VINS=不同] hp=1320, getSoul=2000, itemLotId_enemy=-1, itemLotId_map=-1, behaviorVariationId=20100, nameId=121600, spEffectID0=5400, spEffectID1=5300, spEffectID2=5360, spEffectID3=7060, teamType=6, stamina=50, superArmorDurability=80
+  +20310025  [VINS=不同] hp=200, getSoul=0, itemLotId_enemy=-1, itemLotId_map=-1, behaviorVariationId=20310, nameId=120000, spEffectID0=5400, spEffectID1=-1, spEffectID2=5300, spEffectID3=7070, teamType=6, stamina=50, superArmorDurability=100
+  +21300635  [VINS=同] hp=2521, getSoul=0, itemLotId_enemy=-1, itemLotId_map=-1, behaviorVariationId=21300, nameId=0, spEffectID0=5400, spEffectID1=0, spEffectID2=5360, spEffectID3=7110, teamType=7, stamina=50, superArmorDurability=80
+  +37022225  [VINS=不同] hp=267, getSoul=128, itemLotId_enemy=370200200, itemLotId_map=-1, behaviorVariationId=37020, nameId=0, spEffectID0=5401, spEffectID1=0, spEffectID2=0, spEffectID3=7060, teamType=6, stamina=50, superArmorDurability=30
+  +51301300  [VINS=同] hp=2963, getSoul=0, itemLotId_enemy=513000100, itemLotId_map=-1, behaviorVariationId=51300, nameId=0, spEffectID0=0, spEffectID1=0, spEffectID2=5360, spEffectID3=20007090, teamType=33, stamina=50, superArmorDurability=120
+  +51400020  [VINS=同] hp=2963, getSoul=0, itemLotId_enemy=-1, itemLotId_map=-1, behaviorVariationId=51400, nameId=0, spEffectID0=0, spEffectID1=0, spEffectID2=5360, spEffectID3=7060, teamType=6, stamina=50, superArmorDurability=120
+  +53000685  [VINS=不同] hp=2765, getSoul=0, itemLotId_enemy=-1, itemLotId_map=-1, behaviorVariationId=53000, nameId=0, spEffectID0=5400, spEffectID1=5300, spEffectID2=0, spEffectID3=20007050, teamType=6, stamina=50, superArmorDurability=120
+  ~20300024  [VINS=不同]: hp:1452→1500; mp:0→1452; SfxResBankId:-1→5230; SoundAddBankId:-1→5230
+  ~20310024  [VINS=不同]: hp:1703→6900; spEffectID1:0→-1; spEffectID2:0→5300; SfxResBankId:-1→3702; SoundAddBankId:-1→3702; superArmorDurability:80→120
+  ~20400024  [VINS=同]: hp:85→450; spEffectID1:0→-1
+  ~20401024  [VINS=同]: hp:85→450; spEffectID1:0→-1
+  ~20402024  [VINS=同]: hp:85→450; spEffectID1:0→-1
+  ~20402124  [VINS=同]: hp:85→450; spEffectID1:0→-1
+  ~20402224  [VINS=同]: hp:85→450; spEffectID1:0→-1
+  ~20403024  [VINS=同]: hp:85→450; spEffectID1:0→-1
+  ~20404024  [VINS=同]: hp:85→450; spEffectID1:0→-1
+  ~45008024  [VINS=不同]: behaviorVariationId:45000→45020; lockDist:100→0; modelDispMask2:0→1; spEffectID18:10244→-1; spEffectID20:-1→10242; spEffectID21:-1→10245; spEffectID26:10252→10254; RetargetReferenceChrId:-1→4500; residentMaterialExParamId00:-1→22800; SoundAddBankId:4509→4502; lockScoreOffset:100→0
+  ~46008024  [VINS=不同]: spEffectID0:5400→5401; normalChangeTexChrId:8000→4600; lockDist:100→0; modelDispMask10:1→0; modelDispMask11:1→0; modelDispMask12:0→1; spEffectID20:-1→10131; spEffectID21:-1→102309; spEffectID22:-1→10136; SoundBankId:-1→4600; RetargetReferenceChrId:-1→4600; SfxResBankId:-1→4600; SoundAddBankId:4601→4604
+
+## NpcThinkParam  新增 1 / 修改 0   （VINS 里一模一样的 1 行）
+  +51400020  [VINS=同] logicId=10000, battleGoalID=513000, eye_dist=200, ear_dist=0.1
+
+## SpEffectParam  新增 7 / 修改 0   （VINS 里一模一样的 7 行）
+  +5056  [VINS=同]
+  +5057  [VINS=同]
+  +5058  [VINS=同]
+  +5059  [VINS=同]
+  +14752  [VINS=同]
+  +14753  [VINS=同]
+  +25020  [VINS=同]
+
+## SpEffectVfxParam  新增 1 / 修改 0   （VINS 里一模一样的 1 行）
+  +54110  [VINS=同]

@@ -1,0 +1,14 @@
+[package]
+name = "dark_dev"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+hudhook = "0.9.3"
+
+[profile.release]
+panic = "unwind"
+opt-level = 3

@@ -1,0 +1,2075 @@
+{
+ "_说明": "融锻之心的 Boss 掉落（用户 2026-11-04：「追忆boss按照难度从5个开始 依次+5掉落 其余boss不掉落融锻之心 然后进入死亡难度以上才是",
+ "fights": {
+  "10000800": {
+   "death": 10007991,
+   "normal": 10007988,
+   "rank": 1,
+   "tier": 3,
+   "entities": [
+    10000800
+   ],
+   "name": "Godrick the Grafted"
+  },
+  "10000850": {
+   "death": 10007989,
+   "normal": null,
+   "rank": 0,
+   "tier": 3,
+   "entities": [
+    10000850
+   ],
+   "name": "Margit, the Fell Omen"
+  },
+  "10010800": {
+   "death": 10017993,
+   "normal": null,
+   "rank": 0,
+   "tier": 6,
+   "entities": [
+    10010800
+   ],
+   "name": "Grafted Scion Boss"
+  },
+  "11000800": {
+   "death": 11007977,
+   "normal": 11007976,
+   "rank": 5,
+   "tier": 10,
+   "entities": [
+    11000800
+   ],
+   "name": "Morgott, the Omen King"
+  },
+  "11000850": {
+   "death": 11007975,
+   "normal": null,
+   "rank": 0,
+   "tier": 10,
+   "entities": [
+    11000850
+   ],
+   "name": "Goldfrey, First Elden Lord"
+  },
+  "11050800": {
+   "death": 11057991,
+   "normal": 11057990,
+   "rank": 12,
+   "tier": 15,
+   "entities": [
+    11050800
+   ],
+   "name": "Hoarah Loux, Warrior"
+  },
+  "11050850": {
+   "death": 11057989,
+   "normal": null,
+   "rank": 0,
+   "tier": 15,
+   "entities": [
+    11050850
+   ],
+   "name": "Sir Gideon Ofnir, the All-Knowing"
+  },
+  "12010800": {
+   "death": 12017986,
+   "normal": null,
+   "rank": 0,
+   "tier": 11,
+   "entities": [
+    12010800
+   ],
+   "name": "Dragonkin Soldier of Nokstella"
+  },
+  "12010850": {
+   "death": 12017984,
+   "normal": null,
+   "rank": 0,
+   "tier": 11,
+   "entities": [
+    12010850
+   ],
+   "name": "Dragonkin Soldier Boss"
+  },
+  "12020800": {
+   "death": 12027982,
+   "normal": null,
+   "rank": 0,
+   "tier": 9,
+   "entities": [
+    12020800
+   ],
+   "name": "Valiant Gargoyles"
+  },
+  "12020830": {
+   "death": 12027984,
+   "normal": null,
+   "rank": 0,
+   "tier": 9,
+   "entities": [
+    12020830
+   ],
+   "name": "Dragonkin Soldier Boss"
+  },
+  "12020850": {
+   "death": 12027983,
+   "normal": null,
+   "rank": 0,
+   "tier": 9,
+   "entities": [
+    12020850
+   ],
+   "name": "Mimic Tear"
+  },
+  "12030390": {
+   "death": 12037991,
+   "normal": null,
+   "rank": 0,
+   "tier": 11,
+   "entities": [
+    12030390
+   ],
+   "name": "Crucible Knight Siluria"
+  },
+  "12030800": {
+   "death": 12037989,
+   "normal": null,
+   "rank": 0,
+   "tier": 11,
+   "entities": [
+    12030800
+   ],
+   "name": "Fia's Champions"
+  },
+  "12030850": {
+   "death": 12037988,
+   "normal": 12037987,
+   "rank": 6,
+   "tier": 11,
+   "entities": [
+    12030850
+   ],
+   "name": "Lichdragon Fortissax"
+  },
+  "12040800": {
+   "death": 12047993,
+   "normal": 12047992,
+   "rank": 8,
+   "tier": 12,
+   "entities": [
+    12040800
+   ],
+   "name": "Astel, Naturalborn of the Void"
+  },
+  "12050800": {
+   "death": 12057993,
+   "normal": 12057992,
+   "rank": 13,
+   "tier": 17,
+   "entities": [
+    12050800
+   ],
+   "name": "Mohg, Lord of Blood"
+  },
+  "12080800": {
+   "death": 93667,
+   "normal": null,
+   "rank": 0,
+   "tier": 6,
+   "entities": [
+    12080800
+   ],
+   "name": "Ancestor Spirit"
+  },
+  "12090800": {
+   "death": 12097995,
+   "normal": 12097994,
+   "rank": 4,
+   "tier": 9,
+   "entities": [
+    12090800
+   ],
+   "name": "Regal Ancestor Spirit"
+  },
+  "13000800": {
+   "death": 13007982,
+   "normal": 13007981,
+   "rank": 10,
+   "tier": 14,
+   "entities": [
+    13000800
+   ],
+   "name": "Maliketh, the Black Blade"
+  },
+  "13000830": {
+   "death": 13007979,
+   "normal": 13007978,
+   "rank": 11,
+   "tier": 14,
+   "entities": [
+    13000830
+   ],
+   "name": "Dragonlord Placidusax"
+  },
+  "13000850": {
+   "death": 13007983,
+   "normal": null,
+   "rank": 0,
+   "tier": 14,
+   "entities": [
+    13000850
+   ],
+   "name": "Godskin Duo"
+  },
+  "14000800": {
+   "death": 14007986,
+   "normal": 14007988,
+   "rank": 2,
+   "tier": 6,
+   "entities": [
+    14000801
+   ],
+   "name": "Rennala 1"
+  },
+  "14000850": {
+   "death": 14007987,
+   "normal": null,
+   "rank": 0,
+   "tier": 6,
+   "entities": [
+    14000850
+   ],
+   "name": "Red Wolf of Radagon"
+  },
+  "15000800": {
+   "death": 15007991,
+   "normal": 15007988,
+   "rank": 14,
+   "tier": 19,
+   "entities": [
+    15000800
+   ],
+   "name": "Malenia, Blade of Miquella"
+  },
+  "15000850": {
+   "death": 15007989,
+   "normal": null,
+   "rank": 0,
+   "tier": 19,
+   "entities": [
+    15000850
+   ],
+   "name": "Loretta, Knight of the Haligtree"
+  },
+  "16000800": {
+   "death": 16007982,
+   "normal": 16007981,
+   "rank": 7,
+   "tier": 11,
+   "entities": [
+    16000800
+   ],
+   "name": "Rykard, Lord of Blasphemy"
+  },
+  "16000850": {
+   "death": 16007984,
+   "normal": null,
+   "rank": 0,
+   "tier": 11,
+   "entities": [
+    16000850
+   ],
+   "name": "Godskin Noble Boss"
+  },
+  "16000860": {
+   "death": 16007983,
+   "normal": null,
+   "rank": 0,
+   "tier": 11,
+   "entities": [
+    16000860
+   ],
+   "name": "Abductor Virgin Duo"
+  },
+  "18000800": {
+   "death": 18007993,
+   "normal": null,
+   "rank": 0,
+   "tier": 6,
+   "entities": [
+    18000800
+   ],
+   "name": "Ulcerated Tree Spirit Boss"
+  },
+  "18000850": {
+   "death": 93684,
+   "normal": null,
+   "rank": 0,
+   "tier": 1,
+   "entities": [
+    18000850
+   ],
+   "name": "Soldier of Godrick"
+  },
+  "19000800": {
+   "death": 19007993,
+   "normal": 19007992,
+   "rank": 15,
+   "tier": 20,
+   "entities": [
+    19000810
+   ],
+   "name": "Radagon of the Golden Order"
+  },
+  "20000800": {
+   "death": 20007990,
+   "normal": 20007992,
+   "rank": 16,
+   "tier": 22,
+   "entities": [
+    20000800
+   ],
+   "name": "Divine Beast Dancing Lion"
+  },
+  "20010800": {
+   "death": 20017993,
+   "normal": 20017992,
+   "rank": 25,
+   "tier": 32,
+   "entities": [
+    20010800
+   ],
+   "name": "Radahn, Consort of Miquella"
+  },
+  "21000850": {
+   "death": 21007989,
+   "normal": null,
+   "rank": 0,
+   "tier": 27,
+   "entities": [
+    21000850
+   ],
+   "name": "Golden Hippopotamus"
+  },
+  "21010800": {
+   "death": 21017993,
+   "normal": 21017992,
+   "rank": 20,
+   "tier": 29,
+   "entities": [
+    21010800
+   ],
+   "name": "Base Serpent Messmer"
+  },
+  "22000800": {
+   "death": 22007993,
+   "normal": 22007992,
+   "rank": 18,
+   "tier": 27,
+   "entities": [
+    22000800
+   ],
+   "name": "Putrescent Knight"
+  },
+  "25000800": {
+   "death": 25007993,
+   "normal": 25007992,
+   "rank": 24,
+   "tier": 32,
+   "entities": [
+    25000800
+   ],
+   "name": "Metyr, Mother of Fingers"
+  },
+  "28000800": {
+   "death": 28007993,
+   "normal": 28007992,
+   "rank": 23,
+   "tier": 31,
+   "entities": [
+    28000800
+   ],
+   "name": "Midra, Lord of Frenzied Flame"
+  },
+  "30000800": {
+   "death": 30007993,
+   "normal": null,
+   "rank": 0,
+   "tier": 2,
+   "entities": [
+    30000800
+   ],
+   "name": "Cemetery Shade Boss"
+  },
+  "30010800": {
+   "death": 30017993,
+   "normal": null,
+   "rank": 0,
+   "tier": 2,
+   "entities": [
+    30010800
+   ],
+   "name": "Erdtree Burial Watchdog and Imps"
+  },
+  "30020800": {
+   "death": 30027993,
+   "normal": null,
+   "rank": 0,
+   "tier": 1,
+   "entities": [
+    30020800
+   ],
+   "name": "Fire Erdtree Burial Watchdog Boss"
+  },
+  "30030800": {
+   "death": 30037993,
+   "normal": null,
+   "rank": 0,
+   "tier": 6,
+   "entities": [
+    30030800
+   ],
+   "name": "Crucible Spiritcaller Snail"
+  },
+  "30040800": {
+   "death": 30047993,
+   "normal": null,
+   "rank": 0,
+   "tier": 1,
+   "entities": [
+    30040800
+   ],
+   "name": "Grave Warden Duelist Boss"
+  },
+  "30050800": {
+   "death": 30057991,
+   "normal": null,
+   "rank": 0,
+   "tier": 6,
+   "entities": [
+    30050800
+   ],
+   "name": "Cemetery Shade and Skeletons"
+  },
+  "30050850": {
+   "death": 30057990,
+   "normal": null,
+   "rank": 0,
+   "tier": 6,
+   "entities": [
+    30050850
+   ],
+   "name": "Black Knife Assassin Boss"
+  },
+  "30060800": {
+   "death": 30067993,
+   "normal": null,
+   "rank": 0,
+   "tier": 6,
+   "entities": [
+    30060800
+   ],
+   "name": "Scepter Erdtree Burial Watchdog Boss"
+  },
+  "30070800": {
+   "death": 30077993,
+   "normal": null,
+   "rank": 0,
+   "tier": 9,
+   "entities": [
+    30070800
+   ],
+   "name": "Lightning Erdtree Burial Watchdog Boss"
+  },
+  "30080800": {
+   "death": 30087993,
+   "normal": null,
+   "rank": 0,
+   "tier": 8,
+   "entities": [
+    30080800
+   ],
+   "name": "Ancient Hero of Zamor Boss"
+  },
+  "30090800": {
+   "death": 30097993,
+   "normal": null,
+   "rank": 0,
+   "tier": 9,
+   "entities": [
+    30090800
+   ],
+   "name": "Red Wolf of the Champion"
+  },
+  "30100800": {
+   "death": 30107993,
+   "normal": null,
+   "rank": 0,
+   "tier": 9,
+   "entities": [
+    30100800
+   ],
+   "name": "Crucible Knight Duo"
+  },
+  "30110800": {
+   "death": 30117993,
+   "normal": null,
+   "rank": 0,
+   "tier": 1,
+   "entities": [
+    30110800
+   ],
+   "name": "Black Knife Assassin Boss"
+  },
+  "30120800": {
+   "death": 30127993,
+   "normal": null,
+   "rank": 0,
+   "tier": 8,
+   "entities": [
+    30120800
+   ],
+   "name": "Misbegotten Perfumer Duo"
+  },
+  "30130800": {
+   "death": 30137993,
+   "normal": null,
+   "rank": 0,
+   "tier": 9,
+   "entities": [
+    30130800
+   ],
+   "name": "Grave Warden Duelist Boss"
+  },
+  "30140800": {
+   "death": 30147993,
+   "normal": null,
+   "rank": 0,
+   "tier": 7,
+   "entities": [
+    30140800
+   ],
+   "name": "Erdtree Burial Watchdog Duo"
+  },
+  "30150800": {
+   "death": 30157993,
+   "normal": null,
+   "rank": 0,
+   "tier": 7,
+   "entities": [
+    30150800
+   ],
+   "name": "Cemetery Shade Boss"
+  },
+  "30160800": {
+   "death": 30167993,
+   "normal": null,
+   "rank": 0,
+   "tier": 15,
+   "entities": [
+    30160800
+   ],
+   "name": "Putrid Tree Spirit Boss"
+  },
+  "30170800": {
+   "death": 30177993,
+   "normal": null,
+   "rank": 0,
+   "tier": 12,
+   "entities": [
+    30170800
+   ],
+   "name": "Ancient Hero of Zamor Boss"
+  },
+  "30180800": {
+   "death": 30187993,
+   "normal": null,
+   "rank": 0,
+   "tier": 12,
+   "entities": [
+    30180800
+   ],
+   "name": "Ulcerated Tree Spirit Boss"
+  },
+  "30190800": {
+   "death": 30197993,
+   "normal": null,
+   "rank": 0,
+   "tier": 16,
+   "entities": [
+    30190800
+   ],
+   "name": "Putrid Grave Warden Duelist"
+  },
+  "30200800": {
+   "death": 30207993,
+   "normal": null,
+   "rank": 0,
+   "tier": 16,
+   "entities": [
+    30200800
+   ],
+   "name": "Stray Mimic Tear"
+  },
+  "31010800": {
+   "death": 31017993,
+   "normal": null,
+   "rank": 0,
+   "tier": 2,
+   "entities": [
+    31010800
+   ],
+   "name": "Runebear Boss"
+  },
+  "31020800": {
+   "death": 31027993,
+   "normal": null,
+   "rank": 0,
+   "tier": 2,
+   "entities": [
+    31020800
+   ],
+   "name": "Miranda Blossom and Sprouts"
+  },
+  "31030800": {
+   "death": 93685,
+   "normal": null,
+   "rank": 0,
+   "tier": 1,
+   "entities": [
+    31030800
+   ],
+   "name": "Beastman of Farum Azula Boss"
+  },
+  "31040800": {
+   "death": 31047993,
+   "normal": null,
+   "rank": 0,
+   "tier": 6,
+   "entities": [
+    31040800
+   ],
+   "name": "Cleanrot Knight Boss"
+  },
+  "31050800": {
+   "death": 31057993,
+   "normal": null,
+   "rank": 0,
+   "tier": 6,
+   "entities": [
+    31050800
+   ],
+   "name": "Bloodhound Knight Boss"
+  },
+  "31060800": {
+   "death": 31067993,
+   "normal": null,
+   "rank": 0,
+   "tier": 6,
+   "entities": [
+    31060800
+   ],
+   "name": "Crystalian Staff Spear Duo"
+  },
+  "31070800": {
+   "death": 31077993,
+   "normal": null,
+   "rank": 0,
+   "tier": 9,
+   "entities": [
+    31070800
+   ],
+   "name": "Kindred of Rot Duo"
+  },
+  "31090800": {
+   "death": 31097993,
+   "normal": null,
+   "rank": 0,
+   "tier": 9,
+   "entities": [
+    31090800
+   ],
+   "name": "Demi-Human Queen Margot"
+  },
+  "31100800": {
+   "death": 31107993,
+   "normal": null,
+   "rank": 0,
+   "tier": 15,
+   "entities": [
+    31100800
+   ],
+   "name": "Beastman of Farum Azula Duo"
+  },
+  "31110800": {
+   "death": 31117993,
+   "normal": null,
+   "rank": 0,
+   "tier": 7,
+   "entities": [
+    31110800
+   ],
+   "name": "Putrid Crystalian Trio"
+  },
+  "31120800": {
+   "death": 31127993,
+   "normal": null,
+   "rank": 0,
+   "tier": 16,
+   "entities": [
+    31120800
+   ],
+   "name": "Misbegotten Crusader"
+  },
+  "31150800": {
+   "death": 93657,
+   "normal": null,
+   "rank": 0,
+   "tier": 1,
+   "entities": [
+    31150800
+   ],
+   "name": "Demi-Human Chief Duo"
+  },
+  "31170800": {
+   "death": 31177993,
+   "normal": null,
+   "rank": 0,
+   "tier": 1,
+   "entities": [
+    31170800
+   ],
+   "name": "Guardian Golem Boss"
+  },
+  "31180800": {
+   "death": 31187993,
+   "normal": null,
+   "rank": 0,
+   "tier": 8,
+   "entities": [
+    31180800
+   ],
+   "name": "Miranda Omenkiller Duo"
+  },
+  "31190800": {
+   "death": 31197991,
+   "normal": null,
+   "rank": 0,
+   "tier": 8,
+   "entities": [
+    31190800
+   ],
+   "name": "Invisible Black Knife Assassin Boss"
+  },
+  "31190850": {
+   "death": 31197990,
+   "normal": null,
+   "rank": 0,
+   "tier": 8,
+   "entities": [
+    31190850
+   ],
+   "name": "Necromancer Garris"
+  },
+  "31200800": {
+   "death": 31207993,
+   "normal": null,
+   "rank": 0,
+   "tier": 7,
+   "entities": [
+    31200800
+   ],
+   "name": "Cleanrot Knight Duo"
+  },
+  "31210800": {
+   "death": 31217993,
+   "normal": null,
+   "rank": 0,
+   "tier": 7,
+   "entities": [
+    31210800
+   ],
+   "name": "Frenzied Duelist"
+  },
+  "31220800": {
+   "death": 31227993,
+   "normal": null,
+   "rank": 0,
+   "tier": 12,
+   "entities": [
+    31220800
+   ],
+   "name": "Godskin Spiritcaller Snail"
+  },
+  "32000800": {
+   "death": 32007993,
+   "normal": null,
+   "rank": 0,
+   "tier": 2,
+   "entities": [
+    32000800
+   ],
+   "name": "Scaly Misbegotten Boss"
+  },
+  "32010800": {
+   "death": 32017993,
+   "normal": null,
+   "rank": 0,
+   "tier": 1,
+   "entities": [
+    32010800
+   ],
+   "name": "Stonedigger Troll"
+  },
+  "32020800": {
+   "death": 32027993,
+   "normal": null,
+   "rank": 0,
+   "tier": 6,
+   "entities": [
+    32020800
+   ],
+   "name": "Ringblade Crystalian Boss"
+  },
+  "32040800": {
+   "death": 32047993,
+   "normal": null,
+   "rank": 0,
+   "tier": 8,
+   "entities": [
+    32040800
+   ],
+   "name": "Stonedigger Troll"
+  },
+  "32050800": {
+   "death": 32057993,
+   "normal": null,
+   "rank": 0,
+   "tier": 8,
+   "entities": [
+    32050800
+   ],
+   "name": "Crystalian Ringblade Spear Duo"
+  },
+  "32070800": {
+   "death": 32077993,
+   "normal": null,
+   "rank": 0,
+   "tier": 7,
+   "entities": [
+    32070800
+   ],
+   "name": "Magma Wyrm Boss"
+  },
+  "32080800": {
+   "death": 32087993,
+   "normal": null,
+   "rank": 0,
+   "tier": 7,
+   "entities": [
+    32080800
+   ],
+   "name": "Regular Fallingstar Beast"
+  },
+  "32110800": {
+   "death": 32117993,
+   "normal": null,
+   "rank": 0,
+   "tier": 16,
+   "entities": [
+    32110800
+   ],
+   "name": "Astel, Stars of Darkness"
+  },
+  "34120800": {
+   "death": 34127993,
+   "normal": null,
+   "rank": 0,
+   "tier": 9,
+   "entities": [
+    34120800
+   ],
+   "name": "Onyx Lord Boss"
+  },
+  "34130800": {
+   "death": 34137993,
+   "normal": null,
+   "rank": 0,
+   "tier": 15,
+   "entities": [
+    34130800
+   ],
+   "name": "Godskin Apostle"
+  },
+  "34140850": {
+   "death": 34147993,
+   "normal": null,
+   "rank": 0,
+   "tier": 12,
+   "entities": [
+    34140850
+   ],
+   "name": "Fell Twin Duo"
+  },
+  "35000800": {
+   "death": 35007987,
+   "normal": null,
+   "rank": 0,
+   "tier": 13,
+   "entities": [
+    35000800
+   ],
+   "name": "Mohg, the Omen"
+  },
+  "35000850": {
+   "death": 35007986,
+   "normal": null,
+   "rank": 0,
+   "tier": 13,
+   "entities": [
+    35000850
+   ],
+   "name": "Esgar, Priest of Blood"
+  },
+  "39200800": {
+   "death": 39207993,
+   "normal": null,
+   "rank": 0,
+   "tier": 7,
+   "entities": [
+    39200800
+   ],
+   "name": "Magma Wyrm Makar"
+  },
+  "40000800": {
+   "death": 40007993,
+   "normal": null,
+   "rank": 0,
+   "tier": 23,
+   "entities": [
+    40000800
+   ],
+   "name": "Twin Axe Death Knight"
+  },
+  "40010800": {
+   "death": 40017993,
+   "normal": null,
+   "rank": 0,
+   "tier": 26,
+   "entities": [
+    40010800
+   ],
+   "name": "Longhaft Death Knight"
+  },
+  "41000800": {
+   "death": 41007992,
+   "normal": null,
+   "rank": 0,
+   "tier": 21,
+   "entities": [
+    41000800
+   ],
+   "name": "Demi-Human Swordmaster Onze"
+  },
+  "41010800": {
+   "death": 41017992,
+   "normal": null,
+   "rank": 0,
+   "tier": 25,
+   "entities": [
+    41010800
+   ],
+   "name": "Curseblade Labirith"
+  },
+  "41020800": {
+   "death": 41027992,
+   "normal": null,
+   "rank": 0,
+   "tier": 26,
+   "entities": [
+    41020800
+   ],
+   "name": "Lamenter"
+  },
+  "43000800": {
+   "death": 43007993,
+   "normal": null,
+   "rank": 0,
+   "tier": 25,
+   "entities": [
+    43000800
+   ],
+   "name": "Chief Bloodfiend Boss"
+  },
+  "43010800": {
+   "death": 43017993,
+   "normal": null,
+   "rank": 0,
+   "tier": 23,
+   "entities": [
+    43010800
+   ],
+   "name": "Ancient Dragon-Man"
+  },
+  "1033420800": {
+   "death": 1033427993,
+   "normal": null,
+   "rank": 0,
+   "tier": 6,
+   "entities": [
+    1033420800
+   ],
+   "name": "Alecto, Black Knife Ringleader"
+  },
+  "1033430800": {
+   "death": 1033437993,
+   "normal": null,
+   "rank": 0,
+   "tier": 6,
+   "entities": [
+    1033430800
+   ],
+   "name": "Erdtree Avatar Boss"
+  },
+  "1033450800": {
+   "death": 1033457993,
+   "normal": null,
+   "rank": 0,
+   "tier": 6,
+   "entities": [
+    1033450800
+   ],
+   "name": "Bols, Carian Knight"
+  },
+  "1034420800": {
+   "death": 1034427993,
+   "normal": null,
+   "rank": 0,
+   "tier": 6,
+   "entities": [
+    1034420800
+   ],
+   "name": "Glintstone Dragon Adula"
+  },
+  "1034450800": {
+   "death": 1034457993,
+   "normal": null,
+   "rank": 0,
+   "tier": 10,
+   "entities": [
+    1034450800
+   ],
+   "name": "Glintstone Dragon Smarag"
+  },
+  "1034480800": {
+   "death": 93659,
+   "normal": null,
+   "rank": 0,
+   "tier": 6,
+   "entities": [
+    1034480800
+   ],
+   "name": "Royal Revenant Boss"
+  },
+  "1034500800": {
+   "death": 93660,
+   "normal": null,
+   "rank": 0,
+   "tier": 6,
+   "entities": [
+    1034500800
+   ],
+   "name": "Glintstone Dragon Adula"
+  },
+  "1035420800": {
+   "death": 1035427993,
+   "normal": null,
+   "rank": 0,
+   "tier": 6,
+   "entities": [
+    1035420800
+   ],
+   "name": "Omenkiller Boss"
+  },
+  "1035500800": {
+   "death": 1035507993,
+   "normal": null,
+   "rank": 0,
+   "tier": 6,
+   "entities": [
+    1035500800
+   ],
+   "name": "Royal Knight Loretta"
+  },
+  "1035530800": {
+   "death": 1035537993,
+   "normal": null,
+   "rank": 0,
+   "tier": 9,
+   "entities": [
+    1035530800
+   ],
+   "name": "Magma Wyrm Boss"
+  },
+  "1036450800": {
+   "death": 1036457993,
+   "normal": null,
+   "rank": 0,
+   "tier": 6,
+   "entities": [
+    1036450340
+   ],
+   "name": "Death Rite Bird"
+  },
+  "1036480800": {
+   "death": 1036487993,
+   "normal": null,
+   "rank": 0,
+   "tier": 6,
+   "entities": [
+    1036480340
+   ],
+   "name": "Night's Cavalry"
+  },
+  "1036500800": {
+   "death": 1036507993,
+   "normal": null,
+   "rank": 0,
+   "tier": 6,
+   "entities": [
+    1036500800
+   ],
+   "name": "Onyx Lord Boss"
+  },
+  "1036540800": {
+   "death": 1036547993,
+   "normal": null,
+   "rank": 0,
+   "tier": 9,
+   "entities": [
+    1036540800
+   ],
+   "name": "Full-Grown Fallingstar Beast"
+  },
+  "1037420800": {
+   "death": 1037427993,
+   "normal": null,
+   "rank": 0,
+   "tier": 6,
+   "entities": [
+    1037420340
+   ],
+   "name": "Deathbird"
+  },
+  "1037460800": {
+   "death": 1037467993,
+   "normal": null,
+   "rank": 0,
+   "tier": 6,
+   "entities": [
+    1037460800
+   ],
+   "name": "Bell Bearing Hunter"
+  },
+  "1037510800": {
+   "death": 1037517993,
+   "normal": null,
+   "rank": 0,
+   "tier": 8,
+   "entities": [
+    1037510800
+   ],
+   "name": "Ancient Dragon Lansseax"
+  },
+  "1037530800": {
+   "death": 1037537993,
+   "normal": null,
+   "rank": 0,
+   "tier": 9,
+   "entities": [
+    1037530800
+   ],
+   "name": "Demi-Human Queen Maggie"
+  },
+  "1037540810": {
+   "death": 1037547993,
+   "normal": null,
+   "rank": 0,
+   "tier": 9,
+   "entities": [
+    1037540810
+   ],
+   "name": "Ulcerated Tree Spirit Boss"
+  },
+  "1038410800": {
+   "death": 1038417993,
+   "normal": null,
+   "rank": 0,
+   "tier": 6,
+   "entities": [
+    1038410800
+   ],
+   "name": "Adan, Thief of Fire"
+  },
+  "1038480800": {
+   "death": 1038487993,
+   "normal": null,
+   "rank": 0,
+   "tier": 6,
+   "entities": [
+    1038480800
+   ],
+   "name": "Erdtree Avatar Boss"
+  },
+  "1038510800": {
+   "death": 93662,
+   "normal": null,
+   "rank": 0,
+   "tier": 8,
+   "entities": [
+    1038510800
+   ],
+   "name": "Demi-Human Queen Gilika"
+  },
+  "1038520800": {
+   "death": 1038527993,
+   "normal": null,
+   "rank": 0,
+   "tier": 9,
+   "entities": [
+    1038520340
+   ],
+   "name": "Tibia Mariner Boss"
+  },
+  "1039430800": {
+   "death": 1039437993,
+   "normal": null,
+   "rank": 0,
+   "tier": 6,
+   "entities": [
+    1039430340
+   ],
+   "name": "Night's Cavalry"
+  },
+  "1039440800": {
+   "death": 1039447993,
+   "normal": null,
+   "rank": 0,
+   "tier": 6,
+   "entities": [
+    1039440800
+   ],
+   "name": "Tibia Mariner Boss"
+  },
+  "1039500800": {
+   "death": 1039507993,
+   "normal": null,
+   "rank": 0,
+   "tier": 8,
+   "entities": [
+    1039500800
+   ],
+   "name": "Godefroy the Grafted"
+  },
+  "1039510800": {
+   "death": 1039517993,
+   "normal": null,
+   "rank": 0,
+   "tier": 8,
+   "entities": [
+    1039510800
+   ],
+   "name": "Night's Cavalry"
+  },
+  "1039540800": {
+   "death": 1039547993,
+   "normal": null,
+   "rank": 0,
+   "tier": 9,
+   "entities": [
+    1039540800
+   ],
+   "name": "Elemer of the Briar"
+  },
+  "1040520800": {
+   "death": 1040527993,
+   "normal": null,
+   "rank": 0,
+   "tier": 8,
+   "entities": [
+    1040520800
+   ],
+   "name": "Black Knife Assassin Boss"
+  },
+  "1040530800": {
+   "death": 93663,
+   "normal": null,
+   "rank": 0,
+   "tier": 8,
+   "entities": [
+    1040530800
+   ],
+   "name": "Sanguine Noble Boss"
+  },
+  "1041500800": {
+   "death": 1041507993,
+   "normal": null,
+   "rank": 0,
+   "tier": 8,
+   "entities": [
+    1041500800
+   ],
+   "name": "Regular Fallingstar Beast"
+  },
+  "1041510800": {
+   "death": 1041517993,
+   "normal": null,
+   "rank": 0,
+   "tier": 8,
+   "entities": [
+    1041510800
+   ],
+   "name": "Tree Sentinel"
+  },
+  "1041520800": {
+   "death": 93664,
+   "normal": null,
+   "rank": 0,
+   "tier": 8,
+   "entities": [
+    1041520800
+   ],
+   "name": "Ancient Dragon Lansseax"
+  },
+  "1041530800": {
+   "death": 1041537993,
+   "normal": null,
+   "rank": 0,
+   "tier": 8,
+   "entities": [
+    1041530800
+   ],
+   "name": "Wormface Boss"
+  },
+  "1042330800": {
+   "death": 1042337993,
+   "normal": null,
+   "rank": 0,
+   "tier": 2,
+   "entities": [
+    1042330800
+   ],
+   "name": "Ancient Hero of Zamor Boss"
+  },
+  "1042360800": {
+   "death": 1042367993,
+   "normal": null,
+   "rank": 0,
+   "tier": 1,
+   "entities": [
+    1042360800
+   ],
+   "name": "Tree Sentinel"
+  },
+  "1042370800": {
+   "death": 1042377993,
+   "normal": null,
+   "rank": 0,
+   "tier": 1,
+   "entities": [
+    1042370800
+   ],
+   "name": "Crucible Knight Boss"
+  },
+  "1042380800": {
+   "death": 1042387991,
+   "normal": null,
+   "rank": 0,
+   "tier": 1,
+   "entities": [
+    1042380800
+   ],
+   "name": "Deathbird"
+  },
+  "1042380850": {
+   "death": 1042387990,
+   "normal": null,
+   "rank": 0,
+   "tier": 1,
+   "entities": [
+    1042380850
+   ],
+   "name": "Bell Bearing Hunter"
+  },
+  "1042550800": {
+   "death": 1042557993,
+   "normal": null,
+   "rank": 0,
+   "tier": 10,
+   "entities": [
+    1042550800
+   ],
+   "name": "Godskin Apostle"
+  },
+  "1043300800": {
+   "death": 1043307993,
+   "normal": null,
+   "rank": 0,
+   "tier": 3,
+   "entities": [
+    1043300800
+   ],
+   "name": "Leonine Misbegotten Boss"
+  },
+  "1043330800": {
+   "death": 1043337993,
+   "normal": null,
+   "rank": 0,
+   "tier": 2,
+   "entities": [
+    1043330800
+   ],
+   "name": "Erdtree Avatar Boss"
+  },
+  "1043360800": {
+   "death": 1043367993,
+   "normal": null,
+   "rank": 0,
+   "tier": 1,
+   "entities": [
+    1043360800
+   ],
+   "name": "Flying Dragon Agheel"
+  },
+  "1043370800": {
+   "death": 1043377993,
+   "normal": null,
+   "rank": 0,
+   "tier": 1,
+   "entities": [
+    1043370340
+   ],
+   "name": "Night's Cavalry"
+  },
+  "1043530800": {
+   "death": 1043537993,
+   "normal": null,
+   "rank": 0,
+   "tier": 9,
+   "entities": [
+    1043530800
+   ],
+   "name": "Bell Bearing Hunter"
+  },
+  "1044320800": {
+   "death": 1044327991,
+   "normal": null,
+   "rank": 0,
+   "tier": 2,
+   "entities": [
+    1044320340
+   ],
+   "name": "Deathbird"
+  },
+  "1044320850": {
+   "death": 1044327990,
+   "normal": null,
+   "rank": 0,
+   "tier": 2,
+   "entities": [
+    1044320342
+   ],
+   "name": "Night's Cavalry"
+  },
+  "1044350800": {
+   "death": 1044357993,
+   "normal": null,
+   "rank": 0,
+   "tier": 1,
+   "entities": [
+    1044350800
+   ],
+   "name": "Bloodhound Knight Darriwil"
+  },
+  "1044360800": {
+   "death": 93658,
+   "normal": null,
+   "rank": 0,
+   "tier": 1,
+   "entities": [
+    1044360800
+   ],
+   "name": "Mad Pumpkin Head Boss"
+  },
+  "1044530800": {
+   "death": 1044537993,
+   "normal": null,
+   "rank": 0,
+   "tier": 9,
+   "entities": [
+    1044530800
+   ],
+   "name": "Deathbird"
+  },
+  "1045390800": {
+   "death": 1045397993,
+   "normal": null,
+   "rank": 0,
+   "tier": 1,
+   "entities": [
+    1045390800
+   ],
+   "name": "Tibia Mariner Boss"
+  },
+  "1045520800": {
+   "death": 1045527993,
+   "normal": null,
+   "rank": 0,
+   "tier": 9,
+   "entities": [
+    1045520800
+   ],
+   "name": "Draconic Tree Sentinel Boss"
+  },
+  "1047400800": {
+   "death": 1047407993,
+   "normal": null,
+   "rank": 0,
+   "tier": 7,
+   "entities": [
+    1047400800
+   ],
+   "name": "Putrid Avatar Boss"
+  },
+  "1048370800": {
+   "death": 1048377993,
+   "normal": null,
+   "rank": 0,
+   "tier": 7,
+   "entities": [
+    1048370800
+   ],
+   "name": "Decaying Ekzykes"
+  },
+  "1048400800": {
+   "death": 93661,
+   "normal": null,
+   "rank": 0,
+   "tier": 7,
+   "entities": [
+    1048400800
+   ],
+   "name": "Mad Pumpkin Head Duo"
+  },
+  "1048410800": {
+   "death": 1048417993,
+   "normal": null,
+   "rank": 0,
+   "tier": 7,
+   "entities": [
+    1048410800
+   ],
+   "name": "Bell Bearing Hunter"
+  },
+  "1048510800": {
+   "death": 1048517993,
+   "normal": null,
+   "rank": 0,
+   "tier": 12,
+   "entities": [
+    1048510800
+   ],
+   "name": "Night's Cavalry"
+  },
+  "1048570800": {
+   "death": 1048577993,
+   "normal": null,
+   "rank": 0,
+   "tier": 16,
+   "entities": [
+    1048570800
+   ],
+   "name": "Death Rite Bird"
+  },
+  "1049370800": {
+   "death": 1049377991,
+   "normal": null,
+   "rank": 0,
+   "tier": 7,
+   "entities": [
+    1049370800
+   ],
+   "name": "Night's Cavalry"
+  },
+  "1049370850": {
+   "death": 1049377990,
+   "normal": null,
+   "rank": 0,
+   "tier": 7,
+   "entities": [
+    1049370850
+   ],
+   "name": "Death Rite Bird"
+  },
+  "1049380800": {
+   "death": 1049387993,
+   "normal": null,
+   "rank": 0,
+   "tier": 7,
+   "entities": [
+    1049380800
+   ],
+   "name": "Commander O'Neil"
+  },
+  "1049390800": {
+   "death": 1049397991,
+   "normal": null,
+   "rank": 0,
+   "tier": 7,
+   "entities": [
+    1049390800
+   ],
+   "name": "Nox Duo"
+  },
+  "1049390850": {
+   "death": 1049397990,
+   "normal": null,
+   "rank": 0,
+   "tier": 7,
+   "entities": [
+    1049390850
+   ],
+   "name": "Battlemage Hugues"
+  },
+  "1049520800": {
+   "death": 1049527993,
+   "normal": null,
+   "rank": 0,
+   "tier": 12,
+   "entities": [
+    1049520800
+   ],
+   "name": "Black Blade Kindred"
+  },
+  "1050560800": {
+   "death": 1050567993,
+   "normal": null,
+   "rank": 0,
+   "tier": 16,
+   "entities": [
+    1050560800
+   ],
+   "name": "Great Wyrm Theodorix"
+  },
+  "1050570800": {
+   "death": 1050577991,
+   "normal": null,
+   "rank": 0,
+   "tier": 18,
+   "entities": [
+    1050570800
+   ],
+   "name": "Death Rite Bird"
+  },
+  "1050570850": {
+   "death": 1050577990,
+   "normal": null,
+   "rank": 0,
+   "tier": 18,
+   "entities": [
+    1050570850
+   ],
+   "name": "Putrid Avatar Boss"
+  },
+  "1051360800": {
+   "death": 1051367993,
+   "normal": null,
+   "rank": 0,
+   "tier": 8,
+   "entities": [
+    1051360800
+   ],
+   "name": "Crucible Misbegotten Duo"
+  },
+  "1051400800": {
+   "death": 1051407993,
+   "normal": null,
+   "rank": 0,
+   "tier": 15,
+   "entities": [
+    1051400800
+   ],
+   "name": "Putrid Avatar Boss"
+  },
+  "1051430800": {
+   "death": 1051437993,
+   "normal": null,
+   "rank": 0,
+   "tier": 15,
+   "entities": [
+    1051430800
+   ],
+   "name": "Black Blade Kindred"
+  },
+  "1051570800": {
+   "death": 1051577993,
+   "normal": null,
+   "rank": 0,
+   "tier": 13,
+   "entities": [
+    1051570800
+   ],
+   "name": "Commander Niall"
+  },
+  "1052410800": {
+   "death": 1052417991,
+   "normal": null,
+   "rank": 0,
+   "tier": 17,
+   "entities": [
+    1052410800
+   ],
+   "name": "Flying Dragon Greyll"
+  },
+  "1052410850": {
+   "death": 1052417990,
+   "normal": null,
+   "rank": 0,
+   "tier": 17,
+   "entities": [
+    1052410850
+   ],
+   "name": "Night's Cavalry"
+  },
+  "1052560800": {
+   "death": 1052567993,
+   "normal": null,
+   "rank": 0,
+   "tier": 12,
+   "entities": [
+    1052560800
+   ],
+   "name": "Erdtree Avatar Duo"
+  },
+  "1053560800": {
+   "death": 1053567993,
+   "normal": null,
+   "rank": 0,
+   "tier": 12,
+   "entities": [
+    1053560800
+   ],
+   "name": "Roundtable Knight Vyke"
+  },
+  "1248550800": {
+   "death": 1248557995,
+   "normal": null,
+   "rank": 0,
+   "tier": 16,
+   "entities": [
+    1248550800
+   ],
+   "name": "Night's Cavalry"
+  },
+  "1252380800": {
+   "death": 1252387995,
+   "normal": 1252387994,
+   "rank": 3,
+   "tier": 8,
+   "entities": [
+    1052380800
+   ],
+   "name": "Starscourge Radahn"
+  },
+  "1252520800": {
+   "death": 1052527995,
+   "normal": 1052527994,
+   "rank": 9,
+   "tier": 12,
+   "entities": [
+    1052520800
+   ],
+   "name": "Fire Giant"
+  },
+  "1254560800": {
+   "death": 1054567993,
+   "normal": null,
+   "rank": 0,
+   "tier": 12,
+   "entities": [
+    1054560800
+   ],
+   "name": "Borealis the Freezing Fog"
+  },
+  "2044450800": {
+   "death": 2044457993,
+   "normal": 2044457992,
+   "rank": 22,
+   "tier": 30,
+   "entities": [
+    2044450800
+   ],
+   "name": "Romina, Saint of the Bud"
+  },
+  "2044470800": {
+   "death": 2044477993,
+   "normal": null,
+   "rank": 0,
+   "tier": 26,
+   "entities": [
+    2044470800
+   ],
+   "name": "Rugalea the Great Red Bear"
+  },
+  "2045440800": {
+   "death": 2045447993,
+   "normal": null,
+   "rank": 0,
+   "tier": 21,
+   "entities": [
+    2045440800
+   ],
+   "name": "Ghostflame Dragon Boss"
+  },
+  "2046380800": {
+   "death": 2046387993,
+   "normal": null,
+   "rank": 0,
+   "tier": 24,
+   "entities": [
+    2046380800
+   ],
+   "name": "Dancer of Ranah"
+  },
+  "2046400800": {
+   "death": 2046407993,
+   "normal": null,
+   "rank": 0,
+   "tier": 21,
+   "entities": [
+    2046400800
+   ],
+   "name": "Demi-Human Queen Marigga"
+  },
+  "2046410800": {
+   "death": 2046417993,
+   "normal": null,
+   "rank": 0,
+   "tier": 21,
+   "entities": [
+    2046410800
+   ],
+   "name": "Knight of the Solitary Gaol"
+  },
+  "2046450800": {
+   "death": 2046457993,
+   "normal": null,
+   "rank": 0,
+   "tier": 26,
+   "entities": [
+    2046450800
+   ],
+   "name": "Red Bear"
+  },
+  "2046460800": {
+   "death": 2046467993,
+   "normal": null,
+   "rank": 0,
+   "tier": 26,
+   "entities": [
+    2046460800
+   ],
+   "name": "Divine Beast Dancing Lion and Basilisks"
+  },
+  "2047390800": {
+   "death": 2047397992,
+   "normal": null,
+   "rank": 0,
+   "tier": 26,
+   "entities": [
+    2047390800
+   ],
+   "name": "Death Rite Bird"
+  },
+  "2047450800": {
+   "death": 2047457993,
+   "normal": null,
+   "rank": 0,
+   "tier": 25,
+   "entities": [
+    2047450800
+   ],
+   "name": "Black Knight Garrew"
+  },
+  "2048380850": {
+   "death": 2048387993,
+   "normal": null,
+   "rank": 0,
+   "tier": 24,
+   "entities": [
+    2048380850
+   ],
+   "name": "Ghostflame Dragon and Skeletons"
+  },
+  "2048440800": {
+   "death": 2048447993,
+   "normal": 2048447992,
+   "rank": 17,
+   "tier": 25,
+   "entities": [
+    2048440800
+   ],
+   "name": "Rellana, Twin Moon Knight"
+  },
+  "2049410800": {
+   "death": 2049417993,
+   "normal": null,
+   "rank": 0,
+   "tier": 23,
+   "entities": [
+    2049410800
+   ],
+   "name": "Jagged Peak Drake Boss"
+  },
+  "2049430800": {
+   "death": 2049437991,
+   "normal": null,
+   "rank": 0,
+   "tier": 25,
+   "entities": [
+    2049430800
+   ],
+   "name": "Ghostflame Dragon Boss"
+  },
+  "2049430850": {
+   "death": 2049437990,
+   "normal": null,
+   "rank": 0,
+   "tier": 25,
+   "entities": [
+    2049430850
+   ],
+   "name": "Black Knight Edredd"
+  },
+  "2049450800": {
+   "death": 2049457993,
+   "normal": null,
+   "rank": 0,
+   "tier": 25,
+   "entities": [
+    2049450800
+   ],
+   "name": "Ralva the Great Red Bear"
+  },
+  "2049480800": {
+   "death": 2049487993,
+   "normal": 2049487992,
+   "rank": 19,
+   "tier": 29,
+   "entities": [
+    2049480800
+   ],
+   "name": "Commander Gaius"
+  },
+  "2050470800": {
+   "death": 2050477993,
+   "normal": null,
+   "rank": 0,
+   "tier": 25,
+   "entities": [
+    2050470800
+   ],
+   "name": "Tree Sentinel"
+  },
+  "2050480800": {
+   "death": 2050487991,
+   "normal": 2050487990,
+   "rank": 21,
+   "tier": 30,
+   "entities": [
+    2050480800
+   ],
+   "name": "Scadutree Avatar"
+  },
+  "2050480860": {
+   "death": 2050487989,
+   "normal": null,
+   "rank": 0,
+   "tier": 30,
+   "entities": [
+    2050480860
+   ],
+   "name": "Tree Sentinel"
+  },
+  "2051440800": {
+   "death": 2051447993,
+   "normal": null,
+   "rank": 0,
+   "tier": 28,
+   "entities": [
+    2051440800
+   ],
+   "name": "Rakshasa"
+  },
+  "2051450800": {
+   "death": 2051457993,
+   "normal": null,
+   "rank": 0,
+   "tier": 25,
+   "entities": [
+    2051450720
+   ],
+   "name": "Count Ymir, Mother of Fingers"
+  },
+  "2052400800": {
+   "death": 2052407993,
+   "normal": null,
+   "rank": 0,
+   "tier": 32,
+   "entities": [
+    2052400800
+   ],
+   "name": "Jagged Peak Drake Boss"
+  },
+  "2052430800": {
+   "death": 2052437993,
+   "normal": null,
+   "rank": 0,
+   "tier": 25,
+   "entities": [
+    2052430800
+   ],
+   "name": "Jori, Elder Inquisitor"
+  },
+  "2052480800": {
+   "death": 2052487993,
+   "normal": null,
+   "rank": 0,
+   "tier": 30,
+   "entities": [
+    2052480800
+   ],
+   "name": "Regular Fallingstar Beast"
+  },
+  "2054390800": {
+   "death": 2054397991,
+   "normal": null,
+   "rank": 0,
+   "tier": 32,
+   "entities": [
+    2054390800
+   ],
+   "name": "Bayle the Dread"
+  },
+  "2054390850": {
+   "death": 2054397990,
+   "normal": null,
+   "rank": 0,
+   "tier": 32,
+   "entities": [
+    2054390850
+   ],
+   "name": "Ancient Dragon Senessax"
+  }
+ }
+}

@@ -1,0 +1,10 @@
+[package]
+name = "bc7enc"
+version = "0.1.0"
+edition = "2024"
+
+# 开发用：稀有度边框图标（item_system\make_frames.py）的 BC7 压缩，不打包
+
+[profile.release]
+opt-level = 3
+lto = true

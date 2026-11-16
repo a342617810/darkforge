@@ -1,0 +1,59 @@
+# 暗黑重铸 / Darkforge 源码仓库（2026-11-16 建）：只放源码、文档和我们自己做的数据。
+# 不放：编译缓存和输出、第三方 mod / 运行库 / 工具、从游戏提取的大文件、本机状态和日志、存档备份、密钥。
+# 打包（dev/tools/make_package.py）仍然从这个文件夹取，和 git 无关。
+
+# ---- 编译缓存、生成的输出
+target/
+__pycache__/
+*.pyc
+/out/
+/packs/
+*.old
+*.prev
+*.prev.*
+*.bak
+
+# ---- 随机器和它的输出（许可不允许转发，玩家自己装）
+/randomizer/
+/randomizer_hi/
+
+# ---- 第三方：Boss 模组原包和整合后的文件、运行库、加载器、别人的 DLL
+/boss/
+/launcher/reroll/data/bossmods/*/files/
+/launcher/reroll/data/bossmods/*/arena/
+/launcher/python/
+/launcher/dotnet/
+/launcher/webview2/
+/yafsml/
+/dll/
+*.zip
+
+# ---- 从游戏数据生成的大文件（每次可以重新生成）
+/launcher/reroll/data/menu/dr_frames_*.dds
+/dev/power_curve/inputs/
+/dev/power_curve/cache/
+/dev/boss_mods/.cache/
+/dev/boss_mods/rollback/
+/dev/legacy_rnglands/
+
+# ---- 本机状态、缓存、日志、玩家文件
+/launcher/reroll/cache/
+/launcher/reroll/state/
+/launcher/logs/
+/launcher/updates/
+/launcher/game_path.txt
+/launcher/randomizer_settings_path.txt
+/launcher/update_check.json
+/mods/*
+!/mods/使用说明.txt
+/YAFSML自定义.ini
+/存档备份/
+/崩溃诊断/
+*.log
+*.log.*
+*.dmp
+
+# ---- 密钥（发布更新用的 token，绝不能进仓库）
+/dev/tools/*token*.txt
+*.token
+.env

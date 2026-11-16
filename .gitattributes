@@ -1,0 +1,2 @@
+# 文件按原样存取，不改换行和 BOM（launcher 的 ps1 是 BOM + CRLF，py / rs 是 LF，更新日志是 BOM + CRLF，见各文件的约定）
+* -text

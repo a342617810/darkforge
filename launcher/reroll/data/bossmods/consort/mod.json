@@ -1,0 +1,128 @@
+{
+ "key": "consort",
+ "name": "Inner Consort",
+ "version": "1.06.6",
+ "nexus": 6533,
+ "boss": {
+  "zh": "约定之王拉塔恩",
+  "en": "Promised Consort Radahn"
+ },
+ "chrs": [
+  5220
+ ],
+ "source": {
+  "archive": "Inner Consort (v1.06.6) 6533 v1.06.6 2026-08-27T16-13Z kRGZWDl0X.zip",
+  "sha256": "35e09e164e06cc604eb5fe448ba7e7b9085121ee27dc10a9afc4022ac5e016ab",
+  "regulation": "11701000"
+ },
+ "built_against": "11711000",
+ "files": {
+  "chr/c5220.anibnd.dcx": {
+   "sha256": "a6e382057a73a410f53a1c977ce4822dd4ee52dbd1f2684c96f4ce92a7b1e1aa",
+   "size": 173132
+  },
+  "chr/c5220.behbnd.dcx": {
+   "sha256": "c744e9be49f3d5a0cc4c4a064c5e9955ca2bf306c70133b18d0ec6e5f75bfd35",
+   "size": 187536
+  },
+  "chr/c5220.chrbnd.dcx": {
+   "sha256": "9951bb0c3d3b280bf4d2619bac3c90bfe8b104ceef81bd145a02c2144d784704",
+   "size": 10274880
+  },
+  "script/522000_battle.luabnd.dcx": {
+   "sha256": "9baec4db9b623e212428dabb51dc982523aa9ab2e00010a88b5fbffa21f9c9f2",
+   "size": 6224
+  },
+  "sfx/sfxbnd_c5220.ffxbnd.dcx": {
+   "sha256": "b2f42dbd0a7781f8940ba59a434ea21a5f2ea36d93c25c54cceb4ecb74118fc4",
+   "size": 242896
+  }
+ },
+ "texts": {
+  "en": {},
+  "zh": {}
+ },
+ "fmg_texts": {},
+ "fx": [
+  621380,
+  621384,
+  621385,
+  644976,
+  645056,
+  647221,
+  647250,
+  647272,
+  647273,
+  647274,
+  647280,
+  647285,
+  647303,
+  647312,
+  647313,
+  647327,
+  648013,
+  810208,
+  810640,
+  811040,
+  811120,
+  812000,
+  818000
+ ],
+ "fx_res": [
+  "s84090.flver"
+ ],
+ "arena": {
+  "map": "m20_01_00_00",
+  "events": [
+   20012800,
+   20012811,
+   20010802,
+   20012812,
+   20012813,
+   20012814
+  ],
+  "parts": [],
+  "new_events": [
+   20010802,
+   20012812,
+   20012813,
+   20012814
+  ],
+  "replace_events": [],
+  "mod_events": [
+   20012800,
+   20012811
+  ],
+  "ev0_ints": [],
+  "files": {
+   "event/m20_01_00_00.emevd.dcx": "5ad0b9aa0ca20e27468ab3cd4190917fb1ec39629a80445401dd59f5ca653502"
+  }
+ },
+ "fixed": [
+  20010801,
+  20010800
+ ],
+ "helpers": {},
+ "boss_forms": [],
+ "params": {
+  "AtkParam_Npc add": 29,
+  "AtkParam_Npc patch": 85,
+  "BehaviorParam add": 49,
+  "Bullet add": 120,
+  "NpcParam patch": 6,
+  "SpEffectParam add": 25,
+  "SpEffectVfxParam add": 8
+ },
+ "skipped_rows": 41,
+ "log": [
+  "模组 regulation 版本 11701000（现在的原版 11711000）；同版本参照 2 个包",
+  "事件 20012800：换成模组版（17 条指令，原版 17 条）",
+  "事件 20012811：换成模组版（23 条指令，原版 23 条）",
+  "新事件 4 个（20010802, 20012812, 20012813, 20012814），构造事件里加了初始化",
+  "事件 20012814：按 edit_ins 改了 3 处",
+  "换号：SpEffectParam 5050 → 52205050, SpEffectParam 5051 → 52205051, SpEffectParam 10697 → 52210697, SpEffectParam 10698 → 52210698, SpEffectParam 18406 → 52218406, SpEffectParam 18407 → 52218407, SpEffectParam 18409 → 52218409",
+  "chr/c5220.anibnd.dcx：动作表里加 SpEffect 的事件改了 6 处",
+  "公共包新特效 1733 个，按引用要 23 个",
+  "特效用到的公共包新资源 1 个：s84090.flver"
+ ]
+}

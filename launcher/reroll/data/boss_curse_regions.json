@@ -1,0 +1,693 @@
+{
+ "_说明": "七咒的碎片：击败标记 → 区域序号（dev\\item_system\\build_curse_regions.py 生成；区域顺序见 regions）。不在表里的 Boss 不掉碎片",
+ "regions": [
+  "宁姆格福 + 啜泣半岛",
+  "利耶尼亚",
+  "盖利德 + 龙墓地",
+  "亚坛高原 + 王城",
+  "格密尔火山",
+  "巨人山顶",
+  "圣别雪原 + 圣树 + 蒙格温"
+ ],
+ "bosses": {
+  "10000800": {
+   "region": 0,
+   "name": "Godrick the Grafted"
+  },
+  "10000850": {
+   "region": 0,
+   "name": "Margit, the Fell Omen"
+  },
+  "10010800": {
+   "region": 0,
+   "name": "Grafted Scion Boss"
+  },
+  "11000800": {
+   "region": 3,
+   "name": "Morgott, the Omen King"
+  },
+  "11000850": {
+   "region": 3,
+   "name": "Goldfrey, First Elden Lord"
+  },
+  "11050800": {
+   "region": 3,
+   "name": "Hoarah Loux, Warrior"
+  },
+  "11050850": {
+   "region": 3,
+   "name": "Sir Gideon Ofnir, the All-Knowing"
+  },
+  "12010800": {
+   "region": 5,
+   "name": "Dragonkin Soldier of Nokstella",
+   "nearest": 11
+  },
+  "12010850": {
+   "region": 5,
+   "name": "Dragonkin Soldier Boss",
+   "nearest": 11
+  },
+  "12020800": {
+   "region": 4,
+   "name": "Valiant Gargoyles",
+   "nearest": 9
+  },
+  "12020830": {
+   "region": 4,
+   "name": "Dragonkin Soldier Boss",
+   "nearest": 9
+  },
+  "12020850": {
+   "region": 4,
+   "name": "Mimic Tear",
+   "nearest": 9
+  },
+  "12030390": {
+   "region": 5,
+   "name": "Crucible Knight Siluria",
+   "nearest": 11
+  },
+  "12030800": {
+   "region": 5,
+   "name": "Fia's Champions",
+   "nearest": 11
+  },
+  "12030850": {
+   "region": 5,
+   "name": "Lichdragon Fortissax",
+   "nearest": 11
+  },
+  "12040800": {
+   "region": 5,
+   "name": "Astel, Naturalborn of the Void",
+   "nearest": 12
+  },
+  "12050800": {
+   "region": 6,
+   "name": "Mohg, Lord of Blood"
+  },
+  "12080800": {
+   "region": 1,
+   "name": "Ancestor Spirit",
+   "nearest": 6
+  },
+  "12090800": {
+   "region": 4,
+   "name": "Regal Ancestor Spirit",
+   "nearest": 9
+  },
+  "13000800": {
+   "region": 5,
+   "name": "Maliketh, the Black Blade",
+   "nearest": 14
+  },
+  "13000830": {
+   "region": 5,
+   "name": "Dragonlord Placidusax",
+   "nearest": 14
+  },
+  "13000850": {
+   "region": 5,
+   "name": "Godskin Duo",
+   "nearest": 14
+  },
+  "14000800": {
+   "region": 1,
+   "name": "Rennala 1"
+  },
+  "14000850": {
+   "region": 1,
+   "name": "Red Wolf of Radagon"
+  },
+  "15000800": {
+   "region": 6,
+   "name": "Malenia, Blade of Miquella"
+  },
+  "15000850": {
+   "region": 6,
+   "name": "Loretta, Knight of the Haligtree"
+  },
+  "16000800": {
+   "region": 4,
+   "name": "Rykard, Lord of Blasphemy"
+  },
+  "16000850": {
+   "region": 4,
+   "name": "Godskin Noble Boss"
+  },
+  "16000860": {
+   "region": 4,
+   "name": "Abductor Virgin Duo"
+  },
+  "18000800": {
+   "region": 0,
+   "name": "Ulcerated Tree Spirit Boss"
+  },
+  "18000850": {
+   "region": 0,
+   "name": "Soldier of Godrick"
+  },
+  "19000800": {
+   "region": 6,
+   "name": "Radagon of the Golden Order",
+   "nearest": 20
+  },
+  "30000800": {
+   "region": 0,
+   "name": "Cemetery Shade Boss"
+  },
+  "30010800": {
+   "region": 0,
+   "name": "Erdtree Burial Watchdog and Imps"
+  },
+  "30020800": {
+   "region": 0,
+   "name": "Fire Erdtree Burial Watchdog Boss"
+  },
+  "30030800": {
+   "region": 1,
+   "name": "Crucible Spiritcaller Snail"
+  },
+  "30040800": {
+   "region": 0,
+   "name": "Grave Warden Duelist Boss"
+  },
+  "30050800": {
+   "region": 1,
+   "name": "Cemetery Shade and Skeletons"
+  },
+  "30050850": {
+   "region": 1,
+   "name": "Black Knife Assassin Boss"
+  },
+  "30060800": {
+   "region": 1,
+   "name": "Scepter Erdtree Burial Watchdog Boss"
+  },
+  "30070800": {
+   "region": 4,
+   "name": "Lightning Erdtree Burial Watchdog Boss"
+  },
+  "30080800": {
+   "region": 3,
+   "name": "Ancient Hero of Zamor Boss"
+  },
+  "30090800": {
+   "region": 4,
+   "name": "Red Wolf of the Champion"
+  },
+  "30100800": {
+   "region": 3,
+   "name": "Crucible Knight Duo"
+  },
+  "30110800": {
+   "region": 0,
+   "name": "Black Knife Assassin Boss"
+  },
+  "30120800": {
+   "region": 3,
+   "name": "Misbegotten Perfumer Duo"
+  },
+  "30130800": {
+   "region": 3,
+   "name": "Grave Warden Duelist Boss"
+  },
+  "30140800": {
+   "region": 2,
+   "name": "Erdtree Burial Watchdog Duo"
+  },
+  "30150800": {
+   "region": 2,
+   "name": "Cemetery Shade Boss"
+  },
+  "30160800": {
+   "region": 2,
+   "name": "Putrid Tree Spirit Boss"
+  },
+  "30170800": {
+   "region": 5,
+   "name": "Ancient Hero of Zamor Boss"
+  },
+  "30180800": {
+   "region": 5,
+   "name": "Ulcerated Tree Spirit Boss"
+  },
+  "30190800": {
+   "region": 6,
+   "name": "Putrid Grave Warden Duelist"
+  },
+  "30200800": {
+   "region": 6,
+   "name": "Stray Mimic Tear"
+  },
+  "31010800": {
+   "region": 0,
+   "name": "Runebear Boss"
+  },
+  "31020800": {
+   "region": 0,
+   "name": "Miranda Blossom and Sprouts"
+  },
+  "31030800": {
+   "region": 0,
+   "name": "Beastman of Farum Azula Boss"
+  },
+  "31040800": {
+   "region": 1,
+   "name": "Cleanrot Knight Boss"
+  },
+  "31050800": {
+   "region": 1,
+   "name": "Bloodhound Knight Boss"
+  },
+  "31060800": {
+   "region": 1,
+   "name": "Crystalian Staff Spear Duo"
+  },
+  "31070800": {
+   "region": 4,
+   "name": "Kindred of Rot Duo"
+  },
+  "31090800": {
+   "region": 4,
+   "name": "Demi-Human Queen Margot"
+  },
+  "31100800": {
+   "region": 2,
+   "name": "Beastman of Farum Azula Duo"
+  },
+  "31110800": {
+   "region": 2,
+   "name": "Putrid Crystalian Trio"
+  },
+  "31120800": {
+   "region": 6,
+   "name": "Misbegotten Crusader"
+  },
+  "31150800": {
+   "region": 0,
+   "name": "Demi-Human Chief Duo"
+  },
+  "31170800": {
+   "region": 0,
+   "name": "Guardian Golem Boss"
+  },
+  "31180800": {
+   "region": 3,
+   "name": "Miranda Omenkiller Duo"
+  },
+  "31190800": {
+   "region": 3,
+   "name": "Invisible Black Knife Assassin Boss"
+  },
+  "31190850": {
+   "region": 3,
+   "name": "Necromancer Garris"
+  },
+  "31200800": {
+   "region": 2,
+   "name": "Cleanrot Knight Duo"
+  },
+  "31210800": {
+   "region": 2,
+   "name": "Frenzied Duelist"
+  },
+  "31220800": {
+   "region": 5,
+   "name": "Godskin Spiritcaller Snail"
+  },
+  "32000800": {
+   "region": 0,
+   "name": "Scaly Misbegotten Boss"
+  },
+  "32010800": {
+   "region": 0,
+   "name": "Stonedigger Troll"
+  },
+  "32020800": {
+   "region": 1,
+   "name": "Ringblade Crystalian Boss"
+  },
+  "32040800": {
+   "region": 3,
+   "name": "Stonedigger Troll"
+  },
+  "32050800": {
+   "region": 3,
+   "name": "Crystalian Ringblade Spear Duo"
+  },
+  "32070800": {
+   "region": 2,
+   "name": "Magma Wyrm Boss"
+  },
+  "32080800": {
+   "region": 2,
+   "name": "Regular Fallingstar Beast"
+  },
+  "32110800": {
+   "region": 6,
+   "name": "Astel, Stars of Darkness"
+  },
+  "34120800": {
+   "region": 3,
+   "name": "Onyx Lord Boss"
+  },
+  "34130800": {
+   "region": 2,
+   "name": "Godskin Apostle"
+  },
+  "34140850": {
+   "region": 3,
+   "name": "Fell Twin Duo"
+  },
+  "35000800": {
+   "region": 3,
+   "name": "Mohg, the Omen"
+  },
+  "35000850": {
+   "region": 3,
+   "name": "Esgar, Priest of Blood"
+  },
+  "39200800": {
+   "region": 1,
+   "name": "Magma Wyrm Makar"
+  },
+  "1033420800": {
+   "region": 1,
+   "name": "Alecto, Black Knife Ringleader"
+  },
+  "1033430800": {
+   "region": 1,
+   "name": "Erdtree Avatar Boss"
+  },
+  "1033450800": {
+   "region": 1,
+   "name": "Bols, Carian Knight"
+  },
+  "1034420800": {
+   "region": 1,
+   "name": "Glintstone Dragon Adula"
+  },
+  "1034450800": {
+   "region": 1,
+   "name": "Glintstone Dragon Smarag"
+  },
+  "1034480800": {
+   "region": 1,
+   "name": "Royal Revenant Boss"
+  },
+  "1034500800": {
+   "region": 1,
+   "name": "Glintstone Dragon Adula"
+  },
+  "1035420800": {
+   "region": 1,
+   "name": "Omenkiller Boss"
+  },
+  "1035500800": {
+   "region": 1,
+   "name": "Royal Knight Loretta"
+  },
+  "1035530800": {
+   "region": 4,
+   "name": "Magma Wyrm Boss"
+  },
+  "1036450800": {
+   "region": 1,
+   "name": "Death Rite Bird"
+  },
+  "1036480800": {
+   "region": 1,
+   "name": "Night's Cavalry"
+  },
+  "1036500800": {
+   "region": 1,
+   "name": "Onyx Lord Boss"
+  },
+  "1036540800": {
+   "region": 4,
+   "name": "Full-Grown Fallingstar Beast"
+  },
+  "1037420800": {
+   "region": 1,
+   "name": "Deathbird"
+  },
+  "1037460800": {
+   "region": 1,
+   "name": "Bell Bearing Hunter"
+  },
+  "1037510800": {
+   "region": 3,
+   "name": "Ancient Dragon Lansseax"
+  },
+  "1037530800": {
+   "region": 4,
+   "name": "Demi-Human Queen Maggie"
+  },
+  "1037540810": {
+   "region": 4,
+   "name": "Ulcerated Tree Spirit Boss"
+  },
+  "1038410800": {
+   "region": 1,
+   "name": "Adan, Thief of Fire"
+  },
+  "1038480800": {
+   "region": 1,
+   "name": "Erdtree Avatar Boss"
+  },
+  "1038510800": {
+   "region": 3,
+   "name": "Demi-Human Queen Gilika"
+  },
+  "1038520800": {
+   "region": 3,
+   "name": "Tibia Mariner Boss"
+  },
+  "1039430800": {
+   "region": 1,
+   "name": "Night's Cavalry"
+  },
+  "1039440800": {
+   "region": 1,
+   "name": "Tibia Mariner Boss"
+  },
+  "1039500800": {
+   "region": 3,
+   "name": "Godefroy the Grafted"
+  },
+  "1039510800": {
+   "region": 3,
+   "name": "Night's Cavalry"
+  },
+  "1039540800": {
+   "region": 3,
+   "name": "Elemer of the Briar"
+  },
+  "1040520800": {
+   "region": 3,
+   "name": "Black Knife Assassin Boss"
+  },
+  "1040530800": {
+   "region": 3,
+   "name": "Sanguine Noble Boss"
+  },
+  "1041500800": {
+   "region": 3,
+   "name": "Regular Fallingstar Beast"
+  },
+  "1041510800": {
+   "region": 3,
+   "name": "Tree Sentinel"
+  },
+  "1041520800": {
+   "region": 3,
+   "name": "Ancient Dragon Lansseax"
+  },
+  "1041530800": {
+   "region": 3,
+   "name": "Wormface Boss"
+  },
+  "1042330800": {
+   "region": 0,
+   "name": "Ancient Hero of Zamor Boss"
+  },
+  "1042360800": {
+   "region": 0,
+   "name": "Tree Sentinel"
+  },
+  "1042370800": {
+   "region": 0,
+   "name": "Crucible Knight Boss"
+  },
+  "1042380800": {
+   "region": 0,
+   "name": "Deathbird"
+  },
+  "1042380850": {
+   "region": 0,
+   "name": "Bell Bearing Hunter"
+  },
+  "1042550800": {
+   "region": 3,
+   "name": "Godskin Apostle"
+  },
+  "1043300800": {
+   "region": 0,
+   "name": "Leonine Misbegotten Boss"
+  },
+  "1043330800": {
+   "region": 0,
+   "name": "Erdtree Avatar Boss"
+  },
+  "1043360800": {
+   "region": 0,
+   "name": "Flying Dragon Agheel"
+  },
+  "1043370800": {
+   "region": 0,
+   "name": "Night's Cavalry"
+  },
+  "1043530800": {
+   "region": 3,
+   "name": "Bell Bearing Hunter"
+  },
+  "1044320800": {
+   "region": 0,
+   "name": "Deathbird"
+  },
+  "1044320850": {
+   "region": 0,
+   "name": "Night's Cavalry"
+  },
+  "1044350800": {
+   "region": 0,
+   "name": "Bloodhound Knight Darriwil"
+  },
+  "1044360800": {
+   "region": 0,
+   "name": "Mad Pumpkin Head Boss"
+  },
+  "1044530800": {
+   "region": 3,
+   "name": "Deathbird"
+  },
+  "1045390800": {
+   "region": 0,
+   "name": "Tibia Mariner Boss"
+  },
+  "1045520800": {
+   "region": 3,
+   "name": "Draconic Tree Sentinel Boss"
+  },
+  "1047400800": {
+   "region": 2,
+   "name": "Putrid Avatar Boss"
+  },
+  "1048370800": {
+   "region": 2,
+   "name": "Decaying Ekzykes"
+  },
+  "1048400800": {
+   "region": 2,
+   "name": "Mad Pumpkin Head Duo"
+  },
+  "1048410800": {
+   "region": 2,
+   "name": "Bell Bearing Hunter"
+  },
+  "1048510800": {
+   "region": 5,
+   "name": "Night's Cavalry"
+  },
+  "1048570800": {
+   "region": 6,
+   "name": "Death Rite Bird"
+  },
+  "1049370800": {
+   "region": 2,
+   "name": "Night's Cavalry"
+  },
+  "1049370850": {
+   "region": 2,
+   "name": "Death Rite Bird"
+  },
+  "1049380800": {
+   "region": 2,
+   "name": "Commander O'Neil"
+  },
+  "1049390800": {
+   "region": 2,
+   "name": "Nox Duo"
+  },
+  "1049390850": {
+   "region": 2,
+   "name": "Battlemage Hugues"
+  },
+  "1049520800": {
+   "region": 5,
+   "name": "Black Blade Kindred"
+  },
+  "1050560800": {
+   "region": 6,
+   "name": "Great Wyrm Theodorix"
+  },
+  "1050570800": {
+   "region": 5,
+   "name": "Death Rite Bird"
+  },
+  "1050570850": {
+   "region": 6,
+   "name": "Putrid Avatar Boss"
+  },
+  "1051360800": {
+   "region": 2,
+   "name": "Crucible Misbegotten Duo"
+  },
+  "1051400800": {
+   "region": 2,
+   "name": "Putrid Avatar Boss"
+  },
+  "1051430800": {
+   "region": 2,
+   "name": "Black Blade Kindred"
+  },
+  "1051570800": {
+   "region": 5,
+   "name": "Commander Niall"
+  },
+  "1052410800": {
+   "region": 2,
+   "name": "Flying Dragon Greyll"
+  },
+  "1052410850": {
+   "region": 2,
+   "name": "Night's Cavalry"
+  },
+  "1052560800": {
+   "region": 5,
+   "name": "Erdtree Avatar Duo"
+  },
+  "1053560800": {
+   "region": 5,
+   "name": "Roundtable Knight Vyke"
+  },
+  "1248550800": {
+   "region": 6,
+   "name": "Night's Cavalry"
+  },
+  "1252380800": {
+   "region": 2,
+   "name": "Starscourge Radahn"
+  },
+  "1252520800": {
+   "region": 5,
+   "name": "Fire Giant"
+  },
+  "1254560800": {
+   "region": 5,
+   "name": "Borealis the Freezing Fog"
+  }
+ }
+}

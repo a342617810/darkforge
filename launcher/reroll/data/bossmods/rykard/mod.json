@@ -1,0 +1,156 @@
+{
+ "key": "rykard",
+ "name": "Rykard Overhaul",
+ "version": "1.0",
+ "nexus": 8415,
+ "boss": {
+  "zh": "亵渎君王拉卡德",
+  "en": "Rykard, Lord of Blasphemy"
+ },
+ "chrs": [
+  4710,
+  4712
+ ],
+ "source": {
+  "archive": "Rykard Overhaul-8415-1-0-1753375061.zip",
+  "sha256": "50fd86a2e919431f4a205e94c6d5179ab42785fba05c044954f0e8831204415c",
+  "regulation": "11601000"
+ },
+ "built_against": "11711000",
+ "files": {
+  "action/script/c4712.hks": {
+   "sha256": "6b5e0e97203b54eb2f148bcff98c90c768ff9b86d443f6e1699a09160efd7b39",
+   "size": 35104
+  },
+  "chr/c4710.anibnd.dcx": {
+   "sha256": "4cca3c4f0e94f884edbb6afc53ffc8605bdc0aa05e2e6d4dfc823d1220b82e12",
+   "size": 119412
+  },
+  "chr/c4710.behbnd.dcx": {
+   "sha256": "47a969b6d03a3b138e04a26d11b0aaa3b4c7125062210cae2ad2d44948a8f0cc",
+   "size": 59072
+  },
+  "chr/c4710.chrbnd.dcx": {
+   "sha256": "a4881f3287afa20738a6d231bae722c8a33eabb4beccaccfa9f295b15953aa5d",
+   "size": 8778528
+  },
+  "chr/c4710_div00.anibnd.dcx": {
+   "sha256": "eb7fa17b5650c3d284b87bdbc8b630d2bb149fb6c885c20ba776b10489614813",
+   "size": 6688912
+  },
+  "chr/c4710_div01.anibnd.dcx": {
+   "sha256": "3d88f2d7436c18005e742eb6f2aebefbb49a7031619160ae496dfc3798b2100f",
+   "size": 5590032
+  },
+  "chr/c4710_div02.anibnd.dcx": {
+   "sha256": "335ace8e1729459c2362ac85346c14d3762ad7a1905e504fc868334069ecb4fa",
+   "size": 4018192
+  },
+  "chr/c4710_div03.anibnd.dcx": {
+   "sha256": "151b1766e2d711e1f0aec978a623381ba10103ead5dc170a0a9ed2d9afc3be69",
+   "size": 3682848
+  },
+  "chr/c4710_div04.anibnd.dcx": {
+   "sha256": "b1b1f60371de1f72c714142c174b987f990834d253abc22d007a3681bc57b2b8",
+   "size": 3803760
+  },
+  "chr/c4710_div05.anibnd.dcx": {
+   "sha256": "548f5911e4aa736af158ec43613e65be579ca0e8cca6e185291edd0c0474c08a",
+   "size": 3054576
+  },
+  "chr/c4712.anibnd.dcx": {
+   "sha256": "b6f16d1a717ec18c2024039fc3d67e29bb0d6c846b44ed0b07a0d5cce5483068",
+   "size": 113957
+  },
+  "chr/c4712.behbnd.dcx": {
+   "sha256": "946da7d2dffc59228a5d8dd9d757c64863d09ccc82cb036a8c00937653ace89b",
+   "size": 60416
+  },
+  "chr/c4712.chrbnd.dcx": {
+   "sha256": "68b4baf936956ec4027b131ed2abf1e4baf01f7e540034cde1dfb666cdc3b32f",
+   "size": 655440
+  },
+  "script/471000_battle.luabnd.dcx": {
+   "sha256": "066028a23525448351ccf859a7d664bd5dde8197aa9ff2e60c457bd7507fdeda",
+   "size": 3280
+  },
+  "sfx/sfxbnd_c4710.ffxbnd.dcx": {
+   "sha256": "46ab627ead2236ad5ec90549275b72759a48842bc17ff4aade204dbf55372ab9",
+   "size": 2612960
+  }
+ },
+ "texts": {
+  "en": {},
+  "zh": {}
+ },
+ "fmg_texts": {},
+ "fx": [],
+ "fx_res": [],
+ "arena": {
+  "map": "m16_00_00_00",
+  "events": [
+   16002811,
+   16003767,
+   16003768,
+   16003769,
+   16003770
+  ],
+  "parts": [
+   "c4710_9009",
+   "c4710_9010"
+  ],
+  "new_events": [
+   16003767,
+   16003768,
+   16003769,
+   16003770
+  ],
+  "replace_events": [
+   16002811
+  ],
+  "mod_events": [],
+  "ev0_ints": [],
+  "files": {
+   "event/m16_00_00_00.emevd.dcx": "5cde08ef0b848e496878892e16d3a5b322bb71e0af890e2a554211a30e5edee1",
+   "map/mapstudio/m16_00_00_00.msb.dcx": "a9860cb22b9f1da36975c15e7ae53e5a5eccc3b42798fd5007cfdb7a43fbccce"
+  },
+  "keep_parts": [
+   "c4710_9009",
+   "c4710_9010"
+  ]
+ },
+ "fixed": [
+  16000801,
+  16000800
+ ],
+ "helpers": {
+  "16000802": 16000800,
+  "16000803": 16000800
+ },
+ "params": {
+  "AtkParam_Npc add": 5,
+  "AtkParam_Npc patch": 4,
+  "BehaviorParam add": 10,
+  "Bullet add": 26,
+  "Bullet patch": 16,
+  "LockCamParam add": 5,
+  "LockCamParam patch": 5,
+  "NpcParam add": 2,
+  "NpcParam patch": 2,
+  "SpEffectParam add": 13,
+  "SpEffectVfxParam add": 1
+ },
+ "skipped_rows": 2,
+ "log": [
+  "模组 regulation 版本 11601000（现在的原版 11711000）；同版本参照 7 个包",
+  "作者合并清单 94 行；其中 5 行和同版本原版一样（不用改）：[('SpEffectParam', 5052), ('SpEffectParam', 5053), ('SpEffectParam', 5054), ('SpEffectParam', 5055), ('SpEffectVxfParam', 47101243)]",
+  "事件 16002811：原版 + 模组插入的 4 条（另有 3 条只是重编时条件组编号不同，保持原版）",
+  "新事件 4 个（16003767, 16003768, 16003769, 16003770），构造事件里加了初始化",
+  "不要 EquipParamWeapon 17030000（配置的 drop_rows）",
+  "NpcParam 47100038：isWeakF 保持原版（配置的 drop_fields）",
+  "NpcParam 47101038：isWeakF 保持原版（配置的 drop_fields）",
+  "NpcParam 47101039 → 47109900（新加的行换到段末，免得和随机器 / 重随新建的行撞）",
+  "NpcParam 47101040 → 47109901（新加的行换到段末，免得和随机器 / 重随新建的行撞）",
+  "地图 m16_00_00_00：copied c4710_9009 (Enemy, model c4712, entity 16000802, npc 47109900, think -1)；copied c4710_9010 (Enemy, model c4712, entity 16000803, npc 47109901, think -1)"
+ ]
+}

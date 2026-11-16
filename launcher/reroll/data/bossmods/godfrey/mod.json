@@ -1,0 +1,113 @@
+{
+ "key": "godfrey",
+ "name": "Inner Godfrey",
+ "version": "1.13",
+ "nexus": 7140,
+ "boss": {
+  "zh": "葛孚雷 / 荷莱·露",
+  "en": "Godfrey / Hoarah Loux"
+ },
+ "chrs": [
+  4720,
+  4721
+ ],
+ "source": {
+  "archive": "Inner Godfrey (v1.13)-7140-v1-13-1740833304.zip",
+  "sha256": "c59fa00c7b629d0411e1ee1665e13e70408135665cb129a7b33c086a75bf1101",
+  "regulation": "11601000"
+ },
+ "built_against": "11711000",
+ "files": {
+  "chr/c4720.anibnd.dcx": {
+   "sha256": "2c21dc0b908e57e82891679022861b6b07bf1b21567edc036c907a6de4ca74a5",
+   "size": 2734519
+  },
+  "chr/c4720.behbnd.dcx": {
+   "sha256": "b1887521b6cff1b4abaa0a5b74cfd757b1561db84599e2190a70d1309efca54a",
+   "size": 152912
+  },
+  "chr/c4720.chrbnd.dcx": {
+   "sha256": "1d2f9e502eb8444f0b955045fa312e748e6956d9ea0531eb9937ac380126b76e",
+   "size": 11391664
+  },
+  "chr/c4721.anibnd.dcx": {
+   "sha256": "8c280124e167aca2bfffa58dbc481d63622195b8e35dd10e082cfc74c308f91a",
+   "size": 3562271
+  },
+  "chr/c4721.behbnd.dcx": {
+   "sha256": "af2ae411634543c9b58ada6925cded7eecf92102e43b2b4c8c44ad607fc5e5e3",
+   "size": 152992
+  },
+  "script/472000_battle.luabnd.dcx": {
+   "sha256": "ce5433d686314dd69ad8e6ec7cbde637a51d0d7e21061fa11697fc6ebae2433c",
+   "size": 4576
+  },
+  "script/472100_battle.luabnd.dcx": {
+   "sha256": "8549a0c668ce6d397fea41e6fd0f08b74a2992d737d2cdee0002d07088d7ef27",
+   "size": 5536
+  },
+  "sd/enus/cs_c4720.bnk": {
+   "sha256": "51197cdf18b3e53ec757f7227b06ff7e8b5075951861605db83ec797b5aacd72",
+   "size": 4608723
+  },
+  "sd/enus/vc206.bnk": {
+   "sha256": "2ddb9d83e21674fcad4c4c4dc7dce84cb73cfdc08c7a989148c554514408a773",
+   "size": 257888
+  },
+  "sd/enus/wem/65/650175479.wem": {
+   "sha256": "76420a6628c33036cca5ebbd15a4e10b0f88e07ccaf0e01fdf26493ab7bc9f00",
+   "size": 36831
+  },
+  "sd/enus/wem/70/704441477.wem": {
+   "sha256": "665e85fbb715032d8261c41ddd4ef4e929d785f53cb0dbd8e1af2ae354b28fc8",
+   "size": 48311
+  },
+  "script/talk/m11_05_00_00.talkesdbnd.dcx": {
+   "sha256": "d8d2c5d906e24518ff74411dfa4048f3fd5b040c3facc45b89b143ad31e35405",
+   "size": 29824
+  }
+ },
+ "texts": {
+  "en": {
+   "20070610": "Brave Tarnished, become Lord. Enact thy will!",
+   "20080400": "Enough, of this kingly folly!",
+   "206809100": "Be proud, warrior. There is no shame in defeat to a king.",
+   "206804000": "A true warrior thou art...",
+   "206804010": "Use thy might to become Elden Lord."
+  },
+  "zh": {
+   "20070610": "勇敢的褪色者啊，成为王吧。去实现你的意志！",
+   "20080400": "够了，别再做这为王的蠢事！",
+   "206809100": "骄傲吧，战士。败给王，并不可耻。",
+   "206804000": "你是真正的战士……",
+   "206804010": "用你的力量，成为艾尔登之王吧。"
+  }
+ },
+ "fmg_texts": {},
+ "fx": [],
+ "fx_res": [],
+ "arena": null,
+ "fixed": [
+  11050801,
+  11050800
+ ],
+ "helpers": {},
+ "params": {
+  "AtkParam_Npc add": 1,
+  "AtkParam_Npc patch": 1,
+  "BehaviorParam add": 1,
+  "Bullet add": 1,
+  "LockCamParam add": 1,
+  "LockCamParam patch": 2,
+  "NpcParam patch": 2,
+  "SpEffectParam add": 8,
+  "SpEffectVfxParam add": 3,
+  "TalkParam add": 2
+ },
+ "skipped_rows": 237,
+ "log": [
+  "模组 regulation 版本 11601000（现在的原版 11711000）；同版本参照 7 个包",
+  "TalkParam 11000100：台词编号 11000100 → 206809100（原版 11000100 是别人的台词）",
+  "TalkParam 11000100：台词编号 11000100 → 206809100（原版 11000100 是别人的台词）"
+ ]
+}

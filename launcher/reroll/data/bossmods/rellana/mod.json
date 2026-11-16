@@ -1,0 +1,115 @@
+{
+ "key": "rellana",
+ "name": "Rellana Twin Moon Knight Overhaul",
+ "version": "1.0",
+ "nexus": 7074,
+ "boss": {
+  "zh": "双月骑士蕾菈娜",
+  "en": "Rellana, Twin Moon Knight"
+ },
+ "chrs": [
+  5300
+ ],
+ "source": {
+  "archive": "Rellana Twin Moon Knight Overhaul 1.0-7074-1-16-1-1734955493.rar",
+  "sha256": "038c37b7b7ece2b0df821e21c7138db05537735e30b06036c21911a3ae66995a",
+  "regulation": "11601000"
+ },
+ "built_against": "11711000",
+ "files": {
+  "chr/c5300.anibnd.dcx": {
+   "sha256": "b100837109dc0be4c7d72b8f899ce1a458b1df34d0ee689880c9acc927aadfdd",
+   "size": 3112470
+  },
+  "chr/c5300.behbnd.dcx": {
+   "sha256": "c746bc0b9b4df7201009931eeee579bc397bc7376da50486cf03f12a5eeb9c39",
+   "size": 187760
+  },
+  "chr/c5300.chrbnd.dcx": {
+   "sha256": "640b62cdd50613da947208b249c19e0d1e16e4d1d28c008e4306ca9bd40aa8b5",
+   "size": 2185865
+  },
+  "script/530000_battle.luabnd.dcx": {
+   "sha256": "be268e2c29e04fc082d22b828f6b3de752dfff9db05d919a9d536c9530374639",
+   "size": 8983
+  },
+  "script/530010_battle.luabnd.dcx": {
+   "sha256": "f7ce031b6bd69e6bc558cc80b4532bd1f858b6569474b8083cd390b9486f7d3d",
+   "size": 8085
+  },
+  "script/aicommon_dlc02.luabnd.dcx": {
+   "sha256": "a83561fcbd70ae3df11804272d69824630188b0c594b83214e0a38fc81efe36e",
+   "size": 4992
+  },
+  "sfx/sfxbnd_c5300.ffxbnd.dcx": {
+   "sha256": "f5d67688edcdf39ce4d1531681417d526e4ad9841f62b53ecc219dfc4a0fa049",
+   "size": 162704
+  }
+ },
+ "texts": {
+  "en": {},
+  "zh": {}
+ },
+ "fmg_texts": {},
+ "fx": [],
+ "fx_res": [],
+ "arena": {
+  "map": "m61_48_44_00",
+  "msb_map": null,
+  "events": [
+   2048440801,
+   2048442851,
+   2049440802,
+   2049440803,
+   2049440805,
+   2048442811
+  ],
+  "parts": [
+   "c5300 Rellana Phantom"
+  ],
+  "new_events": [
+   2048440801,
+   2048442851,
+   2049440802,
+   2049440803,
+   2049440805
+  ],
+  "replace_events": [
+   2048442811
+  ],
+  "mod_events": [],
+  "ev0_ints": [],
+  "force_events": [],
+  "files": {
+   "event/m61_48_44_00.emevd.dcx": "7f7a3259759980035c518432d3c5a2b0f74d55b6a1dc822298d1d574f880b4ef",
+   "map/mapstudio/m61_48_44_00.msb.dcx": "0adf69922fb382da04cd70e9b3b2a104d7f93d100f050cc8d81f5d20f5dcb6f8"
+  }
+ },
+ "fixed": [
+  2048440800
+ ],
+ "helpers": {
+  "2048440801": 2048440800
+ },
+ "boss_forms": [],
+ "params": {
+  "AtkParam_Npc add": 1,
+  "BehaviorParam add": 1,
+  "NpcParam add": 1,
+  "NpcParam patch": 1,
+  "NpcThinkParam add": 1,
+  "SpEffectParam add": 3,
+  "SpEffectVfxParam add": 2
+ },
+ "skipped_rows": 4,
+ "log": [
+  "模组 regulation 版本 11601000（现在的原版 11711000）；同版本参照 8 个包",
+  "新事件 5 个（2048440801, 2048442851, 2049440802, 2049440803, 2049440805），构造事件里加了初始化",
+  "事件 2048442811：按 edit_ins 改了 1 处",
+  "NpcParam 53000083 → 53009900（新加的行换到段末，免得和随机器 / 重随新建的行撞）",
+  "NpcThinkParam 53000001 → 53009900（新加的行换到段末，免得和随机器 / 重随新建的行撞）",
+  "script/530000_battle.luabnd.dcx：AI 脚本开头加了公共函数，改了 2 句",
+  "script/530010_battle.luabnd.dcx：AI 脚本开头加了公共函数，改了 2 句",
+  "地图 m61_48_44_00：copied c5300 Rellana Phantom (Enemy, model c5300, entity 2048440801, npc 53009900, think 53009900)"
+ ]
+}

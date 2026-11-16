@@ -1,0 +1,146 @@
+# Ancient Elden Lord (Placidusax) 1.01.3  (m02, regulation 11701000)
+
+## ActionButtonParam  新增 1 / 修改 0   （VINS 里一模一样的 1 行）
+  +206009  [VINS=同]
+
+## AtkParam_Npc  新增 15 / 修改 0   （VINS 里一模一样的 10 行）
+  +4520326  [VINS=不同]
+  +4520327  [VINS=不同]
+  +4520328  [VINS=不同]
+  +4520329  [VINS=同]
+  +4520470  [VINS=不同]
+  +4520471  [VINS=不同]
+  +4520882  [VINS=同]
+  +4520960  [VINS=同]
+  +4520961  [VINS=同]
+  +4520962  [VINS=同]
+  +4520976  [VINS=同]
+  +4520981  [VINS=同]
+  +4520996  [VINS=同]
+  +4520998  [VINS=同]
+  +4520999  [VINS=同]
+
+## AtkParam_Pc  新增 2 / 修改 1   （VINS 里一模一样的 3 行）
+  +210700002  [VINS=同]
+  +210701003  [VINS=同]
+  ~210700000  [VINS=同]: spEffectId0:-1→16915
+
+## BehaviorParam  新增 16 / 修改 0   （VINS 里一模一样的 16 行）
+  +245200326  [VINS=同]
+  +245200327  [VINS=同]
+  +245200470  [VINS=同]
+  +245200471  [VINS=同]
+  +245200830  [VINS=同]
+  +245200835  [VINS=同]
+  +245200880  [VINS=同]
+  +245200881  [VINS=同]
+  +245200923  [VINS=同]
+  +245200976  [VINS=同]
+  +245200977  [VINS=同]
+  +245200980  [VINS=同]
+  +245200981  [VINS=同]
+  +245200995  [VINS=同]
+  +245200998  [VINS=同]
+  +245200999  [VINS=同]
+
+## BonfireWarpParam  新增 1 / 修改 0   （VINS 里一模一样的 1 行）
+  +130011  [VINS=同]
+
+## Bullet  新增 37 / 修改 16   （VINS 里一模一样的 53 行）
+  +4520326  [VINS=同]
+  +4520327  [VINS=同]
+  +4520328  [VINS=同]
+  +4520329  [VINS=同]
+  +4520830  [VINS=同]
+  +4520831  [VINS=同]
+  +4520832  [VINS=同]
+  +4520835  [VINS=同]
+  +4520880  [VINS=同]
+  +4520881  [VINS=同]
+  +4520882  [VINS=同]
+  +4520960  [VINS=同]
+  +4520961  [VINS=同]
+  +4520962  [VINS=同]
+  +4520963  [VINS=同]
+  +4520964  [VINS=同]
+  +4520965  [VINS=同]
+  +4520966  [VINS=同]
+  +4520967  [VINS=同]
+  +4520968  [VINS=同]
+  +4520969  [VINS=同]
+  +4520970  [VINS=同]
+  +4520971  [VINS=同]
+  +4520972  [VINS=同]
+  +4520973  [VINS=同]
+  +4520974  [VINS=同]
+  +4520975  [VINS=同]
+  +4520976  [VINS=同]
+  +4520977  [VINS=同]
+  +4520980  [VINS=同]
+  +4520981  [VINS=同]
+  +4520995  [VINS=同]
+  +4520996  [VINS=同]
+  +4520998  [VINS=同]
+  +4520999  [VINS=同]
+  +210700006  [VINS=同]
+  +210701004  [VINS=同]
+  ~10705000  [VINS=同]: spEffectIDForShooter:0→16914
+  ~10705001  [VINS=同]: spEffectIDForShooter:0→16914
+  ~10705002  [VINS=同]: spEffectIDForShooter:0→16914
+  ~10705003  [VINS=同]: spEffectIDForShooter:0→16914
+  ~10705004  [VINS=同]: spEffectIDForShooter:0→16914
+  ~10705010  [VINS=同]: spEffectIDForShooter:0→16914
+  ~210700000  [VINS=同]: spEffectIDForShooter:0→16915; HitBulletID:-1→210700006; spEffectId0:0→16915
+  ~210700001  [VINS=同]: atkId_Bullet:0→210700002; spEffectId0:0→16915
+  ~210700002  [VINS=同]: spEffectId0:0→16915
+  ~210700003  [VINS=同]: spEffectId0:0→16915
+  ~210700004  [VINS=同]: spEffectId0:0→16915
+  ~210700005  [VINS=同]: spEffectId0:0→16915
+  ~210701000  [VINS=同]: spEffectIDForShooter:0→16915; spEffectId0:0→16915
+  ~210701001  [VINS=同]: atkId_Bullet:0→210701003; spEffectId0:0→16915
+  ~210701002  [VINS=同]: spEffectId0:0→16915
+  ~210701003  [VINS=同]: HitBulletID:-1→210701004
+
+## FeTextEffectParam  新增 0 / 修改 1   （VINS 里一模一样的 1 行）
+  ~15  [VINS=同]: textId:331315→331310
+
+## GameAreaParam  新增 0 / 修改 1   （VINS 里一模一样的 1 行）
+  ~13000830  [VINS=同]: bonusSoul_single:280000→500000
+
+## NpcParam  新增 0 / 修改 6   （VINS 里一模一样的 0 行）
+  ~45200000  [VINS=不同]: hp:3782→4160; fireDamageCutRate:0.6→0.4; thunderDamageCutRate:0.6→0.2; spEffectID26:-1→16914; superArmorDurability:160→900; saRecoveryRate:0.29→0
+  ~45200072  [VINS=不同]: hp:3782→4160; fireDamageCutRate:0.6→0.4; thunderDamageCutRate:0.6→0.2; spEffectID26:-1→16914; superArmorDurability:160→900; saRecoveryRate:0.29→0
+  ~45200100  [VINS=不同]: hp:3782→4160; fireDamageCutRate:0.6→0.4; thunderDamageCutRate:0.6→0.2; spEffectID26:-1→16914; superArmorDurability:160→900; saRecoveryRate:0.29→0
+  ~51200000  [VINS=不同]: spEffectID26:-1→16915
+  ~51200001  [VINS=不同]: spEffectID26:-1→16915
+  ~51200085  [VINS=不同]: spEffectID26:-1→16915
+
+## SpEffectParam  新增 25 / 修改 0   （VINS 里一模一样的 24 行）
+  +16882  [VINS=同]
+  +16883  [VINS=同]
+  +16884  [VINS=同]
+  +16887  [VINS=同]
+  +16888  [VINS=同]
+  +16889  [VINS=同]
+  +16893  [VINS=同]
+  +16894  [VINS=同]
+  +16907  [VINS=同]
+  +16908  [VINS=同]
+  +16910  [VINS=同]
+  +16911  [VINS=同]
+  +16912  [VINS=同]
+  +16914  [VINS=同]
+  +16915  [VINS=同]
+  +16916  [VINS=同]
+  +16917  [VINS=同]
+  +16918  [VINS=同]
+  +16919  [VINS=同]
+  +16920  [VINS=同]
+  +16921  [VINS=同]
+  +501013  [VINS=不同]
+  +501038  [VINS=同]
+  +1642302  [VINS=同]
+  +1642303  [VINS=同]
+
+## SpEffectVfxParam  新增 1 / 修改 0   （VINS 里一模一样的 1 行）
+  +51940  [VINS=同]

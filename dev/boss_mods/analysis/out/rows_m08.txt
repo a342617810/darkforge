@@ -1,0 +1,27 @@
+# Rellana overhaul 1.0  (m08, regulation 11601000)
+
+## AtkParam_Npc  新增 1 / 修改 0   （VINS 里一模一样的 0 行）
+  +5300102  [VINS无]
+
+## BehaviorParam  新增 1 / 修改 0   （VINS 里一模一样的 0 行）
+  +253000873  [VINS无]
+
+## NpcParam  新增 1 / 修改 1   （VINS 里一模一样的 0 行）
+  +53000083  [VINS无] hp=1256, getSoul=0, itemLotId_enemy=-1, itemLotId_map=-1, behaviorVariationId=53000, nameId=0, spEffectID0=5400, spEffectID1=5300, spEffectID2=0, spEffectID3=20007050, teamType=6, stamina=50, superArmorDurability=999
+  ~53000082  [VINS=不同]: hp:2765→3565; resist_poison:112→356; resist_desease:112→356; resist_blood:154→555; resist_sleep:112→998; resist_freeze:154→555; superArmorDurability:120→250
+
+## NpcThinkParam  新增 1 / 修改 0   （VINS 里一模一样的 0 行）
+  +53000001  [VINS无] logicId=10000, battleGoalID=530010, eye_dist=200, ear_dist=0.1
+
+## SpEffectParam  新增 7 / 修改 0   （VINS 里一模一样的 0 行）
+  +20012007  [VINS无]
+  +20012008  [VINS无]
+  +20012190  [VINS无]
+  +20012191  [VINS无]
+  +20012192  [VINS无]
+  +20012193  [VINS无]
+  +20012194  [VINS无]
+
+## SpEffectVfxParam  新增 2 / 修改 0   （VINS 里一模一样的 0 行）
+  +23107001  [VINS无]
+  +23107002  [VINS无]

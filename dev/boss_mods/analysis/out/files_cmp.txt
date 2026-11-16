@@ -1,0 +1,255 @@
+
+=== m01 Mohg 2.00 Complete
+  chr/c4800.anibnd.dcx                                     161659  覆盖原版   VINS同   
+  chr/c4800.behbnd.dcx                                      65152  覆盖原版   VINS同   
+  event/common.emevd.dcx                                    35328  覆盖原版   VINS不同  out\scripts,randomizer
+  event/common_func.emevd.dcx                               30384  覆盖原版   VINS不同  randomizer
+  event/m12_05_00_00.emevd.dcx                               4336  覆盖原版   VINS同   randomizer
+  map/mapstudio/m12_05_00_00.msb.dcx                       291468  覆盖原版   VINS同   out\reroll_maps,randomizer
+  param/systemparam/systemparam.parambnd.dcx                 6768  覆盖原版   VINS无   
+  regulation.bin                                          3229536  覆盖原版   VINS不同  out\reroll,randomizer
+  script/480000_battle.luabnd.dcx                           10924  覆盖原版   VINS同   
+  script/talk/m12_05_00_00.talkesdbnd.dcx                   37247  覆盖原版   VINS同   out\scripts
+  sfx/sfxbnd_commoneffects.ffxbnd.dcx                    88104784  覆盖原版   VINS不同  
+
+=== m02 Ancient Elden Lord (Placidusax) 1.01.3
+  chr/c4520.anibnd.dcx                                     264964  覆盖原版   VINS不同  
+  chr/c4520.behbnd.dcx                                     187088  覆盖原版   VINS同   
+  chr/c4520.chrbnd.dcx                                   10662864  覆盖原版   VINS同   
+  event/m13_00_00_00.emevd.dcx                               6880  覆盖原版   VINS不同  randomizer
+  map/m13/m13_00_00_00/m13_00_00_00_0000.btl.dcx            12747  覆盖原版   VINS同   
+  map/mapstudio/m13_00_00_00.msb.dcx                       476055  覆盖原版   VINS同   out\reroll_maps,randomizer
+  msg/engus/item_dlc02.msgbnd.dcx                          319504  覆盖原版   VINS不同  out\reroll,randomizer
+  msg/engus/menu_dlc02.msgbnd.dcx                          530784  覆盖原版   VINS不同  out\scripts,randomizer
+  msg/jpnjp/menu_dlc02.msgbnd.dcx                          474112  覆盖原版   VINS无   randomizer
+  msg/korkr/menu_dlc02.msgbnd.dcx                          493440  覆盖原版   VINS无   randomizer
+  msg/zhocn/menu_dlc02.msgbnd.dcx                          489056  覆盖原版   VINS不同  out\scripts,randomizer
+  msg/zhotw/menu_dlc02.msgbnd.dcx                          489616  覆盖原版   VINS无   randomizer
+  regulation.bin                                          2036976  覆盖原版   VINS不同  out\reroll,randomizer
+  script/452000_battle.luabnd.dcx                            5056  覆盖原版   VINS同   
+  script/512000_battle.luabnd.dcx                            5664  覆盖原版   VINS同   
+  sfx/sfxbnd_commoneffects.ffxbnd.dcx                    87862640  覆盖原版   VINS不同  
+
+=== m03 Godrick overhaul 1.4
+  action/script/c4750.hks                                   35104  覆盖原版   VINS同   
+  chr/c4690.anibnd.dcx                                     114234  覆盖原版   VINS同   
+  chr/c4690.behbnd.dcx                                      67856  覆盖原版   VINS同   
+  chr/c4690_div00.anibnd.dcx                              1709584  覆盖原版   VINS同   
+  chr/c4690_div01.anibnd.dcx                              1621568  覆盖原版   VINS同   
+  chr/c4690_div02.anibnd.dcx                              2063120  覆盖原版   VINS同   
+  chr/c4750.anibnd.dcx                                     115676  覆盖原版   VINS同   
+  chr/c4750.behbnd.dcx                                      62816  覆盖原版   VINS同   
+  chr/c4750_div00.anibnd.dcx                              1877392  覆盖原版   VINS同   
+  chr/c4750_div01.anibnd.dcx                              4039360  覆盖原版   VINS同   
+  event/m10_00_00_00.emevd.dcx                              10272  覆盖原版   VINS同   randomizer
+  map/mapstudio/m10_00_00_00.msb.dcx                       512350  覆盖原版   VINS同   out\reroll_maps,randomizer
+  regulation.bin                                          2028080  覆盖原版   VINS不同  out\reroll,randomizer
+  script/475000_battle.luabnd.dcx                            3728  覆盖原版   VINS同   
+  sfx/sfxbnd_commoneffects.ffxbnd.dcx                    87942992  覆盖原版   VINS不同  
+
+=== m04 Inner Consort (Radahn) 1.06.6
+  chr/c5220.anibnd.dcx                                     172988  覆盖原版   VINS不同  
+  chr/c5220.behbnd.dcx                                     187536  覆盖原版   VINS同   
+  chr/c5220.chrbnd.dcx                                   10274880  覆盖原版   VINS同   
+  event/common.emevd.dcx                                    26064  覆盖原版   VINS不同  out\scripts,randomizer
+  event/m20_01_00_00.emevd.dcx                              11952  覆盖原版   VINS不同  randomizer
+  map/mapstudio/m20_01_00_00.msb.dcx                       420881  覆盖原版   VINS同   out\reroll_maps,randomizer
+  map/mapstudio/m20_01_00_99.msb.dcx                        40413  覆盖原版   VINS同   
+  msg/engus/item.msgbnd.dcx                                239536  覆盖原版   VINS无   
+  msg/engus/item_dlc01.msgbnd.dcx                          319136  覆盖原版   VINS无   
+  msg/engus/item_dlc02.msgbnd.dcx                          319296  覆盖原版   VINS不同  out\reroll,randomizer
+  msg/engus/menu.msgbnd.dcx                                475696  覆盖原版   VINS无   
+  msg/engus/menu_dlc01.msgbnd.dcx                          530464  覆盖原版   VINS无   
+  msg/engus/menu_dlc02.msgbnd.dcx                          530976  覆盖原版   VINS不同  out\scripts,randomizer
+  msg/frafr/item_dlc02.msgbnd.dcx                          347888  覆盖原版   VINS无   randomizer
+  msg/frafr/menu_dlc02.msgbnd.dcx                          575776  覆盖原版   VINS无   randomizer
+  msg/jpnjp/item_dlc01.msgbnd.dcx                          244944  覆盖原版   VINS无   
+  msg/jpnjp/item_dlc02.msgbnd.dcx                          245232  覆盖原版   VINS无   randomizer
+  msg/jpnjp/menu_dlc02.msgbnd.dcx                          474032  覆盖原版   VINS无   randomizer
+  msg/zhocn/item_dlc02.msgbnd.dcx                          243264  覆盖原版   VINS不同  out\reroll,randomizer
+  msg/zhocn/menu_dlc02.msgbnd.dcx                          489024  覆盖原版   VINS不同  out\scripts,randomizer
+  msg/zhotw/item_dlc02.msgbnd.dcx                          243312  覆盖原版   VINS无   randomizer
+  msg/zhotw/menu_dlc02.msgbnd.dcx                          489504  覆盖原版   VINS无   randomizer
+  param/systemparam/systemparam.parambnd.dcx                 6768  覆盖原版   VINS无   
+  regulation.bin                                          2039632  覆盖原版   VINS不同  out\reroll,randomizer
+  script/522000_battle.luabnd.dcx                            6224  覆盖原版   VINS不同  
+  sfx/sfxbnd_c5220.ffxbnd.dcx                              242896  覆盖原版   VINS不同  
+  sfx/sfxbnd_commoneffects.ffxbnd.dcx                   110789610  覆盖原版   VINS不同  
+
+=== m05 Inner Godfrey 1.13
+  chr/c4720.anibnd.dcx                                    2734519  覆盖原版   VINS不同  
+  chr/c4720.behbnd.dcx                                     152912  覆盖原版   VINS不同  
+  chr/c4720.chrbnd.dcx                                   11391664  覆盖原版   VINS不同  
+  chr/c4721.anibnd.dcx                                    3562271  覆盖原版   VINS不同  
+  chr/c4721.behbnd.dcx                                     152992  覆盖原版   VINS不同  
+  msg/engus/item_dlc02.msgbnd.dcx                          319216  覆盖原版   VINS不同  out\reroll,randomizer
+  msg/engus/menu_dlc02.msgbnd.dcx                          531312  覆盖原版   VINS不同  out\scripts,randomizer
+  regulation.bin                                          2031536  覆盖原版   VINS不同  out\reroll,randomizer
+  script/472000_battle.luabnd.dcx                            4576  覆盖原版   VINS不同  
+  script/472100_battle.luabnd.dcx                            5536  覆盖原版   VINS不同  
+  script/talk/m11_05_00_00.talkesdbnd.dcx                   29824  覆盖原版   VINS无   randomizer
+  sd/enus/cs_c4720.bnk                                    4608723  ?      VINS无   
+  sd/enus/vc206.bnk                                        257888  ?      VINS无   
+  sd/enus/wem/65/650175479.wem                              36831  ?      VINS无   
+  sd/enus/wem/70/704441477.wem                              48311  ?      VINS无   
+
+=== m06 Inner Serpent (Messmer) 1.04.2
+  chr/c5130.anibnd.dcx                                     167959  覆盖原版   VINS不同  
+  chr/c5130.behbnd.dcx                                     186608  覆盖原版   VINS同   
+  chr/c5130.chrbnd.dcx                                    5449318  覆盖原版   VINS同   
+  chr/c5140.anibnd.dcx                                     590882  覆盖原版   VINS同   
+  chr/c5140.behbnd.dcx                                     186096  覆盖原版   VINS同   
+  chr/c5140.chrbnd.dcx                                    3277910  覆盖原版   VINS同   
+  chr/c5141.anibnd.dcx                                     312401  覆盖原版   VINS同   
+  chr/c5141.behbnd.dcx                                     186096  覆盖原版   VINS同   
+  chr/c5141.chrbnd.dcx                                    1129234  覆盖原版   VINS同   
+  event/m21_01_00_00.emevd.dcx                               7888  覆盖原版   VINS同   randomizer
+  map/mapstudio/m21_01_00_00.msb.dcx                       226426  覆盖原版   VINS同   out\reroll_maps,randomizer
+  msg/engus/item_dlc02.msgbnd.dcx                          319344  覆盖原版   VINS不同  out\reroll,randomizer
+  msg/engus/menu_dlc02.msgbnd.dcx                          530944  覆盖原版   VINS不同  out\scripts,randomizer
+  msg/jpnjp/item_dlc02.msgbnd.dcx                          245232  覆盖原版   VINS无   randomizer
+  msg/jpnjp/menu_dlc02.msgbnd.dcx                          474256  覆盖原版   VINS无   randomizer
+  param/systemparam/systemparam.parambnd.dcx                 6768  覆盖原版   VINS无   
+  regulation.bin                                          2037648  覆盖原版   VINS不同  out\reroll,randomizer
+  script/513000_battle.luabnd.dcx                            6224  覆盖原版   VINS同   
+  sfx/sfxbnd_c5130.ffxbnd.dcx                              158800  覆盖原版   VINS同   
+  sfx/sfxbnd_c5140.ffxbnd.dcx                               40672  覆盖原版   VINS同   
+  sfx/sfxbnd_commoneffects.ffxbnd.dcx                   110789610  覆盖原版   VINS不同  
+
+=== m07 Midra overhaul 1.16.1
+  chr/c0000.anibnd.dcx                                   11574708  覆盖原版   VINS不同  out\reroll
+  chr/c0000.chrbnd.dcx                                      51232  覆盖原版   VINS不同  
+  chr/c5051.anibnd.dcx                                    3685833  覆盖原版   VINS同   
+  chr/c5051.behbnd.dcx                                     187568  覆盖原版   VINS同   
+  chr/c5051.chrbnd.dcx                                    1557840  覆盖原版   VINS同   
+  event/m28_00_00_00.emevd.dcx                               3520  覆盖原版   VINS同   randomizer
+  map/m28/m28_00_00_00/m28_00_00_00_0000.btl.dcx            14864  覆盖原版   VINS同   
+  map/mapstudio/m28_00_00_00.msb.dcx                       184557  覆盖原版   VINS同   out\reroll_maps,randomizer
+  map/mapstudio/m61_12_10_02.msb.dcx                       255038  覆盖原版   VINS同   
+  map/mapstudio/m61_24_20_01.msb.dcx                         1638  覆盖原版   VINS同   
+  map/mapstudio/m61_49_40_00.msb.dcx                        52104  覆盖原版   VINS同   out\reroll_maps,randomizer
+  param/systemparam/systemparam.parambnd.dcx                 6768  覆盖原版   VINS无   
+  regulation.bin                                          2027696  覆盖原版   VINS不同  out\reroll,randomizer
+  script/505100_battle.luabnd.dcx                            4224  覆盖原版   VINS同   
+  script/aicommon.luabnd.dcx                               143344  覆盖原版   VINS不同  
+  script/aicommon_dlc02.luabnd.dcx                           4960  覆盖原版   VINS同   
+  sfx/sfxbnd_c5050.ffxbnd.dcx                              102416  覆盖原版   VINS同   
+
+=== m08 Rellana overhaul 1.0
+  chr/c5300.anibnd.dcx                                    3112470  覆盖原版   VINS不同  
+  chr/c5300.behbnd.dcx                                     187760  覆盖原版   VINS不同  
+  chr/c5300.chrbnd.dcx                                    2185865  覆盖原版   VINS不同  
+  event/m61_48_44_00.emevd.dcx                               2016  覆盖原版   VINS不同  randomizer
+  map/mapstudio/m61_48_44_00.msb.dcx                        91695  覆盖原版   VINS不同  out\reroll_maps,randomizer
+  param/systemparam/systemparam.parambnd.dcx                 6768  覆盖原版   VINS无   
+  regulation.bin                                          2027616  覆盖原版   VINS不同  out\reroll,randomizer
+  script/530000_battle.luabnd.dcx                            4336  覆盖原版   VINS不同  
+  script/530010_battle.luabnd.dcx                            3968  新文件    VINS无   
+  script/aicommon.luabnd.dcx                               143344  覆盖原版   VINS不同  
+  script/aicommon_dlc02.luabnd.dcx                           4992  覆盖原版   VINS不同  
+  sfx/sfxbnd_c5300.ffxbnd.dcx                              162704  覆盖原版   VINS不同  
+
+=== m09 Rennala overhaul 1.2
+  action/script/c2032.hks                                   35104  新文件    VINS同   
+  chr/c2030.anibnd.dcx                                     630111  覆盖原版   VINS同   
+  chr/c2030.behbnd.dcx                                      53248  覆盖原版   VINS同   
+  chr/c2031.anibnd.dcx                                    6001206  覆盖原版   VINS同   
+  chr/c2031.behbnd.dcx                                      62304  覆盖原版   VINS同   
+  chr/c2031.chrbnd.dcx                                    1832400  覆盖原版   VINS同   
+  chr/c2032.anibnd.dcx                                     592857  新文件    VINS同   
+  chr/c2032.behbnd.dcx                                      32224  新文件    VINS同   
+  chr/c2032.chrbnd.dcx                                    3268336  新文件    VINS同   
+  chr/c2032_h.texbnd.dcx                                 11632544  新文件    VINS同   
+  chr/c2032_l.texbnd.dcx                                  2679296  新文件    VINS同   
+  event/m14_00_00_00.emevd.dcx                              12464  覆盖原版   VINS同   out\scripts,randomizer
+  map/mapstudio/m14_00_00_00.msb.dcx                       531930  覆盖原版   VINS不同  out\reroll_maps,out\scripts,randomizer
+  regulation.bin                                          2031008  覆盖原版   VINS不同  out\reroll,randomizer
+  script/203000_battle.luabnd.dcx                            2352  覆盖原版   VINS同   
+  script/203100_battle.luabnd.dcx                            4400  覆盖原版   VINS同   
+  sfx/sfxbnd_commoneffects.ffxbnd.dcx                    87962576  覆盖原版   VINS不同  
+
+=== m10 Rykard overhaul 1.0
+  action/script/c4712.hks                                   35104  新文件    VINS同   
+  chr/c4710.anibnd.dcx                                     119412  覆盖原版   VINS同   
+  chr/c4710.behbnd.dcx                                      59072  覆盖原版   VINS同   
+  chr/c4710.chrbnd.dcx                                    8778528  覆盖原版   VINS同   
+  chr/c4710_div00.anibnd.dcx                              6688912  覆盖原版   VINS同   
+  chr/c4710_div01.anibnd.dcx                              5590032  覆盖原版   VINS同   
+  chr/c4710_div02.anibnd.dcx                              4018192  覆盖原版   VINS同   
+  chr/c4710_div03.anibnd.dcx                              3682848  覆盖原版   VINS同   
+  chr/c4710_div04.anibnd.dcx                              3803760  覆盖原版   VINS同   
+  chr/c4710_div05.anibnd.dcx                              3054576  覆盖原版   VINS同   
+  chr/c4712.anibnd.dcx                                     113957  新文件    VINS同   
+  chr/c4712.behbnd.dcx                                      60416  新文件    VINS同   
+  chr/c4712.chrbnd.dcx                                     655440  新文件    VINS同   
+  event/m16_00_00_00.emevd.dcx                               9648  覆盖原版   VINS同   randomizer
+  map/mapstudio/m16_00_00_00.msb.dcx                       542535  覆盖原版   VINS不同  out\reroll_maps,randomizer
+  regulation.bin                                          2028288  覆盖原版   VINS不同  out\reroll,randomizer
+  script/471000_battle.luabnd.dcx                            3280  覆盖原版   VINS同   
+  sfx/sfxbnd_c4710.ffxbnd.dcx                             2612960  覆盖原版   VINS同   
+
+=== m11 The Second Release (Morgott) 1.01
+  chr/c2130.anibnd.dcx                                     227242  覆盖原版   VINS不同  
+  chr/c2130.behbnd.dcx                                      62880  覆盖原版   VINS不同  
+  chr/c2190.anibnd.dcx                                    1899298  覆盖原版   VINS不同  
+  chr/c2190.behbnd.dcx                                      57776  覆盖原版   VINS无   
+  event/common.emevd.dcx                                    35328  覆盖原版   VINS不同  out\scripts,randomizer
+  event/common_func.emevd.dcx                               30384  覆盖原版   VINS不同  randomizer
+  event/m11_00_00_00.emevd.dcx                               8848  覆盖原版   VINS不同  randomizer
+  map/mapstudio/m11_00_00_00.msb.dcx                       830033  覆盖原版   VINS不同  out\reroll_maps,randomizer
+  msg/engus/item_dlc02.msgbnd.dcx                          318992  覆盖原版   VINS不同  out\reroll,randomizer
+  msg/engus/menu_dlc02.msgbnd.dcx                          530880  覆盖原版   VINS不同  out\scripts,randomizer
+  param/systemparam/systemparam.parambnd.dcx                 6768  覆盖原版   VINS无   
+  regulation.bin                                          2029680  覆盖原版   VINS不同  out\reroll,randomizer
+  script/213005_battle.luabnd.dcx                           12060  覆盖原版   VINS不同  
+  script/talk/m11_00_00_00.talkesdbnd.dcx                  102774  覆盖原版   VINS不同  randomizer
+  sfx/c2130.anibnd.dcx                                     219123  新文件    VINS无   
+  sfx/sfxbnd_commoneffects.ffxbnd.dcx                    88032320  覆盖原版   VINS不同  
+
+=== m12 Unalloyed Malenia 1.06
+  action/script/c2120.hks                                   17142  覆盖原版   VINS同   
+  action/script/c2125.hks                                   39376  新文件    VINS同   
+  chr/c2120.anibnd.dcx                                     700074  覆盖原版   VINS同   
+  chr/c2120.behbnd.dcx                                     180754  覆盖原版   VINS同   
+  chr/c2120.chrbnd.dcx                                    4070913  覆盖原版   VINS同   
+  chr/c2120_div00.anibnd.dcx                              3626676  覆盖原版   VINS同   
+  chr/c2120_div01.anibnd.dcx                              3772501  覆盖原版   VINS同   
+  chr/c2125.anibnd.dcx                                     765386  新文件    VINS同   
+  chr/c2125.behbnd.dcx                                     180929  新文件    VINS同   
+  chr/c2125.chrbnd.dcx                                    4006408  新文件    VINS同   
+  chr/c2125_div00.anibnd.dcx                              3626661  新文件    VINS同   
+  chr/c2125_div01.anibnd.dcx                              5665388  新文件    VINS同   
+  chr/c2125_h.texbnd.dcx                                 15303638  新文件    VINS同   
+  chr/c2125_l.texbnd.dcx                                  1071335  新文件    VINS同   
+  chr/c4481.anibnd.dcx                                     718578  覆盖原版   VINS同   
+  chr/c8900.chrbnd.dcx                                    3348176  覆盖原版   VINS同   
+  cutscene/s15_00_0000.cutscenebnd.dcx                    7616048  覆盖原版   VINS同   
+  cutscene/s15_00_0010.cutscenebnd.dcx                    9298363  覆盖原版   VINS同   
+  event/m15_00_00_00.emevd.dcx                              10032  覆盖原版   VINS同   randomizer
+  map/mapstudio/m15_00_00_00.msb.dcx                       466367  覆盖原版   VINS同   out\reroll_maps,randomizer
+  msg/engus/item_dlc02.msgbnd.dcx                          319104  覆盖原版   VINS不同  out\reroll,randomizer
+  msg/engus/menu_dlc02.msgbnd.dcx                          530128  覆盖原版   VINS不同  out\scripts,randomizer
+  msg/rusru/item.msgbnd.dcx                                391346  覆盖原版   VINS无   
+  msg/rusru/item_dlc02.msgbnd.dcx                          337856  覆盖原版   VINS无   randomizer
+  msg/rusru/menu.msgbnd.dcx                                681585  覆盖原版   VINS无   
+  msg/rusru/menu_dlc02.msgbnd.dcx                          560944  覆盖原版   VINS无   randomizer
+  regulation.bin                                          2035632  覆盖原版   VINS不同  out\reroll,randomizer
+  script/212000_battle.luabnd.dcx                           19645  覆盖原版   VINS同   
+  script/212010_battle.luabnd.dcx                           19093  新文件    VINS同   
+  script/talk/m15_00_00_00.talkesdbnd.dcx                   29488  覆盖原版   VINS同   
+  sfx/sfxbnd_c2120.ffxbnd.dcx                              291674  覆盖原版   VINS同   
+
+=== 多个模组都覆盖的路径
+  event/common.emevd.dcx                             m01,m04,m11   ours=out\scripts,randomizer
+  event/common_func.emevd.dcx                        m01,m11   ours=randomizer
+  msg/engus/item_dlc02.msgbnd.dcx                    m02,m04,m05,m06,m11,m12   ours=out\reroll,randomizer
+  msg/engus/menu_dlc02.msgbnd.dcx                    m02,m04,m05,m06,m11,m12   ours=out\scripts,randomizer
+  msg/jpnjp/item_dlc02.msgbnd.dcx                    m04,m06   ours=randomizer
+  msg/jpnjp/menu_dlc02.msgbnd.dcx                    m02,m04,m06   ours=randomizer
+  msg/zhocn/menu_dlc02.msgbnd.dcx                    m02,m04   ours=out\scripts,randomizer
+  msg/zhotw/menu_dlc02.msgbnd.dcx                    m02,m04   ours=randomizer
+  param/systemparam/systemparam.parambnd.dcx         m01,m04,m06,m07,m08,m11   ours=
+  regulation.bin                                     m01,m02,m03,m04,m05,m06,m07,m08,m09,m10,m11,m12   ours=out\reroll,randomizer
+  script/aicommon.luabnd.dcx                         m07,m08   ours=
+  script/aicommon_dlc02.luabnd.dcx                   m07,m08   ours=
+  sfx/sfxbnd_commoneffects.ffxbnd.dcx                m01,m02,m03,m04,m06,m09,m11   ours=

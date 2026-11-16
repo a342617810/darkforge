@@ -1,0 +1,2073 @@
+{
+ "_说明": "Boss 击杀奖励的地图掉落表（来自随机器 diste\\Base 的 itemslots/enemy），tier = Boss 所在地图的流程等级；2026-10-22 补了 4 个地图记成大地块（m60_xx_xx_02）而漏掉的：碎星拉塔恩、火焰巨人、冻雾龙、雪原的夜骑兵；2026-10-29 补了追忆挂在别处而漏掉的死龙弗尔桑克斯（追忆在菲雅的事件，奖励表 10110）、祖灵之王（追忆在祖灵遗骸，10330）",
+ "bosses": [
+  {
+   "entity": 10000800,
+   "class": "Boss",
+   "map": "m10_00_00_00",
+   "tier": 3,
+   "name": "Godrick the Grafted",
+   "lots": [
+    10010,
+    10011
+   ]
+  },
+  {
+   "entity": 10000850,
+   "class": "Boss",
+   "map": "m10_00_00_00",
+   "tier": 3,
+   "name": "Margit, the Fell Omen",
+   "lots": [
+    10000
+   ]
+  },
+  {
+   "entity": 10010800,
+   "class": "MinorBoss",
+   "map": "m10_01_00_00",
+   "tier": 6,
+   "name": "Grafted Scion Boss",
+   "lots": [
+    10030,
+    10031
+   ]
+  },
+  {
+   "entity": 11000800,
+   "class": "Boss",
+   "map": "m11_00_00_00",
+   "tier": 10,
+   "name": "Morgott, the Omen King",
+   "lots": [
+    10040,
+    10041
+   ]
+  },
+  {
+   "entity": 11000850,
+   "class": "Boss",
+   "map": "m11_00_00_00",
+   "tier": 10,
+   "name": "Goldfrey, First Elden Lord",
+   "lots": [
+    10050
+   ]
+  },
+  {
+   "entity": 11050800,
+   "class": "Boss",
+   "map": "m11_05_00_00",
+   "tier": 15,
+   "name": "Hoarah Loux, Warrior",
+   "lots": [
+    10070
+   ]
+  },
+  {
+   "entity": 11050850,
+   "class": "Boss",
+   "map": "m11_05_00_00",
+   "tier": 15,
+   "name": "Sir Gideon Ofnir, the All-Knowing",
+   "lots": [
+    10060,
+    10061,
+    10062,
+    10063,
+    10064
+   ]
+  },
+  {
+   "entity": 12010800,
+   "class": "Boss",
+   "map": "m12_01_00_00",
+   "tier": 11,
+   "name": "Dragonkin Soldier of Nokstella",
+   "lots": [
+    10090
+   ]
+  },
+  {
+   "entity": 12010850,
+   "class": "Miniboss",
+   "map": "m12_01_00_00",
+   "tier": 11,
+   "name": "Dragonkin Soldier Boss",
+   "lots": [
+    30600
+   ]
+  },
+  {
+   "entity": 12020800,
+   "class": "Boss",
+   "map": "m12_02_00_00",
+   "tier": 9,
+   "name": "Valiant Gargoyles",
+   "lots": [
+    10100,
+    10101
+   ]
+  },
+  {
+   "entity": 12020830,
+   "class": "Miniboss",
+   "map": "m12_02_00_00",
+   "tier": 9,
+   "name": "Dragonkin Soldier Boss",
+   "lots": [
+    30620
+   ]
+  },
+  {
+   "entity": 12020850,
+   "class": "Boss",
+   "map": "m12_02_00_00",
+   "tier": 9,
+   "name": "Mimic Tear",
+   "lots": [
+    10340,
+    10341
+   ]
+  },
+  {
+   "entity": 12030390,
+   "class": "Miniboss",
+   "map": "m12_03_00_00",
+   "tier": 11,
+   "name": "Crucible Knight Siluria",
+   "lots": [
+    12030950
+   ]
+  },
+  {
+   "entity": 12030800,
+   "class": "Boss",
+   "map": "m12_03_00_00",
+   "tier": 11,
+   "name": "Fia's Champions",
+   "lots": [
+    10350
+   ]
+  },
+  {
+   "entity": 12030850,
+   "class": "Boss",
+   "map": "m12_03_00_00",
+   "tier": 11,
+   "name": "Lichdragon Fortissax",
+   "lots": [
+    10110
+   ]
+  },
+  {
+   "entity": 12090800,
+   "class": "Boss",
+   "map": "m12_09_00_00",
+   "tier": 9,
+   "name": "Regal Ancestor Spirit",
+   "lots": [
+    10330
+   ]
+  },
+  {
+   "entity": 12040800,
+   "class": "Boss",
+   "map": "m12_04_00_00",
+   "tier": 12,
+   "name": "Astel, Naturalborn of the Void",
+   "lots": [
+    10080
+   ]
+  },
+  {
+   "entity": 12050800,
+   "class": "Boss",
+   "map": "m12_05_00_00",
+   "tier": 17,
+   "name": "Mohg, Lord of Blood",
+   "lots": [
+    10120,
+    10121
+   ]
+  },
+  {
+   "entity": 13000800,
+   "class": "Boss",
+   "map": "m13_00_00_00",
+   "tier": 14,
+   "name": "Maliketh, the Black Blade",
+   "lots": [
+    10160
+   ]
+  },
+  {
+   "entity": 13000830,
+   "class": "Boss",
+   "map": "m13_00_00_00",
+   "tier": 14,
+   "name": "Dragonlord Placidusax",
+   "lots": [
+    10150
+   ]
+  },
+  {
+   "entity": 13000850,
+   "class": "Boss",
+   "map": "m13_00_00_00",
+   "tier": 14,
+   "name": "Godskin Duo",
+   "lots": [
+    10140,
+    10141
+   ]
+  },
+  {
+   "entity": 14000801,
+   "class": "Boss",
+   "map": "m14_00_00_00",
+   "tier": 6,
+   "name": "Rennala 1",
+   "lots": [
+    10180,
+    10181
+   ]
+  },
+  {
+   "entity": 14000850,
+   "class": "Boss",
+   "map": "m14_00_00_00",
+   "tier": 6,
+   "name": "Red Wolf of Radagon",
+   "lots": [
+    10170
+   ]
+  },
+  {
+   "entity": 15000800,
+   "class": "Boss",
+   "map": "m15_00_00_00",
+   "tier": 19,
+   "name": "Malenia, Blade of Miquella",
+   "lots": [
+    10200,
+    10201
+   ]
+  },
+  {
+   "entity": 15000850,
+   "class": "Boss",
+   "map": "m15_00_00_00",
+   "tier": 19,
+   "name": "Loretta, Knight of the Haligtree",
+   "lots": [
+    10190,
+    10191
+   ]
+  },
+  {
+   "entity": 16000800,
+   "class": "Boss",
+   "map": "m16_00_00_00",
+   "tier": 11,
+   "name": "Rykard, Lord of Blasphemy",
+   "lots": [
+    10220,
+    10221
+   ]
+  },
+  {
+   "entity": 16000850,
+   "class": "Boss",
+   "map": "m16_00_00_00",
+   "tier": 11,
+   "name": "Godskin Noble Boss",
+   "lots": [
+    10210,
+    10211
+   ]
+  },
+  {
+   "entity": 16000860,
+   "class": "MinorBoss",
+   "map": "m16_00_00_00",
+   "tier": 11,
+   "name": "Abductor Virgin Duo",
+   "lots": [
+    10290
+   ]
+  },
+  {
+   "entity": 18000800,
+   "class": "MinorBoss",
+   "map": "m18_00_00_00",
+   "tier": 6,
+   "name": "Ulcerated Tree Spirit Boss",
+   "lots": [
+    10280,
+    10281
+   ]
+  },
+  {
+   "entity": 19000810,
+   "class": "Boss",
+   "map": "m19_00_00_00",
+   "tier": 20,
+   "name": "Radagon of the Golden Order",
+   "lots": [
+    10230
+   ]
+  },
+  {
+   "entity": 20000800,
+   "class": "Boss",
+   "map": "m20_00_00_00",
+   "tier": 22,
+   "name": "Divine Beast Dancing Lion",
+   "lots": [
+    10400
+   ]
+  },
+  {
+   "entity": 20010800,
+   "class": "Boss",
+   "map": "m20_01_00_00",
+   "tier": 32,
+   "name": "Radahn, Consort of Miquella",
+   "lots": [
+    10430
+   ]
+  },
+  {
+   "entity": 21000850,
+   "class": "Boss",
+   "map": "m21_00_00_00",
+   "tier": 27,
+   "name": "Golden Hippopotamus",
+   "lots": [
+    10440,
+    10441
+   ]
+  },
+  {
+   "entity": 21010800,
+   "class": "Boss",
+   "map": "m21_01_00_00",
+   "tier": 29,
+   "name": "Base Serpent Messmer",
+   "lots": [
+    10460,
+    10461
+   ]
+  },
+  {
+   "entity": 22000800,
+   "class": "Boss",
+   "map": "m22_00_00_00",
+   "tier": 27,
+   "name": "Putrescent Knight",
+   "lots": [
+    10480
+   ]
+  },
+  {
+   "entity": 25000800,
+   "class": "Boss",
+   "map": "m25_00_00_00",
+   "tier": 32,
+   "name": "Metyr, Mother of Fingers",
+   "lots": [
+    10550
+   ]
+  },
+  {
+   "entity": 28000800,
+   "class": "Boss",
+   "map": "m28_00_00_00",
+   "tier": 31,
+   "name": "Midra, Lord of Frenzied Flame",
+   "lots": [
+    10560
+   ]
+  },
+  {
+   "entity": 30000800,
+   "class": "MinorBoss",
+   "map": "m30_00_00_00",
+   "tier": 2,
+   "name": "Cemetery Shade Boss",
+   "lots": [
+    20000
+   ]
+  },
+  {
+   "entity": 30010800,
+   "class": "MinorBoss",
+   "map": "m30_01_00_00",
+   "tier": 2,
+   "name": "Erdtree Burial Watchdog and Imps",
+   "lots": [
+    20010
+   ]
+  },
+  {
+   "entity": 30020800,
+   "class": "MinorBoss",
+   "map": "m30_02_00_00",
+   "tier": 1,
+   "name": "Fire Erdtree Burial Watchdog Boss",
+   "lots": [
+    20020
+   ]
+  },
+  {
+   "entity": 30030800,
+   "class": "MinorBoss",
+   "map": "m30_03_00_00",
+   "tier": 6,
+   "name": "Crucible Spiritcaller Snail",
+   "lots": [
+    20060
+   ]
+  },
+  {
+   "entity": 30040800,
+   "class": "MinorBoss",
+   "map": "m30_04_00_00",
+   "tier": 1,
+   "name": "Grave Warden Duelist Boss",
+   "lots": [
+    20040
+   ]
+  },
+  {
+   "entity": 30050800,
+   "class": "MinorBoss",
+   "map": "m30_05_00_00",
+   "tier": 6,
+   "name": "Cemetery Shade and Skeletons",
+   "lots": [
+    20050
+   ]
+  },
+  {
+   "entity": 30050850,
+   "class": "MinorBoss",
+   "map": "m30_05_00_00",
+   "tier": 6,
+   "name": "Black Knife Assassin Boss",
+   "lots": [
+    20210,
+    20211
+   ]
+  },
+  {
+   "entity": 30060800,
+   "class": "MinorBoss",
+   "map": "m30_06_00_00",
+   "tier": 6,
+   "name": "Scepter Erdtree Burial Watchdog Boss",
+   "lots": [
+    20070
+   ]
+  },
+  {
+   "entity": 30070800,
+   "class": "MinorBoss",
+   "map": "m30_07_00_00",
+   "tier": 9,
+   "name": "Lightning Erdtree Burial Watchdog Boss",
+   "lots": [
+    20120
+   ]
+  },
+  {
+   "entity": 30080800,
+   "class": "MinorBoss",
+   "map": "m30_08_00_00",
+   "tier": 8,
+   "name": "Ancient Hero of Zamor Boss",
+   "lots": [
+    20080
+   ]
+  },
+  {
+   "entity": 30090800,
+   "class": "MinorBoss",
+   "map": "m30_09_00_00",
+   "tier": 9,
+   "name": "Red Wolf of the Champion",
+   "lots": [
+    20090
+   ]
+  },
+  {
+   "entity": 30100800,
+   "class": "MinorBoss",
+   "map": "m30_10_00_00",
+   "tier": 9,
+   "name": "Crucible Knight Duo",
+   "lots": [
+    20100,
+    20101,
+    20102,
+    20103,
+    20104
+   ]
+  },
+  {
+   "entity": 30110800,
+   "class": "MinorBoss",
+   "map": "m30_11_00_00",
+   "tier": 1,
+   "name": "Black Knife Assassin Boss",
+   "lots": [
+    20030
+   ]
+  },
+  {
+   "entity": 30120800,
+   "class": "MinorBoss",
+   "map": "m30_12_00_00",
+   "tier": 8,
+   "name": "Misbegotten Perfumer Duo",
+   "lots": [
+    20110
+   ]
+  },
+  {
+   "entity": 30130800,
+   "class": "MinorBoss",
+   "map": "m30_13_00_00",
+   "tier": 9,
+   "name": "Grave Warden Duelist Boss",
+   "lots": [
+    20130
+   ]
+  },
+  {
+   "entity": 30140800,
+   "class": "MinorBoss",
+   "map": "m30_14_00_00",
+   "tier": 7,
+   "name": "Erdtree Burial Watchdog Duo",
+   "lots": [
+    20140
+   ]
+  },
+  {
+   "entity": 30150800,
+   "class": "MinorBoss",
+   "map": "m30_15_00_00",
+   "tier": 7,
+   "name": "Cemetery Shade Boss",
+   "lots": [
+    20150
+   ]
+  },
+  {
+   "entity": 30160800,
+   "class": "MinorBoss",
+   "map": "m30_16_00_00",
+   "tier": 15,
+   "name": "Putrid Tree Spirit Boss",
+   "lots": [
+    20160,
+    20161
+   ]
+  },
+  {
+   "entity": 30170800,
+   "class": "MinorBoss",
+   "map": "m30_17_00_00",
+   "tier": 12,
+   "name": "Ancient Hero of Zamor Boss",
+   "lots": [
+    20170,
+    20171,
+    20172,
+    20173,
+    20174
+   ]
+  },
+  {
+   "entity": 30180800,
+   "class": "MinorBoss",
+   "map": "m30_18_00_00",
+   "tier": 12,
+   "name": "Ulcerated Tree Spirit Boss",
+   "lots": [
+    20180,
+    20181
+   ]
+  },
+  {
+   "entity": 30190800,
+   "class": "MinorBoss",
+   "map": "m30_19_00_00",
+   "tier": 16,
+   "name": "Putrid Grave Warden Duelist",
+   "lots": [
+    20190,
+    20191
+   ]
+  },
+  {
+   "entity": 30200800,
+   "class": "MinorBoss",
+   "map": "m30_20_00_00",
+   "tier": 16,
+   "name": "Stray Mimic Tear",
+   "lots": [
+    20200
+   ]
+  },
+  {
+   "entity": 31010800,
+   "class": "MinorBoss",
+   "map": "m31_01_00_00",
+   "tier": 2,
+   "name": "Runebear Boss",
+   "lots": [
+    20310
+   ]
+  },
+  {
+   "entity": 31020800,
+   "class": "MinorBoss",
+   "map": "m31_02_00_00",
+   "tier": 2,
+   "name": "Miranda Blossom and Sprouts",
+   "lots": [
+    20300
+   ]
+  },
+  {
+   "entity": 31040800,
+   "class": "MinorBoss",
+   "map": "m31_04_00_00",
+   "tier": 6,
+   "name": "Cleanrot Knight Boss",
+   "lots": [
+    20360
+   ]
+  },
+  {
+   "entity": 31050800,
+   "class": "MinorBoss",
+   "map": "m31_05_00_00",
+   "tier": 6,
+   "name": "Bloodhound Knight Boss",
+   "lots": [
+    20370
+   ]
+  },
+  {
+   "entity": 31060800,
+   "class": "MinorBoss",
+   "map": "m31_06_00_00",
+   "tier": 6,
+   "name": "Crystalian Staff Spear Duo",
+   "lots": [
+    20380
+   ]
+  },
+  {
+   "entity": 31070800,
+   "class": "MinorBoss",
+   "map": "m31_07_00_00",
+   "tier": 9,
+   "name": "Kindred of Rot Duo",
+   "lots": [
+    20390
+   ]
+  },
+  {
+   "entity": 31090800,
+   "class": "MinorBoss",
+   "map": "m31_09_00_00",
+   "tier": 9,
+   "name": "Demi-Human Queen Margot",
+   "lots": [
+    20400
+   ]
+  },
+  {
+   "entity": 31100800,
+   "class": "MinorBoss",
+   "map": "m31_10_00_00",
+   "tier": 15,
+   "name": "Beastman of Farum Azula Duo",
+   "lots": [
+    20440
+   ]
+  },
+  {
+   "entity": 31110800,
+   "class": "MinorBoss",
+   "map": "m31_11_00_00",
+   "tier": 7,
+   "name": "Putrid Crystalian Trio",
+   "lots": [
+    20460
+   ]
+  },
+  {
+   "entity": 31120800,
+   "class": "MinorBoss",
+   "map": "m31_12_00_00",
+   "tier": 16,
+   "name": "Misbegotten Crusader",
+   "lots": [
+    20470
+   ]
+  },
+  {
+   "entity": 31170800,
+   "class": "MinorBoss",
+   "map": "m31_17_00_00",
+   "tier": 1,
+   "name": "Guardian Golem Boss",
+   "lots": [
+    20350
+   ]
+  },
+  {
+   "entity": 31180800,
+   "class": "MinorBoss",
+   "map": "m31_18_00_00",
+   "tier": 8,
+   "name": "Miranda Omenkiller Duo",
+   "lots": [
+    20410
+   ]
+  },
+  {
+   "entity": 31190800,
+   "class": "MinorBoss",
+   "map": "m31_19_00_00",
+   "tier": 8,
+   "name": "Invisible Black Knife Assassin Boss",
+   "lots": [
+    20420
+   ]
+  },
+  {
+   "entity": 31190850,
+   "class": "MinorBoss",
+   "map": "m31_19_00_00",
+   "tier": 8,
+   "name": "Necromancer Garris",
+   "lots": [
+    20490
+   ]
+  },
+  {
+   "entity": 31200800,
+   "class": "MinorBoss",
+   "map": "m31_20_00_00",
+   "tier": 7,
+   "name": "Cleanrot Knight Duo",
+   "lots": [
+    20450
+   ]
+  },
+  {
+   "entity": 31210800,
+   "class": "MinorBoss",
+   "map": "m31_21_00_00",
+   "tier": 7,
+   "name": "Frenzied Duelist",
+   "lots": [
+    20430
+   ]
+  },
+  {
+   "entity": 31220800,
+   "class": "MinorBoss",
+   "map": "m31_22_00_00",
+   "tier": 12,
+   "name": "Godskin Spiritcaller Snail",
+   "lots": [
+    20480,
+    20481
+   ]
+  },
+  {
+   "entity": 32000800,
+   "class": "MinorBoss",
+   "map": "m32_00_00_00",
+   "tier": 2,
+   "name": "Scaly Misbegotten Boss",
+   "lots": [
+    20600
+   ]
+  },
+  {
+   "entity": 32010800,
+   "class": "MinorBoss",
+   "map": "m32_01_00_00",
+   "tier": 1,
+   "name": "Stonedigger Troll",
+   "lots": [
+    20610
+   ]
+  },
+  {
+   "entity": 32020800,
+   "class": "MinorBoss",
+   "map": "m32_02_00_00",
+   "tier": 6,
+   "name": "Ringblade Crystalian Boss",
+   "lots": [
+    20620
+   ]
+  },
+  {
+   "entity": 32040800,
+   "class": "MinorBoss",
+   "map": "m32_04_00_00",
+   "tier": 8,
+   "name": "Stonedigger Troll",
+   "lots": [
+    20630
+   ]
+  },
+  {
+   "entity": 32050800,
+   "class": "MinorBoss",
+   "map": "m32_05_00_00",
+   "tier": 8,
+   "name": "Crystalian Ringblade Spear Duo",
+   "lots": [
+    20650
+   ]
+  },
+  {
+   "entity": 32070800,
+   "class": "MinorBoss",
+   "map": "m32_07_00_00",
+   "tier": 7,
+   "name": "Magma Wyrm Boss",
+   "lots": [
+    20660,
+    20661
+   ]
+  },
+  {
+   "entity": 32080800,
+   "class": "MinorBoss",
+   "map": "m32_08_00_00",
+   "tier": 7,
+   "name": "Regular Fallingstar Beast",
+   "lots": [
+    20670,
+    20671,
+    20672,
+    20673
+   ]
+  },
+  {
+   "entity": 32110800,
+   "class": "MinorBoss",
+   "map": "m32_11_00_00",
+   "tier": 16,
+   "name": "Astel, Stars of Darkness",
+   "lots": [
+    20680
+   ]
+  },
+  {
+   "entity": 34120800,
+   "class": "MinorBoss",
+   "map": "m34_12_00_00",
+   "tier": 9,
+   "name": "Onyx Lord Boss",
+   "lots": [
+    20640
+   ]
+  },
+  {
+   "entity": 34130800,
+   "class": "MinorBoss",
+   "map": "m34_13_00_00",
+   "tier": 15,
+   "name": "Godskin Apostle",
+   "lots": [
+    10730,
+    10731,
+    10732,
+    10733
+   ]
+  },
+  {
+   "entity": 34140850,
+   "class": "MinorBoss",
+   "map": "m34_14_00_00",
+   "tier": 12,
+   "name": "Fell Twin Duo",
+   "lots": [
+    10740
+   ]
+  },
+  {
+   "entity": 35000800,
+   "class": "Boss",
+   "map": "m35_00_00_00",
+   "tier": 13,
+   "name": "Mohg, the Omen",
+   "lots": [
+    10250
+   ]
+  },
+  {
+   "entity": 35000850,
+   "class": "MinorBoss",
+   "map": "m35_00_00_00",
+   "tier": 13,
+   "name": "Esgar, Priest of Blood",
+   "lots": [
+    20220
+   ]
+  },
+  {
+   "entity": 39200800,
+   "class": "Boss",
+   "map": "m39_20_00_00",
+   "tier": 7,
+   "name": "Magma Wyrm Makar",
+   "lots": [
+    10260,
+    10261
+   ]
+  },
+  {
+   "entity": 40000800,
+   "class": "MinorBoss",
+   "map": "m40_00_00_00",
+   "tier": 23,
+   "name": "Twin Axe Death Knight",
+   "lots": [
+    20700,
+    20701
+   ]
+  },
+  {
+   "entity": 40010800,
+   "class": "MinorBoss",
+   "map": "m40_01_00_00",
+   "tier": 26,
+   "name": "Longhaft Death Knight",
+   "lots": [
+    20710,
+    20711
+   ]
+  },
+  {
+   "entity": 41000800,
+   "class": "MinorBoss",
+   "map": "m41_00_00_00",
+   "tier": 21,
+   "name": "Demi-Human Swordmaster Onze",
+   "lots": [
+    20750
+   ]
+  },
+  {
+   "entity": 41010800,
+   "class": "MinorBoss",
+   "map": "m41_01_00_00",
+   "tier": 25,
+   "name": "Curseblade Labirith",
+   "lots": [
+    20760
+   ]
+  },
+  {
+   "entity": 41020800,
+   "class": "MinorBoss",
+   "map": "m41_02_00_00",
+   "tier": 26,
+   "name": "Lamenter",
+   "lots": [
+    20770
+   ]
+  },
+  {
+   "entity": 43000800,
+   "class": "MinorBoss",
+   "map": "m43_00_00_00",
+   "tier": 25,
+   "name": "Chief Bloodfiend Boss",
+   "lots": [
+    20800
+   ]
+  },
+  {
+   "entity": 43010800,
+   "class": "MinorBoss",
+   "map": "m43_01_00_00",
+   "tier": 23,
+   "name": "Ancient Dragon-Man",
+   "lots": [
+    20810
+   ]
+  },
+  {
+   "entity": 1033420800,
+   "class": "Evergaol",
+   "map": "m60_33_42_00",
+   "tier": 6,
+   "name": "Alecto, Black Knife Ringleader",
+   "lots": [
+    30265
+   ]
+  },
+  {
+   "entity": 1033430800,
+   "class": "Miniboss",
+   "map": "m60_33_43_00",
+   "tier": 6,
+   "name": "Erdtree Avatar Boss",
+   "lots": [
+    30205,
+    30206
+   ]
+  },
+  {
+   "entity": 1033450800,
+   "class": "Evergaol",
+   "map": "m60_33_45_00",
+   "tier": 6,
+   "name": "Bols, Carian Knight",
+   "lots": [
+    30250
+   ]
+  },
+  {
+   "entity": 1034420800,
+   "class": "DragonMiniboss",
+   "map": "m60_34_42_00",
+   "tier": 6,
+   "name": "Glintstone Dragon Adula",
+   "lots": [
+    30260,
+    30261
+   ]
+  },
+  {
+   "entity": 1034450800,
+   "class": "DragonMiniboss",
+   "map": "m60_34_45_00",
+   "tier": 10,
+   "name": "Glintstone Dragon Smarag",
+   "lots": [
+    30210
+   ]
+  },
+  {
+   "entity": 1035420800,
+   "class": "Miniboss",
+   "map": "m60_35_42_00",
+   "tier": 6,
+   "name": "Omenkiller Boss",
+   "lots": [
+    30225
+   ]
+  },
+  {
+   "entity": 1035500800,
+   "class": "Boss",
+   "map": "m60_35_50_00",
+   "tier": 6,
+   "name": "Royal Knight Loretta",
+   "lots": [
+    10810,
+    10811
+   ]
+  },
+  {
+   "entity": 1035530800,
+   "class": "Miniboss",
+   "map": "m60_35_53_00",
+   "tier": 9,
+   "name": "Magma Wyrm Boss",
+   "lots": [
+    30390
+   ]
+  },
+  {
+   "entity": 1036450340,
+   "class": "NightMiniboss",
+   "map": "m60_36_45_00",
+   "tier": 6,
+   "name": "Death Rite Bird",
+   "lots": [
+    1036450400
+   ]
+  },
+  {
+   "entity": 1036480340,
+   "class": "NightMiniboss",
+   "map": "m60_36_48_00",
+   "tier": 6,
+   "name": "Night's Cavalry",
+   "lots": [
+    1036480400,
+    1036480401
+   ]
+  },
+  {
+   "entity": 1036500800,
+   "class": "Evergaol",
+   "map": "m60_36_50_00",
+   "tier": 6,
+   "name": "Onyx Lord Boss",
+   "lots": [
+    30255
+   ]
+  },
+  {
+   "entity": 1036540800,
+   "class": "Miniboss",
+   "map": "m60_36_54_00",
+   "tier": 9,
+   "name": "Full-Grown Fallingstar Beast",
+   "lots": [
+    30375,
+    30376,
+    30377
+   ]
+  },
+  {
+   "entity": 1037420340,
+   "class": "NightMiniboss",
+   "map": "m60_37_42_00",
+   "tier": 6,
+   "name": "Deathbird",
+   "lots": [
+    1037420400
+   ]
+  },
+  {
+   "entity": 1037460800,
+   "class": "NightMiniboss",
+   "map": "m60_37_46_00",
+   "tier": 6,
+   "name": "Bell Bearing Hunter",
+   "lots": [
+    1037460400
+   ]
+  },
+  {
+   "entity": 1037510800,
+   "class": "DragonMiniboss",
+   "map": "m60_37_51_00",
+   "tier": 8,
+   "name": "Ancient Dragon Lansseax",
+   "lots": [
+    30300
+   ]
+  },
+  {
+   "entity": 1037530800,
+   "class": "Miniboss",
+   "map": "m60_37_53_00",
+   "tier": 9,
+   "name": "Demi-Human Queen Maggie",
+   "lots": [
+    30395
+   ]
+  },
+  {
+   "entity": 1037540810,
+   "class": "Miniboss",
+   "map": "m60_37_54_00",
+   "tier": 9,
+   "name": "Ulcerated Tree Spirit Boss",
+   "lots": [
+    30380,
+    30381
+   ]
+  },
+  {
+   "entity": 1038410800,
+   "class": "Evergaol",
+   "map": "m60_38_41_00",
+   "tier": 6,
+   "name": "Adan, Thief of Fire",
+   "lots": [
+    30245
+   ]
+  },
+  {
+   "entity": 1038480800,
+   "class": "Miniboss",
+   "map": "m60_38_48_00",
+   "tier": 6,
+   "name": "Erdtree Avatar Boss",
+   "lots": [
+    30200,
+    30201,
+    30202
+   ]
+  },
+  {
+   "entity": 1038520340,
+   "class": "Miniboss",
+   "map": "m60_38_52_00",
+   "tier": 9,
+   "name": "Tibia Mariner Boss",
+   "lots": [
+    30385,
+    30386
+   ]
+  },
+  {
+   "entity": 1039430340,
+   "class": "NightMiniboss",
+   "map": "m60_39_43_00",
+   "tier": 6,
+   "name": "Night's Cavalry",
+   "lots": [
+    1039430400
+   ]
+  },
+  {
+   "entity": 1039440800,
+   "class": "Miniboss",
+   "map": "m60_39_44_00",
+   "tier": 6,
+   "name": "Tibia Mariner Boss",
+   "lots": [
+    30240,
+    30241
+   ]
+  },
+  {
+   "entity": 1039500800,
+   "class": "Evergaol",
+   "map": "m60_39_50_00",
+   "tier": 8,
+   "name": "Godefroy the Grafted",
+   "lots": [
+    1039500100
+   ]
+  },
+  {
+   "entity": 1039510800,
+   "class": "NightMiniboss",
+   "map": "m60_39_51_00",
+   "tier": 8,
+   "name": "Night's Cavalry",
+   "lots": [
+    1039510200
+   ]
+  },
+  {
+   "entity": 1039540800,
+   "class": "MinorBoss",
+   "map": "m60_39_54_00",
+   "tier": 9,
+   "name": "Elemer of the Briar",
+   "lots": [
+    10820,
+    10821
+   ]
+  },
+  {
+   "entity": 1040520800,
+   "class": "Miniboss",
+   "map": "m60_40_52_00",
+   "tier": 8,
+   "name": "Black Knife Assassin Boss",
+   "lots": [
+    30350
+   ]
+  },
+  {
+   "entity": 1041500800,
+   "class": "Miniboss",
+   "map": "m60_41_50_00",
+   "tier": 8,
+   "name": "Regular Fallingstar Beast",
+   "lots": [
+    30310,
+    30311,
+    30312,
+    30313
+   ]
+  },
+  {
+   "entity": 1041510800,
+   "class": "Miniboss",
+   "map": "m60_41_51_00",
+   "tier": 8,
+   "name": "Tree Sentinel",
+   "lots": [
+    30335,
+    30336
+   ]
+  },
+  {
+   "entity": 1041530800,
+   "class": "Miniboss",
+   "map": "m60_41_53_00",
+   "tier": 8,
+   "name": "Wormface Boss",
+   "lots": [
+    30320,
+    30321
+   ]
+  },
+  {
+   "entity": 1042330800,
+   "class": "Evergaol",
+   "map": "m60_42_33_00",
+   "tier": 2,
+   "name": "Ancient Hero of Zamor Boss",
+   "lots": [
+    1042330100
+   ]
+  },
+  {
+   "entity": 1042360800,
+   "class": "Miniboss",
+   "map": "m60_42_36_00",
+   "tier": 1,
+   "name": "Tree Sentinel",
+   "lots": [
+    30100
+   ]
+  },
+  {
+   "entity": 1042370800,
+   "class": "Evergaol",
+   "map": "m60_42_37_00",
+   "tier": 1,
+   "name": "Crucible Knight Boss",
+   "lots": [
+    30120
+   ]
+  },
+  {
+   "entity": 1042380800,
+   "class": "NightMiniboss",
+   "map": "m60_42_38_00",
+   "tier": 1,
+   "name": "Deathbird",
+   "lots": [
+    1042380400
+   ]
+  },
+  {
+   "entity": 1042380850,
+   "class": "NightMiniboss",
+   "map": "m60_42_38_00",
+   "tier": 1,
+   "name": "Bell Bearing Hunter",
+   "lots": [
+    1042380410
+   ]
+  },
+  {
+   "entity": 1042550800,
+   "class": "Miniboss",
+   "map": "m60_42_55_00",
+   "tier": 10,
+   "name": "Godskin Apostle",
+   "lots": [
+    30325,
+    30326
+   ]
+  },
+  {
+   "entity": 1043300800,
+   "class": "Boss",
+   "map": "m60_43_30_00",
+   "tier": 3,
+   "name": "Leonine Misbegotten Boss",
+   "lots": [
+    10800
+   ]
+  },
+  {
+   "entity": 1043330800,
+   "class": "Miniboss",
+   "map": "m60_43_33_00",
+   "tier": 2,
+   "name": "Erdtree Avatar Boss",
+   "lots": [
+    30185,
+    30186
+   ]
+  },
+  {
+   "entity": 1043360800,
+   "class": "DragonMiniboss",
+   "map": "m60_43_36_00",
+   "tier": 1,
+   "name": "Flying Dragon Agheel",
+   "lots": [
+    30110
+   ]
+  },
+  {
+   "entity": 1043370340,
+   "class": "NightMiniboss",
+   "map": "m60_43_37_00",
+   "tier": 1,
+   "name": "Night's Cavalry",
+   "lots": [
+    1043370400
+   ]
+  },
+  {
+   "entity": 1043530800,
+   "class": "NightMiniboss",
+   "map": "m60_43_53_00",
+   "tier": 9,
+   "name": "Bell Bearing Hunter",
+   "lots": [
+    1043530400
+   ]
+  },
+  {
+   "entity": 1044320340,
+   "class": "NightMiniboss",
+   "map": "m60_44_32_00",
+   "tier": 2,
+   "name": "Deathbird",
+   "lots": [
+    1044320400
+   ]
+  },
+  {
+   "entity": 1044320342,
+   "class": "NightMiniboss",
+   "map": "m60_44_32_00",
+   "tier": 2,
+   "name": "Night's Cavalry",
+   "lots": [
+    1044320410,
+    1044320411
+   ]
+  },
+  {
+   "entity": 1044350800,
+   "class": "Evergaol",
+   "map": "m60_44_35_00",
+   "tier": 1,
+   "name": "Bloodhound Knight Darriwil",
+   "lots": [
+    30130
+   ]
+  },
+  {
+   "entity": 1044530800,
+   "class": "NightMiniboss",
+   "map": "m60_44_53_00",
+   "tier": 9,
+   "name": "Deathbird",
+   "lots": [
+    1044530300
+   ]
+  },
+  {
+   "entity": 1045390800,
+   "class": "Miniboss",
+   "map": "m60_45_39_00",
+   "tier": 1,
+   "name": "Tibia Mariner Boss",
+   "lots": [
+    30170,
+    30171
+   ]
+  },
+  {
+   "entity": 1045520800,
+   "class": "Miniboss",
+   "map": "m60_45_52_00",
+   "tier": 9,
+   "name": "Draconic Tree Sentinel Boss",
+   "lots": [
+    30315,
+    30316
+   ]
+  },
+  {
+   "entity": 1047400800,
+   "class": "Miniboss",
+   "map": "m60_47_40_00",
+   "tier": 7,
+   "name": "Putrid Avatar Boss",
+   "lots": [
+    30410,
+    30411
+   ]
+  },
+  {
+   "entity": 1048370800,
+   "class": "DragonMiniboss",
+   "map": "m60_48_37_00",
+   "tier": 7,
+   "name": "Decaying Ekzykes",
+   "lots": [
+    30400
+   ]
+  },
+  {
+   "entity": 1048410800,
+   "class": "NightMiniboss",
+   "map": "m60_48_41_00",
+   "tier": 7,
+   "name": "Bell Bearing Hunter",
+   "lots": [
+    1048410800
+   ]
+  },
+  {
+   "entity": 1048510800,
+   "class": "NightMiniboss",
+   "map": "m60_48_51_00",
+   "tier": 12,
+   "name": "Night's Cavalry",
+   "lots": [
+    1048510700
+   ]
+  },
+  {
+   "entity": 1048570800,
+   "class": "NightMiniboss",
+   "map": "m60_48_57_00",
+   "tier": 16,
+   "name": "Death Rite Bird",
+   "lots": [
+    1048570700
+   ]
+  },
+  {
+   "entity": 1049370800,
+   "class": "NightMiniboss",
+   "map": "m60_49_37_00",
+   "tier": 7,
+   "name": "Night's Cavalry",
+   "lots": [
+    1049370100
+   ]
+  },
+  {
+   "entity": 1049370850,
+   "class": "NightMiniboss",
+   "map": "m60_49_37_00",
+   "tier": 7,
+   "name": "Death Rite Bird",
+   "lots": [
+    1049370110
+   ]
+  },
+  {
+   "entity": 1049380800,
+   "class": "Miniboss",
+   "map": "m60_49_38_00",
+   "tier": 7,
+   "name": "Commander O'Neil",
+   "lots": [
+    30405,
+    30406
+   ]
+  },
+  {
+   "entity": 1049390800,
+   "class": "MinorBoss",
+   "map": "m60_49_39_00",
+   "tier": 7,
+   "name": "Nox Duo",
+   "lots": [
+    1049390800
+   ]
+  },
+  {
+   "entity": 1049390850,
+   "class": "Evergaol",
+   "map": "m60_49_39_00",
+   "tier": 7,
+   "name": "Battlemage Hugues",
+   "lots": [
+    1049390850
+   ]
+  },
+  {
+   "entity": 1049520800,
+   "class": "Miniboss",
+   "map": "m60_49_52_00",
+   "tier": 12,
+   "name": "Black Blade Kindred",
+   "lots": [
+    30505,
+    30506
+   ]
+  },
+  {
+   "entity": 1050560800,
+   "class": "Miniboss",
+   "map": "m60_50_56_00",
+   "tier": 16,
+   "name": "Great Wyrm Theodorix",
+   "lots": [
+    30550
+   ]
+  },
+  {
+   "entity": 1050570800,
+   "class": "Miniboss",
+   "map": "m60_50_57_00",
+   "tier": 18,
+   "name": "Death Rite Bird",
+   "lots": [
+    30530
+   ]
+  },
+  {
+   "entity": 1050570850,
+   "class": "Miniboss",
+   "map": "m60_50_57_00",
+   "tier": 18,
+   "name": "Putrid Avatar Boss",
+   "lots": [
+    30555,
+    30556
+   ]
+  },
+  {
+   "entity": 1051360800,
+   "class": "MinorBoss",
+   "map": "m60_51_36_00",
+   "tier": 8,
+   "name": "Crucible Misbegotten Duo",
+   "lots": [
+    10830
+   ]
+  },
+  {
+   "entity": 1051400800,
+   "class": "Miniboss",
+   "map": "m60_51_40_00",
+   "tier": 15,
+   "name": "Putrid Avatar Boss",
+   "lots": [
+    30415,
+    30416
+   ]
+  },
+  {
+   "entity": 1051430800,
+   "class": "Miniboss",
+   "map": "m60_51_43_00",
+   "tier": 15,
+   "name": "Black Blade Kindred",
+   "lots": [
+    30425,
+    30426
+   ]
+  },
+  {
+   "entity": 1051570800,
+   "class": "Boss",
+   "map": "m60_51_57_00",
+   "tier": 13,
+   "name": "Commander Niall",
+   "lots": [
+    10840
+   ]
+  },
+  {
+   "entity": 1052410800,
+   "class": "DragonMiniboss",
+   "map": "m60_52_41_00",
+   "tier": 17,
+   "name": "Flying Dragon Greyll",
+   "lots": [
+    30420
+   ]
+  },
+  {
+   "entity": 1052410850,
+   "class": "NightMiniboss",
+   "map": "m60_52_41_00",
+   "tier": 17,
+   "name": "Night's Cavalry",
+   "lots": [
+    1052410100
+   ]
+  },
+  {
+   "entity": 1052560800,
+   "class": "Miniboss",
+   "map": "m60_52_56_00",
+   "tier": 12,
+   "name": "Erdtree Avatar Duo",
+   "lots": [
+    30525,
+    30526
+   ]
+  },
+  {
+   "entity": 1053560800,
+   "class": "Evergaol",
+   "map": "m60_53_56_00",
+   "tier": 12,
+   "name": "Roundtable Knight Vyke",
+   "lots": [
+    30515,
+    30516,
+    30517,
+    30518,
+    30519
+   ]
+  },
+  {
+   "entity": 2044450800,
+   "class": "Boss",
+   "map": "m61_44_45_00",
+   "tier": 30,
+   "name": "Romina, Saint of the Bud",
+   "lots": [
+    10600
+   ]
+  },
+  {
+   "entity": 2044470800,
+   "class": "Miniboss",
+   "map": "m61_44_47_00",
+   "tier": 26,
+   "name": "Rugalea the Great Red Bear",
+   "lots": [
+    30910
+   ]
+  },
+  {
+   "entity": 2045440800,
+   "class": "DragonMiniboss",
+   "map": "m61_45_44_00",
+   "tier": 21,
+   "name": "Ghostflame Dragon Boss",
+   "lots": [
+    30860,
+    30861
+   ]
+  },
+  {
+   "entity": 2046380800,
+   "class": "MinorBoss",
+   "map": "m61_46_38_00",
+   "tier": 24,
+   "name": "Dancer of Ranah",
+   "lots": [
+    30810,
+    30811,
+    30812,
+    30813,
+    30814
+   ]
+  },
+  {
+   "entity": 2046400800,
+   "class": "Miniboss",
+   "map": "m61_46_40_00",
+   "tier": 21,
+   "name": "Demi-Human Queen Marigga",
+   "lots": [
+    30845
+   ]
+  },
+  {
+   "entity": 2046410800,
+   "class": "MinorBoss",
+   "map": "m61_46_41_00",
+   "tier": 21,
+   "name": "Knight of the Solitary Gaol",
+   "lots": [
+    30820,
+    30821,
+    30822,
+    30823,
+    30824
+   ]
+  },
+  {
+   "entity": 2046450800,
+   "class": "MinorBoss",
+   "map": "m61_46_45_00",
+   "tier": 26,
+   "name": "Red Bear",
+   "lots": [
+    30900,
+    30901,
+    30902,
+    30903,
+    30904
+   ]
+  },
+  {
+   "entity": 2046460800,
+   "class": "Miniboss",
+   "map": "m61_46_46_00",
+   "tier": 26,
+   "name": "Divine Beast Dancing Lion and Basilisks",
+   "lots": [
+    30940
+   ]
+  },
+  {
+   "entity": 2047390800,
+   "class": "Miniboss",
+   "map": "m61_47_39_00",
+   "tier": 26,
+   "name": "Death Rite Bird",
+   "lots": [
+    30855
+   ]
+  },
+  {
+   "entity": 2047450800,
+   "class": "Miniboss",
+   "map": "m61_47_45_00",
+   "tier": 25,
+   "name": "Black Knight Garrew",
+   "lots": [
+    30955
+   ]
+  },
+  {
+   "entity": 2048380850,
+   "class": "DragonMiniboss",
+   "map": "m61_48_38_00",
+   "tier": 24,
+   "name": "Ghostflame Dragon and Skeletons",
+   "lots": [
+    30840,
+    30841
+   ]
+  },
+  {
+   "entity": 2048440800,
+   "class": "Boss",
+   "map": "m61_48_44_00",
+   "tier": 25,
+   "name": "Rellana, Twin Moon Knight",
+   "lots": [
+    10900
+   ]
+  },
+  {
+   "entity": 2049410800,
+   "class": "DragonMiniboss",
+   "map": "m61_49_41_00",
+   "tier": 23,
+   "name": "Jagged Peak Drake Boss",
+   "lots": [
+    30850,
+    30851
+   ]
+  },
+  {
+   "entity": 2049430800,
+   "class": "DragonMiniboss",
+   "map": "m61_49_43_00",
+   "tier": 25,
+   "name": "Ghostflame Dragon Boss",
+   "lots": [
+    30945,
+    30946
+   ]
+  },
+  {
+   "entity": 2049430850,
+   "class": "Miniboss",
+   "map": "m61_49_43_00",
+   "tier": 25,
+   "name": "Black Knight Edredd",
+   "lots": [
+    30965
+   ]
+  },
+  {
+   "entity": 2049450800,
+   "class": "Miniboss",
+   "map": "m61_49_45_00",
+   "tier": 25,
+   "name": "Ralva the Great Red Bear",
+   "lots": [
+    30930
+   ]
+  },
+  {
+   "entity": 2049480800,
+   "class": "Boss",
+   "map": "m61_49_48_00",
+   "tier": 29,
+   "name": "Commander Gaius",
+   "lots": [
+    10640
+   ]
+  },
+  {
+   "entity": 2050470800,
+   "class": "Miniboss",
+   "map": "m61_50_47_00",
+   "tier": 25,
+   "name": "Tree Sentinel",
+   "lots": [
+    30935
+   ]
+  },
+  {
+   "entity": 2050480800,
+   "class": "Boss",
+   "map": "m61_50_48_00",
+   "tier": 30,
+   "name": "Scadutree Avatar",
+   "lots": [
+    10620,
+    10621
+   ]
+  },
+  {
+   "entity": 2050480860,
+   "class": "Miniboss",
+   "map": "m61_50_48_00",
+   "tier": 30,
+   "name": "Tree Sentinel",
+   "lots": [
+    30950
+   ]
+  },
+  {
+   "entity": 2051440800,
+   "class": "MinorBoss",
+   "map": "m61_51_44_00",
+   "tier": 28,
+   "name": "Rakshasa",
+   "lots": [
+    30830,
+    30831,
+    30832,
+    30833,
+    30834
+   ]
+  },
+  {
+   "entity": 2051450720,
+   "class": "MinorBoss",
+   "map": "m61_51_45_00",
+   "tier": 25,
+   "name": "Count Ymir, Mother of Fingers",
+   "lots": [
+    106640,
+    106641,
+    106642,
+    106643,
+    106644,
+    106645
+   ]
+  },
+  {
+   "entity": 2052400800,
+   "class": "DragonMiniboss",
+   "map": "m61_52_40_00",
+   "tier": 32,
+   "name": "Jagged Peak Drake Boss",
+   "lots": [
+    30800,
+    30801
+   ]
+  },
+  {
+   "entity": 2052430800,
+   "class": "MinorBoss",
+   "map": "m61_52_43_00",
+   "tier": 25,
+   "name": "Jori, Elder Inquisitor",
+   "lots": [
+    10610
+   ]
+  },
+  {
+   "entity": 2052480800,
+   "class": "Miniboss",
+   "map": "m61_52_48_00",
+   "tier": 30,
+   "name": "Regular Fallingstar Beast",
+   "lots": [
+    30960
+   ]
+  },
+  {
+   "entity": 2054390800,
+   "class": "Boss",
+   "map": "m61_54_39_00",
+   "tier": 32,
+   "name": "Bayle the Dread",
+   "lots": [
+    10630
+   ]
+  },
+  {
+   "entity": 2054390850,
+   "class": "DragonMiniboss",
+   "map": "m61_54_39_00",
+   "tier": 32,
+   "name": "Ancient Dragon Senessax",
+   "lots": [
+    30805,
+    30806
+   ]
+  },
+  {
+   "entity": 1052380800,
+   "class": "Boss",
+   "map": "m60_52_38_00",
+   "tier": 8,
+   "name": "Starscourge Radahn",
+   "lots": [
+    10300,
+    10301
+   ]
+  },
+  {
+   "entity": 1052520800,
+   "class": "Boss",
+   "map": "m60_52_52_00",
+   "tier": 12,
+   "name": "Fire Giant",
+   "lots": [
+    10310
+   ]
+  },
+  {
+   "entity": 1054560800,
+   "class": "DragonMiniboss",
+   "map": "m60_54_56_00",
+   "tier": 12,
+   "name": "Borealis the Freezing Fog",
+   "lots": [
+    30510
+   ]
+  },
+  {
+   "entity": 1248550800,
+   "class": "NightMiniboss",
+   "map": "m60_48_55_00",
+   "tier": 16,
+   "name": "Night's Cavalry",
+   "lots": [
+    1048550700,
+    1048550710,
+    1048550711,
+    1048550712,
+    1048550713
+   ]
+  }
+ ]
+}

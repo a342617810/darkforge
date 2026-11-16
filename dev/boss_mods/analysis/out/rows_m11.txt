@@ -1,0 +1,211 @@
+# The Second Release (Morgott) 1.01  (m11, regulation 11601000)
+
+## AtkParam_Npc  新增 13 / 修改 2   （VINS 里一模一样的 0 行）
+  +2130021  [VINS无]
+  +2130106  [VINS无]
+  +2130116  [VINS无]
+  +2130156  [VINS无]
+  +2130192  [VINS无]
+  +2130206  [VINS无]
+  +2130216  [VINS无]
+  +2130370  [VINS无]
+  +2130431  [VINS无]
+  +2130432  [VINS无]
+  +2130811  [VINS无]
+  +2130844  [VINS无]
+  +2130845  [VINS无]
+  ~2130190  [VINS=不同]: spEffectId0:22006→10690
+  ~2190312  [VINS=不同]: atkSuperArmor:10→70; atkDark:80→200
+
+## BehaviorParam  新增 43 / 修改 0   （VINS 里一模一样的 0 行）
+  +221300021  [VINS=不同]
+  +221300086  [VINS无]
+  +221300087  [VINS无]
+  +221300088  [VINS无]
+  +221300106  [VINS无]
+  +221300116  [VINS无]
+  +221300156  [VINS无]
+  +221300161  [VINS无]
+  +221300162  [VINS无]
+  +221300192  [VINS无]
+  +221300193  [VINS无]
+  +221300199  [VINS无]
+  +221300201  [VINS无]
+  +221300202  [VINS无]
+  +221300206  [VINS无]
+  +221300216  [VINS无]
+  +221300370  [VINS无]
+  +221300431  [VINS无]
+  +221300432  [VINS无]
+  +221300512  [VINS无]
+  +221300513  [VINS=不同]
+  +221300514  [VINS=不同]
+  +221300515  [VINS=不同]
+  +221300561  [VINS无]
+  +221300597  [VINS无]
+  +221300598  [VINS无]
+  +221300599  [VINS无]
+  +221300811  [VINS无]
+  +221300844  [VINS无]
+  +221300845  [VINS无]
+  +221300846  [VINS无]
+  +221300847  [VINS无]
+  +221300971  [VINS无]
+  +221300972  [VINS无]
+  +221300992  [VINS无]
+  +221300993  [VINS无]
+  +221300994  [VINS无]
+  +221300995  [VINS无]
+  +221300996  [VINS无]
+  +221300997  [VINS无]
+  +221300998  [VINS无]
+  +221300999  [VINS无]
+  +234600231  [VINS无]
+
+## Bullet  新增 21 / 修改 1   （VINS 里一模一样的 0 行）
+  +2130066  [VINS=不同]
+  +2130067  [VINS=不同]
+  +2130068  [VINS=不同]
+  +2130069  [VINS=不同]
+  +2130086  [VINS无]
+  +2130087  [VINS无]
+  +2130088  [VINS无]
+  +2130089  [VINS无]
+  +2130091  [VINS无]
+  +2130092  [VINS无]
+  +2130093  [VINS无]
+  +2130094  [VINS无]
+  +2130095  [VINS无]
+  +2130096  [VINS无]
+  +2130161  [VINS=不同]
+  +2130162  [VINS无]
+  +2130597  [VINS无]
+  +2130598  [VINS无]
+  +2130599  [VINS无]
+  +3251324  [VINS无]
+  +3251325  [VINS无]
+  ~2190313  [VINS=不同]: life:3.5→0.2; dmgHitRecordLifeTime:1→0
+
+## GameAreaParam  新增 1 / 修改 0   （VINS 里一模一样的 0 行）
+  +11000809  [VINS无]
+
+## LockCamParam  新增 2 / 修改 1   （VINS 里一模一样的 0 行）
+  +2131  [VINS=不同]
+  +2132  [VINS=不同]
+  ~2201  [VINS=不同]: camDistTarget:6→12.3; rotRangeMinX:-40→-50; lockRotXShiftRatio:0.3→0.1; chrOrgOffset_Y:2.05→4.85
+
+## NpcParam  新增 2 / 修改 2   （VINS 里一模一样的 0 行）
+  +21300538  [VINS无] hp=3240, getSoul=0, itemLotId_enemy=-1, itemLotId_map=-1, behaviorVariationId=21300, nameId=0, spEffectID0=5400, spEffectID1=0, spEffectID2=5360, spEffectID3=7150, teamType=7, stamina=50, superArmorDurability=80
+  +21900079  [VINS无] hp=1893, getSoul=0, itemLotId_enemy=-1, itemLotId_map=-1, behaviorVariationId=21900, nameId=0, spEffectID0=0, spEffectID1=0, spEffectID2=5360, spEffectID3=7170, teamType=6, stamina=50, superArmorDurability=120
+  ~21300534  [VINS=不同]: spEffectID3:7110→7140; spEffectID6:0→16263; GameClearSpEffectID:7510→7530; slashDamageCutRate:1.1→1
+  ~21801034  [VINS=不同]: hp:1920→2320; spEffectID3:7100→7140
+
+## PhantomParam  新增 1 / 修改 0   （VINS 里一模一样的 0 行）
+  +271  [VINS无]
+
+## SpEffectParam  新增 76 / 修改 11   （VINS 里一模一样的 74 行）
+  +5406  [VINS=同]
+  +5407  [VINS=不同]
+  +5982  [VINS=同]
+  +5983  [VINS=同]
+  +5984  [VINS=同]
+  +10613  [VINS=同]
+  +10614  [VINS=同]
+  +10615  [VINS=同]
+  +10616  [VINS=同]
+  +10617  [VINS=同]
+  +10618  [VINS=同]
+  +10619  [VINS=同]
+  +10622  [VINS=同]
+  +10623  [VINS=同]
+  +10624  [VINS=同]
+  +10625  [VINS=同]
+  +10626  [VINS=同]
+  +10627  [VINS=同]
+  +10628  [VINS=同]
+  +10629  [VINS=同]
+  +10632  [VINS=同]
+  +10633  [VINS无]
+  +10649  [VINS=同]
+  +10658  [VINS=同]
+  +10659  [VINS=同]
+  +10664  [VINS=同]
+  +10671  [VINS=同]
+  +10673  [VINS=同]
+  +10674  [VINS=同]
+  +10675  [VINS=同]
+  +10698  [VINS=不同]
+  +12004  [VINS=不同]
+  +12299  [VINS=不同]
+  +16234  [VINS=同]
+  +16235  [VINS=同]
+  +16236  [VINS=同]
+  +16237  [VINS=同]
+  +16241  [VINS=同]
+  +16242  [VINS=同]
+  +16243  [VINS=同]
+  +16244  [VINS=同]
+  +16245  [VINS=同]
+  +16255  [VINS=同]
+  +16256  [VINS=同]
+  +16257  [VINS=同]
+  +16258  [VINS=同]
+  +16259  [VINS=同]
+  +16261  [VINS=不同]
+  +16262  [VINS=同]
+  +16263  [VINS=同]
+  +16264  [VINS=同]
+  +16267  [VINS=同]
+  +16268  [VINS=同]
+  +16269  [VINS=同]
+  +16272  [VINS=同]
+  +16273  [VINS=同]
+  +16274  [VINS=同]
+  +16275  [VINS=同]
+  +16276  [VINS=同]
+  +16277  [VINS=同]
+  +16278  [VINS=同]
+  +16279  [VINS=同]
+  +16287  [VINS=同]
+  +16288  [VINS=同]
+  +16289  [VINS=同]
+  +16293  [VINS=同]
+  +16294  [VINS=同]
+  +16298  [VINS=不同]
+  +16320  [VINS=同]
+  +16321  [VINS=同]
+  +16322  [VINS=同]
+  +16323  [VINS=同]
+  +16324  [VINS=同]
+  +16325  [VINS=同]
+  +295012  [VINS=不同]
+  +295017  [VINS=同]
+  ~10655  [VINS=不同]: changeHpRate:-8→-12.5
+  ~10656  [VINS=同]: changeHpRate:-8→-12.5
+  ~10657  [VINS=不同]: changeHpRate:-12→-25
+  ~10661  [VINS=不同]: changeHpRate:40→80
+  ~10662  [VINS=不同]: changeHpRate:50→90
+  ~10665  [VINS=同]: changeHpRate:5→0
+  ~10666  [VINS=同]: changeHpRate:5→0
+  ~10667  [VINS=同]: changeHpRate:10→0
+  ~13781  [VINS=不同]: changeHpRate:-1→-0.75
+  ~16208  [VINS=同]: vfxId:54340→-1
+  ~16209  [VINS=同]: vfxId:54341→-1
+
+## SpEffectVfxParam  新增 4 / 修改 0   （VINS 里一模一样的 3 行）
+  +50614  [VINS=同]
+  +50656  [VINS=同]
+  +51902  [VINS=不同]
+  +54344  [VINS=同]
+
+## TalkParam  新增 8 / 修改 2   （VINS 里一模一样的 0 行）
+  +10018506  [VINS无]
+  +10018507  [VINS无]
+  +20482102  [VINS=不同]
+  +20482103  [VINS无]
+  +20482320  [VINS无]
+  +20482321  [VINS无]
+  +20990301  [VINS无]
+  +20990402  [VINS无]
+  ~20482100  [VINS=不同]: msgId:204821000→20030000; voiceId:204821000→20030000; msgId_female:204821000→20030000; voiceId_female:204821000→20030000
+  ~20482101  [VINS=不同]: msgId:204821010→204801010; voiceId:204821010→204801010; msgId_female:204821010→204801010; voiceId_female:204821010→204801010

@@ -1,0 +1,97 @@
+# Midra overhaul 1.16.1  (m07, regulation 11601000)
+
+## AtkParam_Npc  新增 4 / 修改 2   （VINS 里一模一样的 6 行）
+  +5050151  [VINS=同]
+  +5051223  [VINS=同]
+  +5051224  [VINS=同]
+  +5051251  [VINS=同]
+  ~5051220  [VINS=同]: hit0_Radius:0.3→0.8; hit1_Radius:0.3→0; hit0_DmyPoly1:10→901; hit1_DmyPoly1:12→-1; hit0_DmyPoly2:12→-1; hit1_DmyPoly2:13→-1
+  ~5051222  [VINS=同]: atkPhys:300→20; atkDark:150→0
+
+## BehaviorParam  新增 4 / 修改 0   （VINS 里一模一样的 4 行）
+  +250510614  [VINS=同]
+  +250510615  [VINS=同]
+  +250510616  [VINS=同]
+  +250510617  [VINS=同]
+
+## BuddyParam  新增 3 / 修改 0   （VINS 里一模一样的 0 行）
+  +20700002  [VINS=不同]
+  +20700003  [VINS=不同]
+  +20700005  [VINS=不同]
+
+## Bullet  新增 16 / 修改 41   （VINS 里一模一样的 56 行）
+  +205051617  [VINS=同]
+  +205120586  [VINS=同]
+  +205120587  [VINS=同]
+  +205120588  [VINS=同]
+  +205120589  [VINS=同]
+  +205210433  [VINS=同]
+  +205210982  [VINS=同]
+  +205210983  [VINS=同]
+  +205210984  [VINS=同]
+  +205210985  [VINS=同]
+  +205210986  [VINS=同]
+  +205210987  [VINS=同]
+  +205210988  [VINS=同]
+  +205210989  [VINS=同]
+  +205210990  [VINS=同]
+  +205210991  [VINS=同]
+  ~205051206  [VINS=同]: numShoot:4→16; shootAngle:-15→-38; shootAngleInterval:10→16
+  ~205051207  [VINS=同]: numShoot:5→25; shootAngle:-16→-32
+  ~205051211  [VINS=同]: numShoot:1→12; shootAngle:0→-32; shootAngleInterval:0→8
+  ~205051250  [VINS=同]: shootAngleYMaxRandom:60→160
+  ~205051251  [VINS=同]: shootAngleYMaxRandom:60→160
+  ~205051252  [VINS=同]: shootAngleYMaxRandom:50→160
+  ~205051253  [VINS=同]: shootAngleYMaxRandom:40→160
+  ~205051254  [VINS=同]: shootAngleYMaxRandom:30→160
+  ~205051255  [VINS=同]: shootAngleYMaxRandom:25→60
+  ~205051256  [VINS=同]: shootAngleYMaxRandom:20→45
+  ~205051270  [VINS=同]: numShoot:1→8; shootAngleInterval:0→50
+  ~205051281  [VINS=同]: numShoot:1→8; shootAngle:0→-48; shootAngleInterval:0→8
+  ~205051311  [VINS=同]: numShoot:5→10; shootAngle:-20→-25
+  ~205051370  [VINS=同]: numShoot:4→12; shootAngleInterval:15→32; shootAngleYMaxRandom:10→160
+  ~205051371  [VINS=同]: shootAngleYMaxRandom:10→160
+  ~205051372  [VINS=同]: shootAngleYMaxRandom:10→160
+  ~205051373  [VINS=同]: shootAngleYMaxRandom:10→160
+  ~205051374  [VINS=同]: shootAngleYMaxRandom:10→160
+  ~205051375  [VINS=同]: shootAngleYMaxRandom:10→160
+  ~205120581  [VINS=同]: sfxId_Bullet:-1→651221; numShoot:3→10; shootAngleInterval:6→64; intervalCreateTimeMax:0.02→0.05
+  ~205210240  [VINS=同]: numShoot:6→12; shootAngle:-60→0; shootAngleInterval:60→30
+  ~205210311  [VINS=同]: homingBeginDist:0→5; spEffectId0:0→23003; numShoot:1→3; homingAngle:15→90; shootAngle:20→48; shootAngleInterval:0→-24
+  ~205210430  [VINS=同]: atkId_Bullet:5210430→5210157; sfxId_Bullet:1652102→645172
+  ~205220313  [VINS=同]: intervalCreateTimeMin:0.15→0.45; intervalCreateTimeMax:0.25→0.75
+  ~205220315  [VINS=同]: shootAngleYMaxRandom:65→130; shootAngleXMaxRandom:40→60
+  ~205220316  [VINS=同]: targetYOffsetRange:0.13→0.33
+  ~205220317  [VINS=同]: targetYOffsetRange:0.13→0.33
+  ~205300660  [VINS=同]: spEffectId0:0→29001
+  ~205300680  [VINS=不同]: spEffectId0:0→29001
+  ~205300760  [VINS=同]: spEffectId0:0→29001
+  ~205300762  [VINS=同]: sfxId_Bullet:653076→653074; spEffectId0:0→29001
+  ~205300764  [VINS=同]: sfxId_Bullet:-1→653074; sfxId_Hit:-1→653078; spEffectId0:0→29001
+  ~205300858  [VINS=同]: spEffectId0:0→29001
+  ~205300859  [VINS=同]: spEffectId0:0→29001
+  ~205300860  [VINS=同]: spEffectId0:0→29001
+  ~205300861  [VINS=同]: spEffectId0:0→29001
+  ~205300862  [VINS=同]: spEffectId0:0→29001
+  ~205300863  [VINS=同]: spEffectId0:0→29001
+  ~205300864  [VINS=同]: spEffectId0:0→29001
+  ~205300890  [VINS=同]: spEffectId0:0→29001
+  ~205300891  [VINS=同]: spEffectId0:0→29001
+
+## NpcParam  新增 1 / 修改 2   （VINS 里一模一样的 0 行）
+  +50510087  [VINS=不同] hp=4325, getSoul=0, itemLotId_enemy=-1, itemLotId_map=-1, behaviorVariationId=50510, nameId=0, spEffectID0=5400, spEffectID1=5360, spEffectID2=0, spEffectID3=20007110, teamType=6, stamina=150, superArmorDurability=150
+  ~50500086  [VINS=不同]: hp:416→50; neutralDamageCutRate:0.8→0.4; slashDamageCutRate:1→0.4; blowDamageCutRate:0.8→0.5; thrustDamageCutRate:0.8→0.4; magicDamageCutRate:0.8→0.4; fireDamageCutRate:0.6→0.3; thunderDamageCutRate:0.8→0.5; darkDamageCutRate:0.8→0.5
+  ~50510086  [VINS=不同]: hp:3347→4500; weakPartsDamageRate:1.5→1.2; resist_poison:252→550; resist_desease:252→550; resist_blood:154→750; lockDist:40→65; neutralDamageCutRate:0.8→0.55; slashDamageCutRate:1→0.55; blowDamageCutRate:0.8→0.55; thrustDamageCutRate:0.8→0.55; magicDamageCutRate:0.8→0.55; fireDamageCutRate:0.6→0.25; thunderDamageCutRate:0.8→0.55; darkDamageCutRate:0.8→0.55; resist_freeze:154→750; spEffectID19:6031→6032; superArmorDurability:80→150
+
+## SpEffectParam  新增 9 / 修改 2   （VINS 里一模一样的 11 行）
+  +20010280  [VINS=同]
+  +20010281  [VINS=同]
+  +20010282  [VINS=同]
+  +20010283  [VINS=同]
+  +20010284  [VINS=同]
+  +20010285  [VINS=同]
+  +20010286  [VINS=同]
+  +20010287  [VINS=同]
+  +20010288  [VINS=同]
+  ~20010263  [VINS=同]: effectEndurance:2→4
+  ~20010273  [VINS=同]: effectEndurance:0→2

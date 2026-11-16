@@ -1,0 +1,4 @@
+c8000.hks：灵马（Torrent）的行为脚本，原版反编译整理版，来自 https://github.com/soulsmods/EldenRingHKS
+（Vawser / Exelot 整理，对应 ER 1.15.1，之后的版本没有改过灵马）。
+启动时 scripts.py（sc\hks.py）在 Move_onGenerate 末尾加 act(SetMovementScaleMult, 倍数)（和 ELDEN VINS、Convergence 的做法一样），
+倍数取 settings.json 的 torrent_speed，写到覆盖包 RNG Lands BossRes\action\script\c8000.hks。

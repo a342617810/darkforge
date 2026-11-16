@@ -1,0 +1,169 @@
+{
+ "key": "mohg",
+ "name": "Mohg 2.00 Complete",
+ "version": "2.00",
+ "nexus": 4989,
+ "boss": {
+  "zh": "鲜血君王蒙格",
+  "en": "Mohg, Lord of Blood"
+ },
+ "chrs": [
+  4800
+ ],
+ "source": {
+  "archive": "2.00 Complete-4989-2-00-1725598723.zip",
+  "sha256": "3c8ceb13ff4840b4cf65748c63940014e5dd0aa5aa029ee9d76a0e02677f0112",
+  "regulation": "11320031"
+ },
+ "built_against": "11711000",
+ "files": {
+  "chr/c4800.anibnd.dcx": {
+   "sha256": "156e19638e38565dc4d8e348c64f1f13a839a310aa6d7a106c48ee1e5d26d69e",
+   "size": 161659
+  },
+  "chr/c4800.behbnd.dcx": {
+   "sha256": "c000fa12e33b8664d7dc051dc67c5b2ac270a9c834240f134baa939d6e1fd330",
+   "size": 65152
+  },
+  "script/480000_battle.luabnd.dcx": {
+   "sha256": "0c063bee9fe58cccd7e0c4130f9783094d642ad010a677fffe96da797f536111",
+   "size": 10924
+  },
+  "script/talk/m12_05_00_00.talkesdbnd.dcx": {
+   "sha256": "9263329bbedae8cab311b26958cb75e6a03366d98874f0d216b32d1d4741a820",
+   "size": 37247
+  }
+ },
+ "texts": {
+  "en": {},
+  "zh": {}
+ },
+ "fmg_texts": {},
+ "fx": [
+  648052,
+  653000,
+  653001,
+  653002,
+  653003,
+  653005,
+  653006,
+  653007,
+  653008,
+  653010,
+  653011,
+  653012,
+  653018,
+  653019,
+  653020,
+  653021,
+  653022,
+  653023,
+  653025,
+  653026,
+  653027,
+  653030,
+  653031,
+  653033,
+  653034,
+  653035,
+  653036,
+  653040,
+  653041,
+  653045,
+  653046,
+  653050,
+  653051,
+  653060,
+  653061,
+  653062,
+  653065,
+  653066,
+  653070,
+  653071,
+  653072,
+  653073,
+  653074,
+  653075,
+  653076,
+  653077,
+  653078,
+  653079,
+  653080,
+  653081,
+  653085,
+  653086,
+  653090,
+  653091,
+  653092,
+  653093
+ ],
+ "fx_res": [
+  "s88305.flver",
+  "s88306.flver"
+ ],
+ "arena": {
+  "map": "m12_05_00_00",
+  "events": [
+   12052800,
+   12052810,
+   12052812,
+   12052814,
+   12052850,
+   12052852,
+   12052853,
+   12052854
+  ],
+  "parts": [
+   "c0000_9905"
+  ],
+  "new_events": [
+   12052812,
+   12052814,
+   12052850,
+   12052852,
+   12052853,
+   12052854
+  ],
+  "replace_events": [
+   12052800,
+   12052810
+  ],
+  "mod_events": [],
+  "ev0_ints": [
+   12050830
+  ],
+  "files": {
+   "event/m12_05_00_00.emevd.dcx": "fcd0b606943303739ee50181a7f073a8a1133f888ad1e7e16d8435f882fd62bf",
+   "map/mapstudio/m12_05_00_00.msb.dcx": "b641f7fe9eb9b67126ce5cdae82030ae9ab7311ac0ffd107420a82150f85b6b7"
+  }
+ },
+ "fixed": [
+  12050800
+ ],
+ "helpers": {},
+ "params": {
+  "AtkParam_Npc add": 4,
+  "AtkParam_Npc patch": 2,
+  "BehaviorParam add": 8,
+  "Bullet add": 15,
+  "LockCamParam add": 3,
+  "LockCamParam patch": 1,
+  "NpcParam patch": 1,
+  "SpEffectParam add": 40,
+  "SpEffectParam patch": 4,
+  "SpEffectVfxParam add": 2
+ },
+ "skipped_rows": 2241,
+ "log": [
+  "模组 regulation 版本 11320031（现在的原版 11711000）；同版本参照 0 个包",
+  "事件 12052800：原版 + 模组插入的 1 条（另有 6 条只是重编时条件组编号不同，保持原版）",
+  "事件 12052810：原版 + 模组插入的 2 条（另有 0 条只是重编时条件组编号不同，保持原版）",
+  "构造事件加：Initialize Common Event",
+  "构造事件加：Initialize Common Event",
+  "构造事件加：Initialize Common Event",
+  "新事件 6 个（12052812, 12052814, 12052850, 12052852, 12052853, 12052854），构造事件里加了初始化",
+  "不要 SpEffectParam 2000000（配置的 drop_rows）",
+  "特效用到的公共包新资源 2 个：s88305.flver, s88306.flver",
+  "地图 m12_05_00_00：copied c0000_9905 (Enemy, model c0000, entity 12050830, npc 534180082, think 534181000)"
+ ]
+}

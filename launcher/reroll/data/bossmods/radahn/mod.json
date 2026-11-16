@@ -1,0 +1,243 @@
+{
+ "key": "radahn",
+ "name": "Vanilla Plus Radahn",
+ "version": "1.01",
+ "nexus": 4683,
+ "boss": {
+  "zh": "“碎星”拉塔恩",
+  "en": "Starscourge Radahn"
+ },
+ "chrs": [
+  4730,
+  4735,
+  4621
+ ],
+ "source": {
+  "archive": "Vanilla Plus Radahn-4683-1-01-1729319000.zip",
+  "sha256": "d8fc41422fb3a2dc67ecf17c060fd3d71ddc46ad449697bf5db783554a6af3dd",
+  "regulation": "11601000"
+ },
+ "built_against": "11711000",
+ "files": {
+  "chr/c4730.anibnd.dcx": {
+   "sha256": "f6738b79fb8e0798b41e34cd953e29d665cdc5e67e19a193773ecf9bb2b2e0fb",
+   "size": 247597
+  },
+  "chr/c4730.behbnd.dcx": {
+   "sha256": "f02d5f811918a53ee047c91c096e10f04fb0b4f9442d45d5007bbf62aa041124",
+   "size": 384397
+  },
+  "chr/c4730.chrbnd.dcx": {
+   "sha256": "2dc6ae6f673a736b58b92879ac695a8569e8673a400541c06280b684e53d4044",
+   "size": 7101351
+  },
+  "chr/c4730_div00.anibnd.dcx": {
+   "sha256": "202773255d2f78915c6c776db02eaa46cf1a656b80b2de466fa13f46da9fc947",
+   "size": 2283860
+  },
+  "chr/c4730_div01.anibnd.dcx": {
+   "sha256": "a179ba0e6e6a494859605e2112a1b2eced576f9d7f6629b5ce57e9e05a67d503",
+   "size": 2371793
+  },
+  "chr/c4730_div02.anibnd.dcx": {
+   "sha256": "b4e0929862d7fb3d206467b64b8357686006e68502df0192f6134783329c5404",
+   "size": 1937988
+  },
+  "chr/c4735.anibnd.dcx": {
+   "sha256": "16ebfd037ca51466113b819ccec852bb7c39d29cdc9639ee2fdb27cb3e42642f",
+   "size": 172236
+  },
+  "chr/c4735.behbnd.dcx": {
+   "sha256": "6006665f7b604da2734299d2a3886bb84c417cb01a20e2b3d5e4b4bb8a68eb22",
+   "size": 51933
+  },
+  "chr/c4735.chrbnd.dcx": {
+   "sha256": "29bc42d3821b5708b2745f177568933648429b64177e68bc42537352a238d9eb",
+   "size": 1022273
+  },
+  "chr/c4735_div00.anibnd.dcx": {
+   "sha256": "343054bd079398b062f2fc14230dc1483b9f0f4eac7ed612ae03905885db462b",
+   "size": 2181883
+  },
+  "chr/c4735_div01.anibnd.dcx": {
+   "sha256": "386fddd84c8421e883a1b5d6dfd241cb549cdb320470f705742399bc85187b87",
+   "size": 2214122
+  },
+  "chr/c4735_div02.anibnd.dcx": {
+   "sha256": "97640ebdce631fe313719aec8a7f24b53256d05b6a520401a159f20a04ee64ea",
+   "size": 1938003
+  },
+  "chr/c4735_h.texbnd.dcx": {
+   "sha256": "5d1e5cea02bab34a38fca18f29abf5c3fc7c44c2c183ba7334a207697e2338d5",
+   "size": 18213186
+  },
+  "chr/c4735_l.texbnd.dcx": {
+   "sha256": "b77e8bfcf87b5ee7673e1af86c308a3eb9fcd4402a563a1638fa9c564768caad",
+   "size": 1275467
+  },
+  "chr/c4621.anibnd.dcx": {
+   "sha256": "fea8644f4616a752eecb543be93eaf17409710e83178440aceb2a590e97bc7b4",
+   "size": 113133
+  },
+  "chr/c4621.behbnd.dcx": {
+   "sha256": "d0e64d800f40e440747a0353fe734eaf0142ee13ade7dee71587c3f824a823cc",
+   "size": 98492
+  },
+  "chr/c4621.chrbnd.dcx": {
+   "sha256": "941e0b0c9ffcd228a7996ddcf53bbe8e96403f8e510f9d0924bcac8b735db3b8",
+   "size": 6268305
+  },
+  "chr/c4621_div00.anibnd.dcx": {
+   "sha256": "c1d6473a9d1b88960163092a41e830d57ac962cca6533f2af4b32bc82aaeef1e",
+   "size": 2673421
+  },
+  "chr/c4621_div01.anibnd.dcx": {
+   "sha256": "eb319ff88b6d9fde43ec30eac75479e33f1e6762159506603e51f80f0e2d8b68",
+   "size": 2532297
+  },
+  "chr/c4621_div02.anibnd.dcx": {
+   "sha256": "3fa35bf96cda81bbce0f08dc875ba727f9c5a36db059119bea5d2604415ec979",
+   "size": 2233404
+  },
+  "chr/c4621_div03.anibnd.dcx": {
+   "sha256": "237e78c5eca9a7dc7e70136a2394d9968c3fa2f9889b6cd6e6086dce5c5fc0bc",
+   "size": 2598395
+  },
+  "chr/c4621_h.texbnd.dcx": {
+   "sha256": "4743427f65a683fcf2d15de26824b4ff789be37b5bbe96290688209cc279972b",
+   "size": 21961377
+  },
+  "chr/c4621_l.texbnd.dcx": {
+   "sha256": "1920aec5b3a76d52535c489f5861bea58b57b239a18fd0710a528ab5994a2986",
+   "size": 1476826
+  },
+  "action/script/c4621.hks": {
+   "sha256": "6b5e0e97203b54eb2f148bcff98c90c768ff9b86d443f6e1699a09160efd7b39",
+   "size": 35104
+  },
+  "action/script/c4735.hks": {
+   "sha256": "d0a07b0f5817665e57ac7b7ab14770e9e6cc342ba1da481973f2cbe8b82b56ad",
+   "size": 36672
+  },
+  "script/473000_battle.luabnd.dcx": {
+   "sha256": "42a268cdc50bf97dcb27192693166f5dde6f79fdd0e18c75d07fdc87bf79ecc3",
+   "size": 7237
+  }
+ },
+ "texts": {
+  "en": {},
+  "zh": {}
+ },
+ "fmg_texts": {
+  "NpcName": {
+   "dest": "item",
+   "en": {
+    "904730001": "Leonard",
+    "904730002": "General Radahn, The Conqueror of the Stars"
+   },
+   "zh": {
+    "904730001": "莱昂纳德",
+    "904730002": "“碎星英雄”拉塔恩将军"
+   }
+  }
+ },
+ "fx": [],
+ "fx_res": [],
+ "arena": {
+  "map": "m60_52_38_00",
+  "msb_map": "m60_13_09_02",
+  "events": [
+   1252382800,
+   1252382810,
+   1028430000,
+   1028430001,
+   1028430005,
+   1028430006,
+   1028430007,
+   1028430008,
+   1028430009,
+   1028430010,
+   1028430012,
+   1028430013,
+   1028430014
+  ],
+  "parts": [
+   "m60_52_38_00-c4730_9003",
+   "m60_52_38_00-c4730_9004",
+   "m60_52_38_00-c4730_9005",
+   ":m60_52_38_00-c4730_9002",
+   "^AstelSpawn",
+   "%Astel",
+   "%Leonard",
+   "-m60_52_39_00-c0000_9010",
+   "-m60_52_39_00-AEG099_090_9000",
+   "-m60_52_39_00-AEG099_090_9008",
+   "-m60_52_39_00-AEG099_090_9016",
+   "-m60_52_39_00-AEG099_090_9024",
+   "-m60_52_39_00-AEG099_090_9032",
+   "-m60_52_39_00-AEG099_090_9040",
+   "-m60_52_39_00-AEG099_090_9048",
+   "-m60_52_39_00-AEG099_090_9056",
+   "-m60_52_39_00-AEG099_090_9064",
+   "-m60_52_39_00-AEG099_090_9072"
+  ],
+  "new_events": [
+   1028430000,
+   1028430001,
+   1028430005,
+   1028430006,
+   1028430007,
+   1028430008,
+   1028430009,
+   1028430010,
+   1028430012,
+   1028430013,
+   1028430014
+  ],
+  "replace_events": [],
+  "mod_events": [
+   1252382800,
+   1252382810
+  ],
+  "ev0_ints": [],
+  "force_events": [],
+  "files": {
+   "event/m60_52_38_00.emevd.dcx": "00f4ca3b90f47c4cbfaf29a5929d6767c07bb0349c2f6348f5dddaadd0eec8d3",
+   "map/mapstudio/m60_13_09_02.msb.dcx": "092ef34009407ddf6c0cd60ec7adb60d2fa86b29449c1baeec9cf3ee1fbfe3e7"
+  }
+ },
+ "fixed": [
+  1052380800
+ ],
+ "helpers": {
+  "425940000": 1052380800,
+  "425940001": 1052380800,
+  "425940002": 1052380800
+ },
+ "boss_forms": [],
+ "params": {
+  "AtkParam_Npc add": 20,
+  "AtkParam_Npc patch": 8,
+  "BehaviorParam add": 32,
+  "Bullet add": 47,
+  "Bullet patch": 5,
+  "LockCamParam add": 9,
+  "LockCamParam patch": 1,
+  "NpcParam add": 2,
+  "NpcParam patch": 2,
+  "SpEffectParam add": 45,
+  "SpEffectParam patch": 2,
+  "SpEffectVfxParam add": 5,
+  "ThrowParam add": 1
+ },
+ "skipped_rows": 0,
+ "log": [
+  "模组 regulation 版本 11601000（现在的原版 11711000）；同版本参照 8 个包",
+  "事件 1252382800：换成模组版（33 条指令，原版 33 条）",
+  "事件 1252382810：换成模组版（54 条指令，原版 54 条）",
+  "新事件 11 个（1028430000, 1028430001, 1028430005, 1028430006, 1028430007, 1028430008, 1028430009, 1028430010, 1028430012, 1028430013, 1028430014），构造事件里加了初始化",
+  "NpcParam 47300041 → 47309900（新加的行换到段末，免得和随机器 / 重随新建的行撞）",
+  "NpcParam 47300042 → 47309901（新加的行换到段末，免得和随机器 / 重随新建的行撞）",
+  "地图 m60_13_09_02：copied m60_52_38_00-c4730_9003 (Enemy, model c4730, entity 425940001, npc 47309900, think 0)；copied m60_52_38_00-c4730_9004 (Enemy, model c4735, entity 425940000, npc 47309900, think 0)；copied m60_52_38_00-c4730_9005 (Enemy, model c4621, entity 425940002, npc 47309901, think 46200000)；moved m60_52_38_00-c4730_9002；copied region AstelSpawn (Other, entity 425942002)；copied event Astel (Generator, entity 425943002)；copied event Leonard (Generator, entity 425943003)；deleted m60_52_39_00-c0000_9010 (Enemy, entity 1052390200)；deleted m60_52_39_00-AEG099_090_9000 (Asset, entity 1052391500)；deleted m60_52_39_00-AEG099_090_9008 (Asset, entity 1052391508)；deleted m60_52_39_00-AEG099_090_9016 (Asset, entity 1052391516)；deleted m60_52_39_00-AEG099_090_9024 (Asset, entity 1052391524)；deleted m60_52_39_00-AEG099_090_9032 (Asset, entity 1052391532)；deleted m60_52_39_00-AEG099_090_9040 (Asset, entity 1052391540)；deleted m60_52_39_00-AEG099_090_9048 (Asset, entity 1052391548)；deleted m60_52_39_00-AEG099_090_9056 (Asset, entity 1052391556)；deleted m60_52_39_00-AEG099_090_9064 (Asset, entity 1052391564)；deleted m60_52_39_00-AEG099_090_9072 (Asset, entity 1052391572)"
+ ]
+}

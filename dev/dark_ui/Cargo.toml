@@ -1,0 +1,26 @@
+[package]
+name = "dark_ui"
+version = "0.1.0"
+edition = "2024"
+
+# 装备工坊的悬浮界面（赐福「装备工坊」打开）：只画界面，数据、规则和执行都在 dark_core（通过它导出的 dr_ws_* 函数）。
+# rlib 给离线预览（src\bin\preview.rs：不开游戏，用模拟快照把界面画成 PNG）用
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[[bin]]
+name = "preview"
+required-features = ["preview"]
+
+[features]
+preview = ["dep:png"]
+
+[dependencies]
+hudhook = "0.9.3"
+bcdec_rs = "0.2.1"
+miniz_oxide = "0.8"
+png = { version = "0.17", optional = true }
+
+[profile.release]
+panic = "unwind"
+opt-level = 3

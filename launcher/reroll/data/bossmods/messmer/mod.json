@@ -1,0 +1,125 @@
+{
+ "key": "messmer",
+ "name": "Inner Serpent",
+ "version": "1.04.2",
+ "nexus": 7304,
+ "boss": {
+  "zh": "穿刺者梅瑟莫",
+  "en": "Messmer the Impaler"
+ },
+ "chrs": [
+  5130,
+  5131,
+  5132,
+  5140,
+  5141
+ ],
+ "source": {
+  "archive": "Inner Serpent (Version 1.04.2 Hotfix) 7304 v1.04.2 2026-08-30T04-10Z p8Fb3io7l.zip",
+  "sha256": "4da6ef62bc7f4109b7b843f00bfec762f22f63c04e22cc32f83d889c1386026a",
+  "regulation": "11701000"
+ },
+ "built_against": "11711000",
+ "files": {
+  "chr/c5130.anibnd.dcx": {
+   "sha256": "972f76ad8d1cf192fe0d98e6b848771c631fd3d52bf875380735e854af4b908f",
+   "size": 167959
+  },
+  "chr/c5130.behbnd.dcx": {
+   "sha256": "5c7ab72c0d5de15dcf9fceee8567489474cc8678da213e39840cbfe82380e122",
+   "size": 186608
+  },
+  "chr/c5130.chrbnd.dcx": {
+   "sha256": "5393e1c9ba29861e383949924a6d6370b423b9cc68371f5201cbe5cc6569baf4",
+   "size": 5449318
+  },
+  "chr/c5140.anibnd.dcx": {
+   "sha256": "db34d49c24c5700999fd7996020b0e8f886a63eeff5d8de770ad62f4e2cf61d5",
+   "size": 590882
+  },
+  "chr/c5140.behbnd.dcx": {
+   "sha256": "b2363ed725b63e4ffdd1fdd633b87a25c791cc2221ee6725f9212ccc4cb0a54f",
+   "size": 186096
+  },
+  "chr/c5140.chrbnd.dcx": {
+   "sha256": "fa8e7d38153e22a48333764f469bc39c7bba6a86108fa153b710d84ae679e4d2",
+   "size": 3277910
+  },
+  "chr/c5141.anibnd.dcx": {
+   "sha256": "b0fa1d3d49057477635bef775221ff459b382ca8e95ec1996e22af7d331bfdd9",
+   "size": 312401
+  },
+  "chr/c5141.behbnd.dcx": {
+   "sha256": "67315326719288d3f30d334f6378730b9daef54c7907a74e5647e4381de3db3e",
+   "size": 186096
+  },
+  "chr/c5141.chrbnd.dcx": {
+   "sha256": "d25b99152824c4f4e412c5fca2651b64bf17aec48e1bf909ce76ce4bda8d0b1d",
+   "size": 1129234
+  },
+  "script/513000_battle.luabnd.dcx": {
+   "sha256": "a0804d307b58ba5bb115c74d2b2484e4bc2512fcadb31e83eaace91d668f3882",
+   "size": 6224
+  },
+  "sfx/sfxbnd_c5130.ffxbnd.dcx": {
+   "sha256": "8a9015c775eb3e55a87f0c752e8faeb2c65c2d50bab5f8761dcbaaac9ab47806",
+   "size": 158800
+  },
+  "sfx/sfxbnd_c5140.ffxbnd.dcx": {
+   "sha256": "86ca2a458ca7bbb8889b4b476a92c6d3b5276add4873948c3781270e1739b60f",
+   "size": 40672
+  }
+ },
+ "texts": {
+  "en": {},
+  "zh": {}
+ },
+ "fmg_texts": {},
+ "fx": [
+  633568,
+  647392
+ ],
+ "fx_res": [],
+ "arena": {
+  "map": "m21_01_00_00",
+  "events": [
+   21012812,
+   21012813,
+   21012814
+  ],
+  "parts": [],
+  "new_events": [
+   21012812,
+   21012813,
+   21012814
+  ],
+  "replace_events": [],
+  "mod_events": [],
+  "ev0_ints": [],
+  "files": {
+   "event/m21_01_00_00.emevd.dcx": "c834093424698e186a849b9a491b839aeed6d674030a2866fabe2bcbb678123b"
+  }
+ },
+ "fixed": [
+  21010801,
+  21010800
+ ],
+ "helpers": {},
+ "params": {
+  "AtkParam_Npc add": 15,
+  "BehaviorParam add": 25,
+  "Bullet add": 72,
+  "EquipParamWeapon patch": 1,
+  "NpcParam patch": 10,
+  "SpEffectParam add": 19,
+  "SpEffectVfxParam add": 4,
+  "ThrowParam add": 1,
+  "ThrowParam patch": 1
+ },
+ "skipped_rows": 27,
+ "log": [
+  "模组 regulation 版本 11701000（现在的原版 11711000）；同版本参照 2 个包",
+  "新事件 3 个（21012812, 21012813, 21012814），构造事件里加了初始化",
+  "公共包新特效 1733 个，按引用要 2 个"
+ ]
+}

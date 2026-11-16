@@ -1,0 +1,1533 @@
+{
+"_说明": "Boss 自身掉落（奖励表放不下龙心脏 / 星光碎片时用）：实体 → 原版敌人参数、两个获取标记（龙心脏、星光碎片）。由 build_boss_selfdrop.py 生成。 Borealis the Freezing Fog（1054560800）是后补的：原版敌人参数从 randomizer\\diste\\Vanilla 的 m60_13_14_02 地图读的，获取标记用官方「予備」的 93490 / 93491（_dev\\event_flags\\说明.md）。",
+"bosses": {
+"10000800": {
+"npc": 47500014,
+"flags": [
+10007999,
+10007998
+],
+"name": "Godrick the Grafted"
+},
+"10000850": {
+"npc": 21300014,
+"flags": [
+10007997,
+10007996
+],
+"name": "Margit, the Fell Omen"
+},
+"10010800": {
+"npc": 46900008,
+"flags": [
+10017999,
+10017998
+],
+"name": "Grafted Scion Boss"
+},
+"11000800": {
+"npc": 21300534,
+"flags": [
+11007999,
+11007988
+],
+"name": "Morgott, the Omen King"
+},
+"11000850": {
+"npc": 47200134,
+"flags": [
+11007986,
+11007984
+],
+"name": "Goldfrey, First Elden Lord"
+},
+"11050800": {
+"npc": 47210070,
+"flags": [
+11057999,
+11057998
+],
+"name": "Hoarah Loux, Warrior"
+},
+"11050850": {
+"npc": 523240070,
+"flags": [
+11057997,
+11057996
+],
+"name": "Sir Gideon Ofnir, the All-Knowing"
+},
+"12010800": {
+"npc": 46500960,
+"flags": [
+12017998,
+12017996
+],
+"name": "Dragonkin Soldier of Nokstella"
+},
+"12010850": {
+"npc": 46500262,
+"flags": [
+12017994,
+12017993
+],
+"name": "Dragonkin Soldier Boss"
+},
+"12020800": {
+"npc": 47701165,
+"flags": [
+12027999,
+12027998
+],
+"name": "Valiant Gargoyles"
+},
+"12020830": {
+"npc": 46500265,
+"flags": [
+12027997,
+12027996
+],
+"name": "Dragonkin Soldier Boss"
+},
+"12020850": {
+"npc": 526100965,
+"flags": [
+12027994,
+12027993
+],
+"name": "Mimic Tear"
+},
+"12030390": {
+"npc": 25001066,
+"flags": [
+12037999,
+12037998
+],
+"name": "Crucible Knight Siluria"
+},
+"12030800": {
+"npc": 523610066,
+"flags": [
+12037997,
+12037996
+],
+"name": "Fia's Champions"
+},
+"12040800": {
+"npc": 46200062,
+"flags": [
+12047999,
+12047998
+],
+"name": "Astel, Naturalborn of the Void"
+},
+"12050800": {
+"npc": 48000068,
+"flags": [
+12057999,
+12057998
+],
+"name": "Mohg, Lord of Blood"
+},
+"13000800": {
+"npc": 21101072,
+"flags": [
+13007999,
+13007998
+],
+"name": "Maliketh, the Black Blade"
+},
+"13000830": {
+"npc": 45200072,
+"flags": [
+13007997,
+13007996
+],
+"name": "Dragonlord Placidusax"
+},
+"13000850": {
+"npc": 35600972,
+"flags": [
+13007994,
+13007992
+],
+"name": "Godskin Duo"
+},
+"14000801": {
+"npc": 20300024,
+"flags": [
+14007999,
+14007998
+],
+"name": "Rennala 1"
+},
+"14000850": {
+"npc": 31811024,
+"flags": [
+14007996,
+14007994
+],
+"name": "Red Wolf of Radagon"
+},
+"15000800": {
+"npc": 21200056,
+"flags": [
+15007999,
+15007998
+],
+"name": "Malenia, Blade of Miquella"
+},
+"15000850": {
+"npc": 32520054,
+"flags": [
+15007997,
+15007996
+],
+"name": "Loretta, Knight of the Haligtree"
+},
+"16000800": {
+"npc": 47101038,
+"flags": [
+16007998,
+16007997
+],
+"name": "Rykard, Lord of Blasphemy"
+},
+"16000850": {
+"npc": 35700038,
+"flags": [
+16007996,
+16007995
+],
+"name": "Godskin Noble Boss"
+},
+"16000860": {
+"npc": 44700938,
+"flags": [
+16007994,
+16007993
+],
+"name": "Abductor Virgin Duo"
+},
+"18000800": {
+"npc": 46400007,
+"flags": [
+18007999,
+18007998
+],
+"name": "Ulcerated Tree Spirit Boss"
+},
+"19000810": {
+"npc": 21900078,
+"flags": [
+19007999,
+19007998
+],
+"name": "Radagon of the Golden Order"
+},
+"20000800": {
+"npc": 52100088,
+"flags": [
+20007999,
+20007998
+],
+"name": "Divine Beast Dancing Lion"
+},
+"20010800": {
+"npc": 52201089,
+"flags": [
+20017999,
+20017998
+],
+"name": "Radahn, Consort of Miquella"
+},
+"21000850": {
+"npc": 50100098,
+"flags": [
+21007999,
+21007998
+],
+"name": "Golden Hippopotamus"
+},
+"21010800": {
+"npc": 51301099,
+"flags": [
+21017999,
+21017998
+],
+"name": "Base Serpent Messmer"
+},
+"22000800": {
+"npc": 50200087,
+"flags": [
+22007999,
+22007998
+],
+"name": "Putrescent Knight"
+},
+"25000800": {
+"npc": 52000097,
+"flags": [
+25007999,
+25007998
+],
+"name": "Metyr, Mother of Fingers"
+},
+"28000800": {
+"npc": 50510086,
+"flags": [
+28007999,
+28007998
+],
+"name": "Midra, Lord of Frenzied Flame"
+},
+"30000800": {
+"npc": 36640012,
+"flags": [
+30007999,
+30007998
+],
+"name": "Cemetery Shade Boss"
+},
+"30010800": {
+"npc": 42600512,
+"flags": [
+30017999,
+30017998
+],
+"name": "Erdtree Burial Watchdog and Imps"
+},
+"30020800": {
+"npc": 42600110,
+"flags": [
+30027999,
+30027998
+],
+"name": "Fire Erdtree Burial Watchdog Boss"
+},
+"30030800": {
+"npc": 41402920,
+"flags": [
+30037999,
+30037998
+],
+"name": "Crucible Spiritcaller Snail"
+},
+"30040800": {
+"npc": 34001110,
+"flags": [
+30047999,
+30047998
+],
+"name": "Grave Warden Duelist Boss"
+},
+"30050800": {
+"npc": 36640920,
+"flags": [
+30057999,
+30057998
+],
+"name": "Cemetery Shade and Skeletons"
+},
+"30050850": {
+"npc": 21000820,
+"flags": [
+30057997,
+30057996
+],
+"name": "Black Knife Assassin Boss"
+},
+"30060800": {
+"npc": 42601920,
+"flags": [
+30067999,
+30067998
+],
+"name": "Scepter Erdtree Burial Watchdog Boss"
+},
+"30070800": {
+"npc": 42602932,
+"flags": [
+30077999,
+30077998
+],
+"name": "Lightning Erdtree Burial Watchdog Boss"
+},
+"30080800": {
+"npc": 71000030,
+"flags": [
+30087999,
+30087998
+],
+"name": "Ancient Hero of Zamor Boss"
+},
+"30090800": {
+"npc": 31811032,
+"flags": [
+30097999,
+30097998
+],
+"name": "Red Wolf of the Champion"
+},
+"30100800": {
+"npc": 25000933,
+"flags": [
+30107999,
+30107998
+],
+"name": "Crucible Knight Duo"
+},
+"30110800": {
+"npc": 21001010,
+"flags": [
+30117999,
+30117998
+],
+"name": "Black Knife Assassin Boss"
+},
+"30120800": {
+"npc": 34600930,
+"flags": [
+30127999,
+30127998
+],
+"name": "Misbegotten Perfumer Duo"
+},
+"30130800": {
+"npc": 34001133,
+"flags": [
+30137999,
+30137998
+],
+"name": "Grave Warden Duelist Boss"
+},
+"30140800": {
+"npc": 42600940,
+"flags": [
+30147999,
+30147998
+],
+"name": "Erdtree Burial Watchdog Duo"
+},
+"30150800": {
+"npc": 36640040,
+"flags": [
+30157999,
+30157998
+],
+"name": "Cemetery Shade Boss"
+},
+"30160800": {
+"npc": 46400942,
+"flags": [
+30167999,
+30167998
+],
+"name": "Putrid Tree Spirit Boss"
+},
+"30170800": {
+"npc": 71000950,
+"flags": [
+30177999,
+30177998
+],
+"name": "Ancient Hero of Zamor Boss"
+},
+"30180800": {
+"npc": 46400950,
+"flags": [
+30187999,
+30187998
+],
+"name": "Ulcerated Tree Spirit Boss"
+},
+"30190800": {
+"npc": 34000952,
+"flags": [
+30197999,
+30197998
+],
+"name": "Putrid Grave Warden Duelist"
+},
+"30200800": {
+"npc": 526100052,
+"flags": [
+30207999,
+30207998
+],
+"name": "Stray Mimic Tear"
+},
+"31010800": {
+"npc": 46300912,
+"flags": [
+31017999,
+31017998
+],
+"name": "Runebear Boss"
+},
+"31020800": {
+"npc": 44800912,
+"flags": [
+31027999,
+31027998
+],
+"name": "Miranda Blossom and Sprouts"
+},
+"31040800": {
+"npc": 38000920,
+"flags": [
+31047999,
+31047998
+],
+"name": "Cleanrot Knight Boss"
+},
+"31050800": {
+"npc": 42900920,
+"flags": [
+31057999,
+31057998
+],
+"name": "Bloodhound Knight Boss"
+},
+"31060800": {
+"npc": 33502920,
+"flags": [
+31067999,
+31067998
+],
+"name": "Crystalian Staff Spear Duo"
+},
+"31070800": {
+"npc": 38100932,
+"flags": [
+31077999,
+31077998
+],
+"name": "Kindred of Rot Duo"
+},
+"31090800": {
+"npc": 41301932,
+"flags": [
+31097999,
+31097998
+],
+"name": "Demi-Human Queen Margot"
+},
+"31100800": {
+"npc": 39701942,
+"flags": [
+31107999,
+31107998
+],
+"name": "Beastman of Farum Azula Duo"
+},
+"31110800": {
+"npc": 33501940,
+"flags": [
+31117999,
+31117998
+],
+"name": "Putrid Crystalian Trio"
+},
+"31120800": {
+"npc": 34601952,
+"flags": [
+31127999,
+31127998
+],
+"name": "Misbegotten Crusader"
+},
+"31170800": {
+"npc": 46600910,
+"flags": [
+31177999,
+31177998
+],
+"name": "Guardian Golem Boss"
+},
+"31180800": {
+"npc": 44800930,
+"flags": [
+31187999,
+31187998
+],
+"name": "Miranda Omenkiller Duo"
+},
+"31190800": {
+"npc": 21000930,
+"flags": [
+31197999,
+31197998
+],
+"name": "Invisible Black Knife Assassin Boss"
+},
+"31190850": {
+"npc": 523760930,
+"flags": [
+31197997,
+31197996
+],
+"name": "Necromancer Garris"
+},
+"31200800": {
+"npc": 38000940,
+"flags": [
+31207999,
+31207998
+],
+"name": "Cleanrot Knight Duo"
+},
+"31210800": {
+"npc": 34000940,
+"flags": [
+31217999,
+31217998
+],
+"name": "Frenzied Duelist"
+},
+"31220800": {
+"npc": 41402950,
+"flags": [
+31227999,
+31227998
+],
+"name": "Godskin Spiritcaller Snail"
+},
+"32000800": {
+"npc": 34510912,
+"flags": [
+32007999,
+32007998
+],
+"name": "Scaly Misbegotten Boss"
+},
+"32010800": {
+"npc": 46030910,
+"flags": [
+32017999,
+32017998
+],
+"name": "Stonedigger Troll"
+},
+"32020800": {
+"npc": 33500920,
+"flags": [
+32027999,
+32027998
+],
+"name": "Ringblade Crystalian Boss"
+},
+"32040800": {
+"npc": 46030930,
+"flags": [
+32047999,
+32047998
+],
+"name": "Stonedigger Troll"
+},
+"32050800": {
+"npc": 33500930,
+"flags": [
+32057999,
+32057998
+],
+"name": "Crystalian Ringblade Spear Duo"
+},
+"32070800": {
+"npc": 49100940,
+"flags": [
+32077999,
+32077998
+],
+"name": "Magma Wyrm Boss"
+},
+"32080800": {
+"npc": 46801940,
+"flags": [
+32087999,
+32087998
+],
+"name": "Regular Fallingstar Beast"
+},
+"32110800": {
+"npc": 46200952,
+"flags": [
+32117999,
+32117998
+],
+"name": "Astel, Stars of Darkness"
+},
+"34120800": {
+"npc": 36001933,
+"flags": [
+34127999,
+34127998
+],
+"name": "Onyx Lord Boss"
+},
+"34130800": {
+"npc": 35600042,
+"flags": [
+34137999,
+34137998
+],
+"name": "Godskin Apostle"
+},
+"34140850": {
+"npc": 21403050,
+"flags": [
+34147999,
+34147998
+],
+"name": "Fell Twin Duo"
+},
+"35000800": {
+"npc": 48001935,
+"flags": [
+35007999,
+35007998
+],
+"name": "Mohg, the Omen"
+},
+"35000850": {
+"npc": 523860000,
+"flags": [
+35007996,
+35007994
+],
+"name": "Esgar, Priest of Blood"
+},
+"39200800": {
+"npc": 49100026,
+"flags": [
+39207999,
+39207998
+],
+"name": "Magma Wyrm Makar"
+},
+"40000800": {
+"npc": 50700081,
+"flags": [
+40007999,
+40007998
+],
+"name": "Twin Axe Death Knight"
+},
+"40010800": {
+"npc": 50701095,
+"flags": [
+40017999,
+40017998
+],
+"name": "Longhaft Death Knight"
+},
+"41000800": {
+"npc": 58100980,
+"flags": [
+41007999,
+41007998
+],
+"name": "Demi-Human Swordmaster Onze"
+},
+"41010800": {
+"npc": 50400190,
+"flags": [
+41017999,
+41017998
+],
+"name": "Curseblade Labirith"
+},
+"41020800": {
+"npc": 524270084,
+"flags": [
+41027999,
+41027998
+],
+"name": "Lamenter"
+},
+"43000800": {
+"npc": 50810990,
+"flags": [
+43007999,
+43007998
+],
+"name": "Chief Bloodfiend Boss"
+},
+"43010800": {
+"npc": 524070081,
+"flags": [
+43017999,
+43017998
+],
+"name": "Ancient Dragon-Man"
+},
+"1033420800": {
+"npc": 21002922,
+"flags": [
+1033427999,
+1033427998
+],
+"name": "Alecto, Black Knife Ringleader"
+},
+"1033430800": {
+"npc": 48100920,
+"flags": [
+1033437999,
+1033437998
+],
+"name": "Erdtree Avatar Boss"
+},
+"1033450800": {
+"npc": 46010920,
+"flags": [
+1033457999,
+1033457998
+],
+"name": "Bols, Carian Knight"
+},
+"1034420800": {
+"npc": 45021922,
+"flags": [
+1034427999,
+1034427998
+],
+"name": "Glintstone Dragon Adula"
+},
+"1034450800": {
+"npc": 45020920,
+"flags": [
+1034457999,
+1034457998
+],
+"name": "Glintstone Dragon Smarag"
+},
+"1035420800": {
+"npc": 48200920,
+"flags": [
+1035427999,
+1035427998
+],
+"name": "Omenkiller Boss"
+},
+"1035500800": {
+"npc": 32520921,
+"flags": [
+1035507999,
+1035507998
+],
+"name": "Royal Knight Loretta"
+},
+"1035530800": {
+"npc": 49100032,
+"flags": [
+1035537999,
+1035537998
+],
+"name": "Magma Wyrm Boss"
+},
+"1036450340": {
+"npc": 49801020,
+"flags": [
+1036457999,
+1036457998
+],
+"name": "Death Rite Bird"
+},
+"1036480340": {
+"npc": 31500020,
+"flags": [
+1036487999,
+1036487998
+],
+"name": "Night's Cavalry"
+},
+"1036500800": {
+"npc": 36001920,
+"flags": [
+1036507999,
+1036507998
+],
+"name": "Onyx Lord Boss"
+},
+"1036540800": {
+"npc": 46800032,
+"flags": [
+1036547999,
+1036547998
+],
+"name": "Full-Grown Fallingstar Beast"
+},
+"1037420340": {
+"npc": 49800020,
+"flags": [
+1037427999,
+1037427998
+],
+"name": "Deathbird"
+},
+"1037460800": {
+"npc": 31000020,
+"flags": [
+1037467999,
+1037467998
+],
+"name": "Bell Bearing Hunter"
+},
+"1037510800": {
+"npc": 45102030,
+"flags": [
+1037517999,
+1037517998
+],
+"name": "Ancient Dragon Lansseax"
+},
+"1037530800": {
+"npc": 41300032,
+"flags": [
+1037537999,
+1037537998
+],
+"name": "Demi-Human Queen Maggie"
+},
+"1037540810": {
+"npc": 46400032,
+"flags": [
+1037547999,
+1037547998
+],
+"name": "Ulcerated Tree Spirit Boss"
+},
+"1038410800": {
+"npc": 523560020,
+"flags": [
+1038417999,
+1038417998
+],
+"name": "Adan, Thief of Fire"
+},
+"1038480800": {
+"npc": 48100020,
+"flags": [
+1038487999,
+1038487998
+],
+"name": "Erdtree Avatar Boss"
+},
+"1038520340": {
+"npc": 49500032,
+"flags": [
+1038527999,
+1038527998
+],
+"name": "Tibia Mariner Boss"
+},
+"1039430340": {
+"npc": 31500020,
+"flags": [
+1039437999,
+1039437998
+],
+"name": "Night's Cavalry"
+},
+"1039440800": {
+"npc": 49500020,
+"flags": [
+1039447999,
+1039447998
+],
+"name": "Tibia Mariner Boss"
+},
+"1039500800": {
+"npc": 47500030,
+"flags": [
+1039507999,
+1039507998
+],
+"name": "Godefroy the Grafted"
+},
+"1039510800": {
+"npc": 31501030,
+"flags": [
+1039517999,
+1039517998
+],
+"name": "Night's Cavalry"
+},
+"1039540800": {
+"npc": 31000931,
+"flags": [
+1039547999,
+1039547998
+],
+"name": "Elemer of the Briar"
+},
+"1040520800": {
+"npc": 21000830,
+"flags": [
+1040527999,
+1040527998
+],
+"name": "Black Knife Assassin Boss"
+},
+"1041500800": {
+"npc": 46801930,
+"flags": [
+1041507999,
+1041507998
+],
+"name": "Regular Fallingstar Beast"
+},
+"1041510800": {
+"npc": 32511030,
+"flags": [
+1041517999,
+1041517998
+],
+"name": "Tree Sentinel"
+},
+"1041530800": {
+"npc": 45800030,
+"flags": [
+1041537999,
+1041537998
+],
+"name": "Wormface Boss"
+},
+"1042330800": {
+"npc": 71000012,
+"flags": [
+1042337999,
+1042337998
+],
+"name": "Ancient Hero of Zamor Boss"
+},
+"1042360800": {
+"npc": 32510010,
+"flags": [
+1042367999,
+1042367998
+],
+"name": "Tree Sentinel"
+},
+"1042370800": {
+"npc": 25000010,
+"flags": [
+1042377999,
+1042377998
+],
+"name": "Crucible Knight Boss"
+},
+"1042380800": {
+"npc": 49800010,
+"flags": [
+1042387999,
+1042387998
+],
+"name": "Deathbird"
+},
+"1042380850": {
+"npc": 31000010,
+"flags": [
+1042387997,
+1042387996
+],
+"name": "Bell Bearing Hunter"
+},
+"1042550800": {
+"npc": 35600030,
+"flags": [
+1042557999,
+1042557998
+],
+"name": "Godskin Apostle"
+},
+"1043300800": {
+"npc": 34600913,
+"flags": [
+1043307999,
+1043307998
+],
+"name": "Leonine Misbegotten Boss"
+},
+"1043330800": {
+"npc": 48100012,
+"flags": [
+1043337999,
+1043337998
+],
+"name": "Erdtree Avatar Boss"
+},
+"1043360800": {
+"npc": 45000010,
+"flags": [
+1043367999,
+1043367998
+],
+"name": "Flying Dragon Agheel"
+},
+"1043370340": {
+"npc": 31500010,
+"flags": [
+1043377999,
+1043377998
+],
+"name": "Night's Cavalry"
+},
+"1043530800": {
+"npc": 31000033,
+"flags": [
+1043537999,
+1043537998
+],
+"name": "Bell Bearing Hunter"
+},
+"1044320340": {
+"npc": 49800012,
+"flags": [
+1044327999,
+1044327998
+],
+"name": "Deathbird"
+},
+"1044320342": {
+"npc": 31501012,
+"flags": [
+1044327997,
+1044327996
+],
+"name": "Night's Cavalry"
+},
+"1044350800": {
+"npc": 42900010,
+"flags": [
+1044357999,
+1044357998
+],
+"name": "Bloodhound Knight Darriwil"
+},
+"1044530800": {
+"npc": 49800033,
+"flags": [
+1044537999,
+1044537998
+],
+"name": "Deathbird"
+},
+"1045390800": {
+"npc": 49500010,
+"flags": [
+1045397999,
+1045397998
+],
+"name": "Tibia Mariner Boss"
+},
+"1045520800": {
+"npc": 32500033,
+"flags": [
+1045527999,
+1045527998
+],
+"name": "Draconic Tree Sentinel Boss"
+},
+"1047400800": {
+"npc": 48110040,
+"flags": [
+1047407999,
+1047407998
+],
+"name": "Putrid Avatar Boss"
+},
+"1048370800": {
+"npc": 45010040,
+"flags": [
+1048377999,
+1048377998
+],
+"name": "Decaying Ekzykes"
+},
+"1048410800": {
+"npc": 31000042,
+"flags": [
+1048417999,
+1048417998
+],
+"name": "Bell Bearing Hunter"
+},
+"1048510800": {
+"npc": 31500050,
+"flags": [
+1048517999,
+1048517998
+],
+"name": "Night's Cavalry"
+},
+"1048570800": {
+"npc": 49801052,
+"flags": [
+1048577999,
+1048577998
+],
+"name": "Death Rite Bird"
+},
+"1049370800": {
+"npc": 31501040,
+"flags": [
+1049377999,
+1049377998
+],
+"name": "Night's Cavalry"
+},
+"1049370850": {
+"npc": 49801040,
+"flags": [
+1049377997,
+1049377996
+],
+"name": "Death Rite Bird"
+},
+"1049380800": {
+"npc": 30500140,
+"flags": [
+1049387999,
+1049387998
+],
+"name": "Commander O'Neil"
+},
+"1049390800": {
+"npc": 33000940,
+"flags": [
+1049397999,
+1049397998
+],
+"name": "Nox Duo"
+},
+"1049390850": {
+"npc": 37040940,
+"flags": [
+1049397997,
+1049397996
+],
+"name": "Battlemage Hugues"
+},
+"1049520800": {
+"npc": 47700250,
+"flags": [
+1049527999,
+1049527998
+],
+"name": "Black Blade Kindred"
+},
+"1050560800": {
+"npc": 49110052,
+"flags": [
+1050567999,
+1050567998
+],
+"name": "Great Wyrm Theodorix"
+},
+"1050570800": {
+"npc": 49801050,
+"flags": [
+1050577999,
+1050577998
+],
+"name": "Death Rite Bird"
+},
+"1050570850": {
+"npc": 48110052,
+"flags": [
+1050577997,
+1050577996
+],
+"name": "Putrid Avatar Boss"
+},
+"1051360800": {
+"npc": 25000941,
+"flags": [
+1051367999,
+1051367998
+],
+"name": "Crucible Misbegotten Duo"
+},
+"1051400800": {
+"npc": 48110042,
+"flags": [
+1051407999,
+1051407998
+],
+"name": "Putrid Avatar Boss"
+},
+"1051430800": {
+"npc": 47701242,
+"flags": [
+1051437999,
+1051437998
+],
+"name": "Black Blade Kindred"
+},
+"1051570800": {
+"npc": 30500051,
+"flags": [
+1051577999,
+1051577998
+],
+"name": "Commander Niall"
+},
+"1052410800": {
+"npc": 45000042,
+"flags": [
+1052417999,
+1052417998
+],
+"name": "Flying Dragon Greyll"
+},
+"1052410850": {
+"npc": 31500042,
+"flags": [
+1052417997,
+1052417996
+],
+"name": "Night's Cavalry"
+},
+"1052560800": {
+"npc": 48100150,
+"flags": [
+1052567999,
+1052567998
+],
+"name": "Erdtree Avatar Duo"
+},
+"1053560800": {
+"npc": 523040050,
+"flags": [
+1053567999,
+1053567998
+],
+"name": "Roundtable Knight Vyke"
+},
+"2044450800": {
+"npc": 50300094,
+"flags": [
+2044457999,
+2044457998
+],
+"name": "Romina, Saint of the Bud"
+},
+"2044470800": {
+"npc": 58200095,
+"flags": [
+2044477999,
+2044477998
+],
+"name": "Rugalea the Great Red Bear"
+},
+"2045440800": {
+"npc": 58600080,
+"flags": [
+2045447999,
+2045447998
+],
+"name": "Ghostflame Dragon Boss"
+},
+"2046380800": {
+"npc": 524220083,
+"flags": [
+2046387999,
+2046387998
+],
+"name": "Dancer of Ranah"
+},
+"2046400800": {
+"npc": 57300083,
+"flags": [
+2046407999,
+2046407998
+],
+"name": "Demi-Human Queen Marigga"
+},
+"2046410800": {
+"npc": 524240080,
+"flags": [
+2046417999,
+2046417998
+],
+"name": "Knight of the Solitary Gaol"
+},
+"2046450800": {
+"npc": 524210095,
+"flags": [
+2046457999,
+2046457998
+],
+"name": "Red Bear"
+},
+"2046460800": {
+"npc": 52100094,
+"flags": [
+2046467999,
+2046467998
+],
+"name": "Divine Beast Dancing Lion and Basilisks"
+},
+"2047390800": {
+"npc": 62601084,
+"flags": [
+2047397999,
+2047397998
+],
+"name": "Death Rite Bird"
+},
+"2047450800": {
+"npc": 58400590,
+"flags": [
+2047457999,
+2047457998
+],
+"name": "Black Knight Garrew"
+},
+"2048380850": {
+"npc": 58600083,
+"flags": [
+2048387999,
+2048387998
+],
+"name": "Ghostflame Dragon and Skeletons"
+},
+"2048440800": {
+"npc": 53000082,
+"flags": [
+2048447999,
+2048447998
+],
+"name": "Rellana, Twin Moon Knight"
+},
+"2049410800": {
+"npc": 55800084,
+"flags": [
+2049417999,
+2049417998
+],
+"name": "Jagged Peak Drake Boss"
+},
+"2049430800": {
+"npc": 58600090,
+"flags": [
+2049437999,
+2049437998
+],
+"name": "Ghostflame Dragon Boss"
+},
+"2049430850": {
+"npc": 58400690,
+"flags": [
+2049437997,
+2049437996
+],
+"name": "Black Knight Edredd"
+},
+"2049450800": {
+"npc": 58200990,
+"flags": [
+2049457999,
+2049457998
+],
+"name": "Ralva the Great Red Bear"
+},
+"2049480800": {
+"npc": 50000092,
+"flags": [
+2049487999,
+2049487998
+],
+"name": "Commander Gaius"
+},
+"2050470800": {
+"npc": 62511093,
+"flags": [
+2050477999,
+2050477998
+],
+"name": "Tree Sentinel"
+},
+"2050480800": {
+"npc": 52300396,
+"flags": [
+2050487999,
+2050487998
+],
+"name": "Scadutree Avatar"
+},
+"2050480860": {
+"npc": 62510093,
+"flags": [
+2050487997,
+2050487996
+],
+"name": "Tree Sentinel"
+},
+"2051440800": {
+"npc": 524230091,
+"flags": [
+2051447999,
+2051447998
+],
+"name": "Rakshasa"
+},
+"2051450720": {
+"npc": 524200190,
+"flags": [
+2051457999,
+2051457998
+],
+"name": "Count Ymir, Mother of Fingers"
+},
+"2052400800": {
+"npc": 55800985,
+"flags": [
+2052407999,
+2052407998
+],
+"name": "Jagged Peak Drake Boss"
+},
+"2052430800": {
+"npc": 53120086,
+"flags": [
+2052437999,
+2052437998
+],
+"name": "Jori, Elder Inquisitor"
+},
+"2052480800": {
+"npc": 63101093,
+"flags": [
+2052487999,
+2052487998
+],
+"name": "Regular Fallingstar Beast"
+},
+"2054390800": {
+"npc": 51200085,
+"flags": [
+2054397999,
+2054397998
+],
+"name": "Bayle the Dread"
+},
+"2054390850": {
+"npc": 53701185,
+"flags": [
+2054397997,
+2054397996
+],
+"name": "Ancient Dragon Senessax"
+},
+"1054560800": {
+"npc": 45030050,
+"flags": [
+93490,
+93491
+],
+"name": "Borealis the Freezing Fog"
+}
+}
+}
