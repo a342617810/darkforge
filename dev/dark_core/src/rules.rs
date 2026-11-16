@@ -187,74 +187,14 @@ static FREE_SET: std::sync::atomic::AtomicU8 = std::sync::atomic::AtomicU8::new(
 pub(crate) const FRIENDLY_TEAMS: [u8; 6] = [0, 1, 2, 26, 28, 47];
 
 // ------------------------------------------------------------------ 联机的命中归属（联机计划 13.7）
-/// 子弹记多久、离敌人多远内算落在它身上（照黄金树爬塔：0.7 秒、6 米）
-const BULLET_MEMORY: Duration = Duration::from_millis(700);
-const BULLET_REACH: f32 = 6.0;
+/// 敌人身上新出现的命中标记，这么久内本机的连击值涨过（hit_self 刚出现）才算你打的
+const OWN_HIT_REACH: Duration = Duration::from_millis(400);
 
-/// 落在敌人 BULLET_REACH 米内、最近的那颗子弹是不是自己放的；附近没有子弹 None
-pub(crate) fn bullet_owner_is_mine(foe: [f32; 3], bullets: &[(Instant, [f32; 3], bool)]) -> Option<bool> {
-    bullets.iter().map(|&(_, q, m)| (dist3(foe, q), m)).filter(|&(d, _)| d <= BULLET_REACH).min_by(|a, b| a.0.total_cmp(&b.0)).map(|x| x.1)
-}
-
-/// 离敌人最近的是不是自己 / 自己的召唤物（不比队友远就算）；自己一个都不在场 false
-pub(crate) fn nearest_is_mine(foe: [f32; 3], mine: &[[f32; 3]], others: &[[f32; 3]]) -> bool {
-    let closest = |set: &[[f32; 3]]| set.iter().map(|&q| dist3(foe, q)).fold(f32::INFINITY, f32::min);
-    !mine.is_empty() && closest(mine) <= closest(others)
-}
-
-/// 一帧里算归属要的：自己 / 队友的句柄、位置（只要本机所在大区的）
-struct Attrib {
-    own: Vec<eldenring::cs::FieldInsHandle>,
-    area: u8,
-    mine_at: Vec<[f32; 3]>,
-    others_at: Vec<[f32; 3]>,
-}
-
-impl Attrib {
-    fn read(summon_set: &eldenring::cs::ChrSet<ChrIns>, player_set: &eldenring::cs::ChrSet<eldenring::cs::PlayerIns>, me: &ChrIns,
-            bullets: &mut Vec<(Instant, [f32; 3], bool)>, now: Instant) -> Attrib {
-        let pos = |c: &ChrIns| [c.modules.physics.position.0, c.modules.physics.position.1, c.modules.physics.position.2];
-        let area = me.block_id.area();
-        let alive = |c: &ChrIns| c.modules.data.hp > 0;
-        let summons: Vec<&ChrIns> = summon_set.characters().map(|c| &*c).collect();
-        let own: Vec<eldenring::cs::FieldInsHandle> = std::iter::once(me.field_ins_handle).chain(summons.iter().map(|c| c.field_ins_handle)).collect();
-        let mine_at = std::iter::once(pos(me)).chain(summons.iter().filter(|c| alive(c) && c.block_id.area() == area).map(|c| pos(c))).collect();
-        let mates: Vec<&ChrIns> = player_set.characters().map(|p| &p.chr_ins).filter(|c| !own.contains(&c.field_ins_handle)).collect();
-        let others_at = mates.iter().filter(|c| alive(c) && c.block_id.area() == area).map(|c| pos(c)).collect();
-        // 这一帧在飞的、自己或队友放的子弹
-        bullets.retain(|x| now.duration_since(x.0) <= BULLET_MEMORY);
-        if let Ok(m) = unsafe { eldenring::cs::CSBulletManager::instance() } {
-            for b in m.bullets() {
-                let owner = b.targeting_owner.owner_chr_handle;
-                let mine = own.contains(&owner);
-                if mine || mates.iter().any(|c| c.field_ins_handle == owner) {
-                    let q = &b.physics.position;
-                    bullets.push((now, [q.0, q.1, q.2], mine));
-                }
-            }
-        }
-        if bullets.len() > 512 {
-            let n = bullets.len() - 512;
-            bullets.drain(..n);
-        }
-        Attrib { own, area, mine_at, others_at }
-    }
-
-    /// 这个敌人身上的命中算不算自己的，和怎么认的（日志用）
-    fn mine(&self, c: &ChrIns, bullets: &[(Instant, [f32; 3], bool)]) -> (bool, &'static str) {
-        let a = c.last_hit_by;
-        if !a.is_empty() {
-            return (self.own.contains(&a), "最后打中它的是别人");
-        }
-        if c.block_id.area() != self.area {
-            return (false, "不在你所在的大区");
-        }
-        let q = [c.modules.physics.position.0, c.modules.physics.position.1, c.modules.physics.position.2];
-        match bullet_owner_is_mine(q, bullets) {
-            Some(m) => (m, "落在它身上的子弹是队友的"),
-            None => (nearest_is_mine(q, &self.mine_at, &self.others_at), "离它最近的是队友"),
-        }
-    }
+/// 联机时新出现的命中标记算不算你打的。你每打中一次东西（近战、箭、道具、法术都算）身上会闪一下连击值 hit_self，
+/// 队友打中不会让你的连击值涨；房主、客机都一样，不靠同步来的数据。判断不了（命中累积 hit_acc 不在身上）就全算，同单机。
+/// 剩下的误差：你打 A 的同一瞬间队友打中 B，B 也算你的
+pub(crate) fn own_hit(coop_on: bool, can_tell: bool, last_self_hit: Option<Instant>, now: Instant) -> bool {
+    !coop_on || !can_tell || last_self_hit.is_some_and(|t| now.saturating_duration_since(t) <= OWN_HIT_REACH)
 }
 
 /// 算不算敌人：阵营号不是友方、不是自己的阵营，也不是玩家角色（chrs::is_player；联机计划 13.2 G8，入侵者、队友都不算）
@@ -1524,8 +1464,8 @@ struct Engine {
     land_seen: HashSet<usize>,
     /// 联机时「命中标记不是你打的」记过几次（最多记 6 次）
     not_mine_logged: u32,
-    /// 联机时最近的玩家子弹：(时间, 位置, 是不是自己放的)，给查不到攻击者的命中归属用（Attrib）
-    coop_bullets: Vec<(Instant, [f32; 3], bool)>,
+    /// 本机的连击值最近一次涨（hit_self 刚出现）的时间：联机时认命中标记是不是你打的（own_hit）
+    last_self_hit: Option<Instant>,
     /// 睡眠（惊醒，tick 用）：在睡的角色 → 身上的睡眠、什么时候睡着、上次扫到还在睡的时间；
     /// 被打中（命中 / 子弹标记刚出现）之前就在睡的角色 → 那时的睡眠、什么时候被打（等这一下算打中时交给规则，见 Foe::slept）
     sleep_seen: HashMap<usize, Sleeping>,
@@ -2869,6 +2809,7 @@ pub fn tick() {
     let self_hit = d.marks.get("hit_self").is_some_and(|sp| ids.contains(sp));
     if self_hit && !eng.self_hit_on {
         eng.self_hit_at = Some(Instant::now());
+        eng.last_self_hit = Some(Instant::now());
     }
     eng.self_hit_on = self_hit;
     let me = &p.chr_ins as *const _ as usize;
@@ -2957,22 +2898,22 @@ pub fn tick() {
                 }
             }
         }
-        // 联机：命中标记（近战 land、子弹的 shot / item / cast）只算自己打的（队友戴同样的词条也挂同一个标记；联机计划 13.7，
-        // 照黄金树爬塔的思路）：见 Attrib
+        // 联机：命中标记（近战 land、子弹的 shot / item / cast）只算你打的（队友戴同样的词条也挂同一个标记）：
+        // 这一刻本机的连击值也涨了才算（own_hit，联机计划 13.7）。不算的不记进 land_seen / hit_seen，标记还在的话下一帧再判（差一帧也不漏）
         let coop_on = crate::coop::active();
-        let att = if coop_on { Some(Attrib::read(&wcm.summon_buddy_chr_set, &wcm.player_chr_set, &p.chr_ins, &mut eng.coop_bullets, now)) } else { None };
+        let can_tell = d.marks.get("hit_acc").is_some_and(|sp| ids.contains(sp));
+        let mine = own_hit(coop_on, can_tell, eng.last_self_hit, now);
         for e in around.iter().chain(extra.iter()).filter(|e| e.distance <= FOE_SCAN && e.chr_ins.as_ptr() as usize != me) {
             let c = unsafe { e.chr_ins.as_ref() };
             let id = e.chr_ins.as_ptr() as usize;
             let mut sts = Vec::new();
             let mut hit = false;
             let mut via = None;
-            let (mine, why) = att.as_ref().map_or((true, ""), |a| a.mine(c, &eng.coop_bullets));
             for s in c.special_effect.entries() {
                 let marked = Some(s.param_id) == land || hit_marks.iter().any(|x| x.1 == s.param_id);
                 if marked && !mine && !eng.land_seen.contains(&id) && eng.not_mine_logged < 6 {
                     eng.not_mine_logged += 1;
-                    log(&format!("积木引擎（联机）：NPC {} 身上的命中标记不是你打的（{why}），不算", c.npc_param_id));
+                    log(&format!("积木引擎（联机）：NPC {} 身上的命中标记不是你打的（这一刻你的连击值没涨），不算", c.npc_param_id));
                 }
                 hit |= mine && Some(s.param_id) == land;
                 for &(k, sp) in &hit_marks {
@@ -3635,18 +3576,14 @@ fn set_free(arrows: bool, goods: bool, chr: Option<&mut ChrIns>) {
 #[cfg(test)]
 mod tests {
     #[test]
-    fn coop_attribution_follows_bullet_then_distance() {
-        let now = Instant::now();
-        let foe = [20.0, 0.0, 0.0];
-        assert_eq!(bullet_owner_is_mine(foe, &[(now, [19.0, 0.0, 0.0], true), (now, [30.0, 0.0, 0.0], false)]), Some(true), "自己的法术落在它身上");
-        assert_eq!(bullet_owner_is_mine(foe, &[(now, [18.0, 0.0, 0.0], true), (now, [20.5, 0.0, 0.0], false)]), Some(false), "队友的箭更近");
-        assert_eq!(bullet_owner_is_mine(foe, &[(now, [0.0, 0.0, 0.0], true)]), None, "附近没有子弹，改比距离");
-        let foe = [0.0, 0.0, 0.0];
-        assert!(nearest_is_mine(foe, &[[1.0, 0.0, 0.0]], &[[3.0, 0.0, 0.0]]), "贴着敌人近战");
-        assert!(!nearest_is_mine(foe, &[[5.0, 0.0, 0.0]], &[[2.0, 0.0, 0.0]]), "队友更近");
-        assert!(nearest_is_mine(foe, &[[9.0, 0.0, 0.0], [0.5, 0.0, 0.0]], &[[2.0, 0.0, 0.0]]), "自己的骨灰最近");
-        assert!(nearest_is_mine(foe, &[[40.0, 0.0, 0.0]], &[]), "附近没有队友");
-        assert!(!nearest_is_mine(foe, &[], &[]));
+    fn coop_own_hit_follows_self_hit_pulse() {
+        let t = Instant::now();
+        let ms = |n: u64| t + Duration::from_millis(n);
+        assert!(own_hit(false, true, None, t), "单机全算");
+        assert!(own_hit(true, false, None, t), "判断不了（命中累积不在身上）全算");
+        assert!(!own_hit(true, true, None, t), "联机、连击值从没涨过：不算（队友打的）");
+        assert!(own_hit(true, true, Some(t), ms(200)), "刚打中东西：算");
+        assert!(!own_hit(true, true, Some(t), ms(1000)), "一秒前打中的：这个标记不算");
     }
 
     use super::*;
