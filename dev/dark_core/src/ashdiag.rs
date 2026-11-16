@@ -17,7 +17,7 @@ use eldenring::cs::{ChrIns, WorldChrMan};
 use fromsoftware_shared::FromStatic;
 
 use crate::log;
-use crate::rules::FRIENDLY_TEAMS;
+use crate::rules::is_foe;
 
 const SCAN: Duration = Duration::from_millis(250);
 /// 测试骨灰召唤的狼（rr/ashtest.py 的 NPC）、狼身上的载体（CARRIER）、命中时给目标挂的出血累积（BUILDUP）
@@ -155,7 +155,7 @@ pub fn tick() {
                     continue;
                 }
                 let c = unsafe { e.chr_ins.as_ref() };
-                if FRIENDLY_TEAMS.contains(&c.team_type) || c.team_type == my_team || c.modules.data.hp <= 0 {
+                if !is_foe(c, my_team) || c.modules.data.hp <= 0 {
                     continue;
                 }
                 let Some(rs) = crate::rules::resist_of(c) else { continue };

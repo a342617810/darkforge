@@ -240,6 +240,7 @@ pub unsafe extern "system" fn DllMain(hmodule: u64, reason: u32, _reserved: *mut
         task.run_recurring(
             move |_: &FD4TaskData| {
                 prof::frame();
+                chrs::refresh_players();      // 这一帧的玩家角色（rules::is_foe 跳过它们，联机计划 13.2 G8）
                 guarded("庆典油脂", &mut errs[0], festive::tick);
                 guarded("新装备系统", &mut errs[1], gear::tick);
                 guarded("新词条", &mut errs[2], runtime::tick);

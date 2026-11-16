@@ -581,7 +581,9 @@ pub fn tick() {
                 let c = unsafe { &mut *e.chr_ins.as_ptr() };
                 let cur = c.modules.behavior.animation_speed;
                 match slip {
-                    Some(m) if e.distance <= k.a => {
+                    // 玩家角色（队友、入侵者）不改（联机计划 13.2 G8）；以前改过的走下面那条还原
+                    // 客机不改敌人（联机计划 13.2 G2）：以前改过的同样走下面那条还原
+                    Some(m) if e.distance <= k.a && !crate::chrs::is_player(c) && !crate::coop::client_skip("时隙改周围角色的速度") => {
                         crate::coop::note(crate::coop::Op::Slip(m), c);
                         c.modules.behavior.animation_speed = m;
                     }

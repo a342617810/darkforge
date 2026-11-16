@@ -29,6 +29,13 @@ const RECENT: Duration = Duration::from_secs(5);
 const OURS: std::ops::Range<i32> = 7_200_000..7_300_000;
 
 static ACTIVE: AtomicBool = AtomicBool::new(false);
+/// 在会话里、而且本机是房主（大厅状态 3）
+static HOST: AtomicBool = AtomicBool::new(false);
+/// 会话标记（联机计划 13.3 C3；92570~92581 扫过没人用，dev\event_flags\说明.md 登记了）：在会话里 / 本机是房主时点亮，
+/// 不在会话里熄灭。菜单脚本按它们隐藏会话里不能用的功能（launcher\reroll\sc 里同样写死这两个编号，两边一起改）。
+/// 92000 块会存档：万一会话中途崩了留着亮的，下次进游戏 0.5 秒内这里就熄灭
+pub const SESSION_FLAG: u32 = 92570;
+pub const HOST_FLAG: u32 = 92571;
 static ERSC: AtomicBool = AtomicBool::new(false);
 
 /// Seamless Co-op（ersc.dll）加载了没有：加载了游戏就只用联机存档（ER0000.rng.co2，格子编号和单机各算各的），
@@ -110,6 +117,41 @@ static ST: Mutex<Option<St>> = Mutex::new(None);
 /// 现在是不是在联机会话里（主机或客机）
 pub fn active() -> bool {
     ACTIVE.load(Ordering::Relaxed)
+}
+
+/// 在会话里、本机是客机：直接写敌人内存的那些（联机计划 13.2 G2）、魇化抽签（G3）这时跳过
+pub fn client() -> bool {
+    ACTIVE.load(Ordering::Relaxed) && !HOST.load(Ordering::Relaxed)
+}
+
+/// 在会话里、本机是房主（联机随机码、自动兼容比对这些以后会用）
+#[allow(dead_code)]
+pub fn host() -> bool {
+    HOST.load(Ordering::Relaxed)
+}
+
+/// 客机跳过了一种直接改敌人的操作：每种只记一行（联机计划 13.2 G2）
+static SKIPPED: Mutex<Vec<&'static str>> = Mutex::new(Vec::new());
+
+/// 本机是客机就记一行、返回 true（调用处跳过这次写入）；不是客机返回 false
+pub fn client_skip(what: &'static str) -> bool {
+    if !client() {
+        return false;
+    }
+    let mut g = SKIPPED.lock().unwrap_or_else(|e| e.into_inner());
+    if !g.contains(&what) {
+        g.push(what);
+        log(&format!("联机：本机是客机，{what}跳过（敌人一侧只让房主改，联机计划 13.2 G2；之后同类不再记）"));
+    }
+    true
+}
+
+/// 会话标记跟着现在的状态走（不一样才写）
+fn sync_flag(f: u32, on: bool) -> bool {
+    if crate::gear::flag_get(f) == Some(on) {
+        return false;
+    }
+    crate::gear::flag_set(f, on)
 }
 
 fn say(st: &mut St, s: &str) {
@@ -228,7 +270,14 @@ pub fn tick() {
         st.last = s;
     }
     let on = matches!(s, Some((3 | 6, ..)));
+    let host = matches!(s, Some((3, ..)));
     ACTIVE.store(on, Ordering::Relaxed);
+    HOST.store(host, Ordering::Relaxed);
+    let a = sync_flag(SESSION_FLAG, on);
+    let b = sync_flag(HOST_FLAG, host);
+    if a || b {
+        log(&format!("联机：会话标记 {SESSION_FLAG} {}、房主标记 {HOST_FLAG} {}", if on { "亮" } else { "灭" }, if host { "亮" } else { "灭" }));
+    }
     if !on {
         st.checks.clear();
         st.mine.clear();

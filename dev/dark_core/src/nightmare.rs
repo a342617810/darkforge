@@ -26,7 +26,7 @@ use eldenring::cs::{
 use fromsoftware_shared::FromStatic;
 
 use crate::gear::{fam_info, flag_get, flag_set, gift_n};
-use crate::rules::FRIENDLY_TEAMS;
+use crate::rules::is_foe;
 use crate::{dir, log};
 
 const SCAN: Duration = Duration::from_millis(250);
@@ -478,7 +478,7 @@ fn dev_req(d: &Def, st: &mut St, wcm: &mut WorldChrMan, me: usize, my_team: u8) 
                 let Some(around) = around!(wcm, me) else { continue };
                 let near = around.iter().filter(|e| e.chr_ins.as_ptr() as usize != me && e.distance <= 15.0).find(|e| {
                     let c = unsafe { e.chr_ins.as_ref() };
-                    !FRIENDLY_TEAMS.contains(&c.team_type) && c.team_type != my_team && c.modules.data.hp > 0
+                    is_foe(c, my_team) && c.modules.data.hp > 0
                 });
                 match near {
                     Some(e) => {
@@ -658,7 +658,7 @@ pub fn tick() {
             continue;
         }
         let c = unsafe { &mut *e.chr_ins.as_ptr() };
-        if FRIENDLY_TEAMS.contains(&c.team_type) || c.team_type == my_team {
+        if !is_foe(c, my_team) {
             continue;
         }
         let hp = c.modules.data.hp;
@@ -669,7 +669,8 @@ pub fn tick() {
         }
         if hp > 0 && st.rolled.insert(a) {
             let mob = d.mob_e.contains(&c.event_entity_id) || d.mob_n.contains(&c.npc_param_id);
-            if mob && st.chance(chance) {
+            // 客机不抽魇化（联机计划 13.2 G3：抽中的是谁没法告诉房主，魇火只给房主）
+            if mob && !crate::coop::client_skip("魇化抽签") && st.chance(chance) {
                 make_elite(d, st, c, a, true);
             }
             continue;
@@ -695,12 +696,14 @@ pub fn tick() {
             if hp != h0 {
                 el.fix = None;
             } else if max != m0 && m0 > 0 {
-                c.modules.data.hp = ((h0 as f64 / m0 as f64) * max as f64).round().clamp(1.0, max as f64) as i32;
+                if !crate::coop::client_skip("魇化精英的按比例补血") {
+                    c.modules.data.hp = ((h0 as f64 / m0 as f64) * max as f64).round().clamp(1.0, max as f64) as i32;
+                }
                 el.fix = None;
             }
         }
         let speed = d.colors[el.color].1;
-        if speed != 1.0 && hp > 0 && (c.modules.behavior.animation_speed - speed).abs() > 1e-4 {
+        if speed != 1.0 && hp > 0 && (c.modules.behavior.animation_speed - speed).abs() > 1e-4 && !crate::coop::client_skip("魇化精英加快") {
             c.modules.behavior.animation_speed = speed;
         }
         let was = el.hp;

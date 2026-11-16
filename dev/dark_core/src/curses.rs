@@ -29,7 +29,7 @@ use eldenring::cs::{BlockId, BonfireWarpParam, ChrInsExt, SoloParamRepository, W
 use fromsoftware_shared::FromStatic;
 
 use crate::gear::{flag_get, flag_set};
-use crate::rules::{FOE_HIT_KINDS, FRIENDLY_TEAMS};
+use crate::rules::{FOE_HIT_KINDS, is_foe};
 use crate::{dir, log};
 
 const SLOW: Duration = Duration::from_millis(500);
@@ -869,7 +869,7 @@ pub fn tick() {
             continue;
         }
         let c = unsafe { &mut *e.chr_ins.as_ptr() };
-        if FRIENDLY_TEAMS.contains(&c.team_type) || c.team_type == my_team {
+        if !is_foe(c, my_team) {
             continue;
         }
         seen.insert(a);
@@ -925,7 +925,7 @@ pub fn tick() {
         let listed: HashSet<usize> = around.iter().map(|e| e.chr_ins.as_ptr() as usize).collect();
         for &a in live!(wcm).iter().filter(|a| **a != me && !listed.contains(*a)) {
             let c = unsafe { &*(a as *const eldenring::cs::ChrIns) };
-            if !FRIENDLY_TEAMS.contains(&c.team_type) && c.team_type != my_team && c.special_effect.entries().any(|s| bullet.contains(&s.param_id)) {
+            if is_foe(c, my_team) && c.special_effect.entries().any(|s| bullet.contains(&s.param_id)) {
                 hit_any = true;
                 hit_mark = true;
                 break;
@@ -977,7 +977,8 @@ pub fn tick() {
             }
             // 精确伤害（用户 2026-11-09）：写进专用效果行再挂，游戏显示的就是这个数；行都占着时退回下面的固定档位
             let amt = amt.min(hp - 1);
-            if crate::rules::foe_hp_exact(c, amt) {
+            // 客机不直接写敌人血量（联机计划 13.2 G2）：只走下面的扣血效果
+            if !crate::coop::client() && crate::rules::foe_hp_exact(c, amt) {
                 if let Some(f) = st.foes.get_mut(&a) {
                     f.echo_due += amt;
                     f.echo_at = Some(now + ECHO_LAND);
@@ -987,6 +988,9 @@ pub fn tick() {
             // 走引爆那套扣血效果，游戏才显示伤害数字（用户 2026-11-09）；小到没有档时照旧直接扣
             let picked = crate::rules::hp_burst(amt as f32, (hp - 1) as f32, |sp| c.special_effect.entries().any(|e| e.param_id == sp));
             if picked.is_empty() {
+                if crate::coop::client_skip("咒痕回响的直接扣血") {
+                    continue;
+                }
                 c.modules.data.hp = (hp - amt).max(1);
                 if let Some(f) = st.foes.get_mut(&a) {
                     f.hp = c.modules.data.hp;

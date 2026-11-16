@@ -24,12 +24,14 @@ import esd as esdlib
 
 from . import extragrace
 from .common import REROLL, last_with, vanilla
-from .esdutil import ALWAYS, CONFIRM_NO, CONFIRM_YES, i32, menu_pick, wait_menu, write_check
+from .esdutil import ALWAYS, CONFIRM_NO, CONFIRM_YES, flag_is_on, i32, menu_pick, wait_menu, write_check
 
 CACHE_DIR = os.path.join(REROLL, 'cache', 'arena')
 TALK_TEXT0 = 80099000        # EventTextForTalk：+r 三种场次，+3 竞技场（联机），+10+r 确认框，+20+r 碎片不够
 ASK_TEXT = 80099100          # EventTextForMap：继续下一波？
 LEAVE_TEXT = 20000009        # 原版「离开」
+# 联机会话里不能进（联机计划 13.2 G4：出场顺序、奖励每台各算各的）。COOP_SESSION 和 dark_core coop.rs 的 SESSION_FLAG 一样（两边一起改）
+COOP_SESSION, COOP_TEXT = 92570, TALK_TEXT0 + 4
 CONFIRM_GID, DIALOG_GID, MENU_GID = 2147399100, 2147399101, 2147399102   # 加进雕像脚本的状态机
 WARP_EVENT0 = 1040490872     # 公共事件：传进竞技场 X = 1040490872~874（不存档的块；870 / 871 原版提示、880 音效、881~959 / 961~999 Boss 奖励，dev\event_flags\说明.md）
 EV_ASK, EV_NOTE, EV_LEAVE0, EV_RESPAWN0, EV_BANNER, EV_PART0 = 2700, 2701, 2702, 2704, 2706, 2800      # 竞技场地图里的事件编号（F + …；离开、复活点按雕像序号 +v）
@@ -372,7 +374,8 @@ def menu_group(f, x):
     for r, cost in enumerate(f['cost']):
         s = 10 * (r + 1)
         code = r + 1
-        g[s] = _st([], [_go(s + 1, has_shards(int(f['shard']), int(cost))), _go(s + 5)])
+        g[s] = _st([], [_go(s + 6, flag_is_on(COOP_SESSION)), _go(s + 1, has_shards(int(f['shard']), int(cost))), _go(s + 5)])
+        g[s + 6] = _st([_cmd(6, DIALOG_GID, i32(COOP_TEXT))], [_go(1, CONFIRM_NO)])
         g[s + 1] = _st([_cmd(6, CONFIRM_GID, i32(TALK_TEXT0 + 30 + 10 * x + r))], [_go(s + 2, CONFIRM_YES), _go(1, CONFIRM_NO)])
         g[s + 2] = _st([_cmd(1, 11, i32(f['len0']), i32(code & 1)), _cmd(1, 11, i32(f['len0'] + 1), i32((code >> 1) & 1)),
                         _cmd(1, 11, i32(f['req']), i32(1))], [_go(99)])
@@ -472,6 +475,8 @@ def texts(cx, key):
                  'Dying takes back everything this trial gave you.') % (cost, '' if cost == 1 else 's', w, se))
         talk[TALK_TEXT0 + 20 + r] = ('需要 %d 个星光碎片' % cost) if zh else ('Requires %d Starlight Shard%s' % (cost, '' if cost == 1 else 's'))
     talk[TALK_TEXT0 + 3] = '竞技场（联机对战）' if zh else 'Colosseum (online)'
+    talk[COOP_TEXT] = ('联机时不能进行斗技场试炼：出场的敌人和奖励没法和队友对上。离开联机会话后再来。' if zh else
+                       "Colosseum Trials can't be taken during co-op: the enemies and rewards can't be matched with your party. Leave the session first.")
     mp[ASK_TEXT] = ('继续挑战下一波吗？\n选择「否」离开斗技场，已经得到的奖励保留' if zh else
                     'Continue to the next wave?\nChoose "No" to leave the colosseum and keep the rewards you have')
     for v, (_k, z, en) in enumerate(f['notes']):

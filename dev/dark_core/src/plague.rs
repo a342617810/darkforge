@@ -25,7 +25,7 @@ use eldenring::cs::{ChrIns, ChrInsExt, ResistCorrectParam, SoloParamRepository, 
 use eldenring::param::RESIST_CORRECT_PARAM_ST;
 use fromsoftware_shared::FromStatic;
 
-use crate::rules::FRIENDLY_TEAMS;
+use crate::rules::is_foe;
 use crate::{dir, log};
 
 /// 多久扫一遍
@@ -230,7 +230,7 @@ fn each(wcm: &WorldChrMan, mut f: impl FnMut(&mut ChrIns)) {
 
 fn strip(wcm: &WorldChrMan, d: &Def, tier: usize, my_team: u8, st: &mut St) {
     each(wcm, |c| {
-        if FRIENDLY_TEAMS.contains(&c.team_type) || c.team_type == my_team || c.modules.data.hp <= 0 {
+        if !is_foe(c, my_team) || c.modules.data.hp <= 0 {
             return;
         }
         let none = vec![0; d.n()];
@@ -242,7 +242,8 @@ fn strip(wcm: &WorldChrMan, d: &Def, tier: usize, my_team: u8, st: &mut St) {
                 continue;
             }
             let sps = sps.get_or_insert_with(|| c.special_effect.entries().map(|e| e.param_id).collect());
-            let imm = ks[j] > 0 && d.imm[j] > 0 && sps.contains(&d.imm[j]);
+            // 客机不摘敌人的免疫效果（摘效果不同步，联机计划 13.2 G2）；抗性效果照常挂
+            let imm = ks[j] > 0 && d.imm[j] > 0 && sps.contains(&d.imm[j]) && !crate::coop::client_skip("疫病摘敌人的异常免疫");
             if imm {
                 c.remove_speffect(d.imm[j]);
                 st.stripped += 1;

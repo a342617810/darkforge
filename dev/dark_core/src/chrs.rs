@@ -19,8 +19,8 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
-use eldenring::cs::{ChrIns, ChrSet, PlayerIns};
-use fromsoftware_shared::{OwnedPtr, Subclass};
+use eldenring::cs::{ChrIns, ChrSet, PlayerIns, WorldChrMan};
+use fromsoftware_shared::{FromStatic, OwnedPtr, Subclass};
 use windows::Win32::System::Diagnostics::Debug::ReadProcessMemory;
 use windows::Win32::System::Threading::GetCurrentProcess;
 
@@ -63,6 +63,25 @@ pub fn collect(players: &ChrSet<PlayerIns>, fixed: [&ChrSet<ChrIns>; 4], sets: &
         add(&mut out, s);
     }
     out
+}
+
+/// 玩家角色（本机主角、联机的队友、入侵者：都在 WorldChrMan 的 player_chr_set 里）的地址，每帧开头刷新一次（lib.rs）。
+/// 「找敌人」的地方用 rules::is_foe 跳过它们：玩家角色永远不算敌人（联机计划 13.2 G8，单机也一样）。以前只按阵营号排除友方，
+/// 入侵的真人玩家会被当成敌人（扣血档、猎印、改架势、减速），时隙还会改队友的速度
+static PLAYERS: Mutex<Vec<usize>> = Mutex::new(Vec::new());
+
+pub fn refresh_players() {
+    let mut v = Vec::new();
+    if let Ok(wcm) = unsafe { WorldChrMan::instance() } {
+        v.extend(wcm.player_chr_set.characters().map(|c| c as *mut PlayerIns as usize));
+    }
+    *PLAYERS.lock().unwrap_or_else(|e| e.into_inner()) = v;
+}
+
+/// 这个角色是不是玩家角色（PlayerIns 的第一个字段就是 ChrIns，地址一样）
+pub fn is_player(c: &ChrIns) -> bool {
+    let a = c as *const ChrIns as usize;
+    PLAYERS.lock().unwrap_or_else(|e| e.into_inner()).contains(&a)
 }
 
 /// 周围的一个角色（字段名照游戏距离列表的项）

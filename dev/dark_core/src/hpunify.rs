@@ -26,7 +26,7 @@ use eldenring::cs::{ChrIns, ChrInsExt, GameAreaParam, ItemLotParam_enemy, SoloPa
 use eldenring::param::ITEMLOT_PARAM_ST;
 use fromsoftware_shared::FromStatic;
 
-use crate::rules::FRIENDLY_TEAMS;
+use crate::rules::is_foe;
 use crate::{dir, log};
 
 /// 多久扫一遍
@@ -235,7 +235,7 @@ fn scan(wcm: &WorldChrMan, d: &Def, my_team: u8, st: &mut St) {
     let mut seen = HashSet::new();
     let res = d.res.iter().find(|&&(f, _)| crate::gear::flag_get(f) == Some(true)).map(|&(_, sp)| sp);
     each(wcm, |c| {
-        if !d.res.is_empty() && !FRIENDLY_TEAMS.contains(&c.team_type) && c.team_type != my_team && c.modules.data.hp > 0 {
+        if !d.res.is_empty() && is_foe(c, my_team) && c.modules.data.hp > 0 {
             for &(_, sp) in &d.res {
                 let has = c.special_effect.entries().any(|e| e.param_id == sp);
                 if Some(sp) == res && !has {
@@ -292,6 +292,8 @@ fn scan(wcm: &WorldChrMan, d: &Def, my_team: u8, st: &mut St) {
         let Some(w) = st.watch.get(&addr) else { return };
         if hp != w.hp {
             st.watch.remove(&addr); // 游戏自己按比例补了，或者已经挨打
+        } else if max != w.max && crate::coop::client_skip("血量补正的按比例补血") {
+            st.watch.remove(&addr);
         } else if max != w.max {
             let want = ((w.hp as f64 / w.max as f64) * max as f64).round() as i32;
             c.modules.data.hp = want.clamp(1, max);

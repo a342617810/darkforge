@@ -170,6 +170,11 @@ function Get-UserLoadLines {
                 $r.Notes += ('YAFSML自定义.ini [' + $s + '] 的 ' + $k + '：找不到 ' + $v + '，没有加载')
                 continue
             }
+            # Seamless Co-op 只能走联机启动（联机计划 13.2 G9）：那里会查联机密码（空的会让游戏退出）、把联机存档和单机分开
+            if ($s -eq 'dll' -and [System.IO.Path]::GetFileName($p) -ieq 'ersc.dll') {
+                $r.Notes += ('YAFSML自定义.ini [dll] 的 ' + $k + '：Seamless Co-op（ersc.dll）不在这里加载，联机请用启动器的「联机」启动')
+                continue
+            }
             $line = (& $key 'custom_' $k) + '=' + $p + $cond
             if ($s -eq 'mod') { $before += $line } elseif ($s -eq 'mod_after') { $after += $line } else { $dll += $line }
         }

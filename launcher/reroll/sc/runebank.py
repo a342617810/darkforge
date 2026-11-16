@@ -17,6 +17,9 @@ BAL_TEXT, OP_TEXT, DONE_TEXT = 80099510, 80099520, 80099530     # 余额行；+k
 NONE_TEXT, FULL_TEXT, MISSING_TEXT = 80099540, 80099541, 80099542
 BANK0, BANK_BITS = 92600, 32
 REQ, OP0, OP_BITS, NONE, FULL = 92632, 92633, 3, 92636, 92637
+# 联机会话里不能存取（联机计划 13.2 G6：会话里切换过的标记可能留在客机存档，余额会被盖掉）。
+# COOP_SESSION 和 dark_core coop.rs 的 SESSION_FLAG 一样（两边一起改）
+COOP_SESSION, COOP_TEXT = 92570, 80099543
 # 操作：序号 = OP 标记的值（dark_core runebank.rs 的 Op 同序）
 OPS = (('存入全部卢恩', 'Deposit all runes', '身上的卢恩都存进了银行'),
        ('存入一半卢恩', 'Deposit half of your runes', '身上一半的卢恩存进了银行'),
@@ -52,13 +55,15 @@ def esd(cx, groups):
         0: state([{'bank': 1, 'id': 12, 'args': []}, {'bank': 1, 'id': 20, 'args': []}, add(1, BAL_TEXT)]
                  + [add(2 + k, OP_TEXT + k) for k in range(n)] + [add(99, 26000004), {'bank': 1, 'id': 10, 'args': [i32(1)]}],
                  [to(1, MENU_WAIT)]),
-        1: state([], [to(0, menu_pick(1))] + [to(100 + k, menu_pick(2 + k)) for k in range(n)] + [to(9, ALWAYS)]),
+        1: state([], [to(0, menu_pick(1))] + [to(150 + k, menu_pick(2 + k)) for k in range(n)] + [to(9, ALWAYS)]),
         810: state([setf(NONE, 0), say(NONE_TEXT)], [to(0, DIALOG_WAIT)]),
         815: state([setf(FULL, 0), say(FULL_TEXT)], [to(0, DIALOG_WAIT)]),
         830: state([setf(REQ, 0), say(MISSING_TEXT)], [to(0, DIALOG_WAIT)]),
+        840: state([say(COOP_TEXT)], [to(0, DIALOG_WAIT)]),
         9: state([], [p['ret']]),
     }
     for k in range(n):
+        st[150 + k] = state([], [to(840, flag_is_on(COOP_SESSION)), to(100 + k, ALWAYS)])
         st[100 + k] = state(bits(k) + [setf(NONE, 0), setf(FULL, 0), setf(REQ, 1)], [to(200 + k, flag_is_off(REQ)), to(830, STATE_TIME_OVER_1)])
         st[200 + k] = state([], [to(810, flag_is_on(NONE)), to(815, flag_is_on(FULL)), to(400 + k, ALWAYS)])
         st[400 + k] = state([say(DONE_TEXT + k)], [to(0, DIALOG_WAIT)])
@@ -74,9 +79,11 @@ def texts(cx, key):
         out[DONE_TEXT + k] = c if zh else OPS_EN_DONE[k]
     if zh:
         out.update({NONE_TEXT: '没有可以存取的卢恩', FULL_TEXT: '放不下了：身上最多带 999,999,999 卢恩，银行最多存 4,000,000,000 卢恩',
-                    MISSING_TEXT: '现在无法存取：暗黑重铸的组件没有加载，请用启动器重新启动游戏。'})
+                    MISSING_TEXT: '现在无法存取：暗黑重铸的组件没有加载，请用启动器重新启动游戏。',
+                    COOP_TEXT: '联机时不能存取卢恩银行，离开联机会话后再来。'})
     else:
         out.update({NONE_TEXT: 'There are no runes to move.',
                     FULL_TEXT: 'No room: you can carry up to 999,999,999 runes, and the bank holds up to 4,000,000,000.',
-                    MISSING_TEXT: "Can't use the bank right now: a Darkforge component didn't load. Please restart the game from the launcher."})
+                    MISSING_TEXT: "Can't use the bank right now: a Darkforge component didn't load. Please restart the game from the launcher.",
+                    COOP_TEXT: "The Rune Bank can't be used during co-op. Leave the session first."})
     return {'EventTextForTalk': out}

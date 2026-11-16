@@ -186,6 +186,11 @@ static FREE_SET: std::sync::atomic::AtomicU8 = std::sync::atomic::AtomicU8::new(
 /// 再加上和玩家同阵营的；其余都算敌人（原版敌人用的号很多：6、7、27、48、51、33……，用白名单会漏）
 pub(crate) const FRIENDLY_TEAMS: [u8; 6] = [0, 1, 2, 26, 28, 47];
 
+/// 算不算敌人：阵营号不是友方、不是自己的阵营，也不是玩家角色（chrs::is_player；联机计划 13.2 G8，入侵者、队友都不算）
+pub(crate) fn is_foe(c: &ChrIns, my_team: u8) -> bool {
+    !FRIENDLY_TEAMS.contains(&c.team_type) && c.team_type != my_team && !crate::chrs::is_player(c)
+}
+
 #[derive(Debug, Clone, PartialEq)]
 enum Kind {
     While {
@@ -2848,7 +2853,7 @@ pub fn tick() {
                         .filter(|a| *a != me && !listed.contains(a))
                         .filter(|&a| {
                             let c = unsafe { &*(a as *const ChrIns) };
-                            !FRIENDLY_TEAMS.contains(&c.team_type) && c.team_type != my_team && c.modules.data.hp > 0 && dist_of(c) <= EXTRA_RANGE
+                            is_foe(c, my_team) && c.modules.data.hp > 0 && dist_of(c) <= EXTRA_RANGE
                         })
                         .collect()
                 };
@@ -2933,7 +2938,7 @@ pub fn tick() {
             } else {
                 false
             };
-            let hostile = !FRIENDLY_TEAMS.contains(&c.team_type) && c.team_type != my_team;
+            let hostile = is_foe(c, my_team);
             if e.distance <= 15.0 && eng.teams_seen.insert(c.team_type) {
                 log(&format!("积木引擎（目标层）：第一次见到阵营 {}（NPC {}，{}）", c.team_type, c.npc_param_id, if hostile { "算敌人" } else { "不算敌人" }));
             }
@@ -3143,7 +3148,7 @@ pub fn tick() {
             if line.starts_with('查') {
                 let near = around.iter().find(|e| {
                     let c = unsafe { e.chr_ins.as_ref() };
-                    e.distance <= DEVSP_RANGE && e.chr_ins.as_ptr() as usize != me && !FRIENDLY_TEAMS.contains(&c.team_type) && c.team_type != my_team
+                    e.distance <= DEVSP_RANGE && e.chr_ins.as_ptr() as usize != me && is_foe(c, my_team)
                 });
                 match near {
                     Some(e) => {
@@ -3170,8 +3175,7 @@ pub fn tick() {
                         let c = unsafe { e.chr_ins.as_ref() };
                         e.distance <= DEVSP_RANGE
                             && e.chr_ins.as_ptr() as usize != me
-                            && !FRIENDLY_TEAMS.contains(&c.team_type)
-                            && c.team_type != my_team
+                            && is_foe(c, my_team)
                     });
                     match near {
                         Some(e) => {
@@ -3458,7 +3462,8 @@ pub fn tick() {
             }
             Act::FoeHp(id, amt) => {
                 let c = unsafe { &mut *(id as *mut eldenring::cs::ChrIns) };
-                if !foe_hp_exact(c, amt) {
+                // 客机不直接写血量，改走扣血效果（挂效果走游戏同步，联机计划 13.2 G2）
+                if crate::coop::client_skip("积木引擎的精确扣血") || !foe_hp_exact(c, amt) {
                     for (_, sp) in d.tiers_sum("hp", amt as f32) {
                         crate::coop::note(crate::coop::Op::Apply(sp), c);
                         c.apply_speffect(sp, false);
@@ -3470,12 +3475,15 @@ pub fn tick() {
                 crate::coop::note(crate::coop::Op::Remove(sp), c);
                 c.remove_speffect(sp)
             }
+            // 客机不改敌人的动作速度（改回 ×1 照常，免得进会话前改过的卡住）、不改架势（联机计划 13.2 G2）
+            Act::FoeSpeed(_, m) if m != 1.0 && crate::coop::client_skip("改敌人动作速度（见切、影步）") => {}
             Act::FoeSpeed(id, m) => {
                 let c = unsafe { &mut *(id as *mut eldenring::cs::ChrIns) };
                 crate::coop::note(crate::coop::Op::Speed(m), c);
                 c.modules.behavior.animation_speed = m;
                 turn_set(id, m);
             }
+            Act::FoePoise(_, _) if crate::coop::client_skip("改敌人架势（千钧、发狂）") => {}
             Act::FoePoise(id, v) => {
                 let c = unsafe { &mut *(id as *mut eldenring::cs::ChrIns) };
                 crate::coop::note(crate::coop::Op::Poise(v), c);

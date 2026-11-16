@@ -23,7 +23,7 @@ use eldenring::cs::WorldChrMan;
 use fromsoftware_shared::FromStatic;
 
 use crate::gear::{flag_get, flag_set, gift_n};
-use crate::rules::FRIENDLY_TEAMS;
+use crate::rules::is_foe;
 use crate::{dir, log};
 
 const SCAN: Duration = Duration::from_millis(250);
@@ -244,7 +244,7 @@ pub fn tick() {
             continue;
         }
         let c = unsafe { e.chr_ins.as_ref() };
-        if FRIENDLY_TEAMS.contains(&c.team_type) || c.team_type == my_team {
+        if !is_foe(c, my_team) {
             continue;
         }
         let hp = c.modules.data.hp;
