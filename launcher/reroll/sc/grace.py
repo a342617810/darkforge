@@ -19,14 +19,15 @@ from . import revivefix
 
 ADDON = os.path.join(DATA, 'gracemenu', 'grace_more.esd')
 TEXT = os.path.join(DATA, 'gracemenu', 'text.json')
-# 联机会话里「头目复活」只提示（联机计划 13.2 G5：客机熄了自己的击败标记，和房主的世界对不上）。
-# COOP_SESSION 和 dark_core coop.rs 的 SESSION_FLAG 一样（两边一起改）
-COOP_SESSION, COOP_TEXT = 92570, 80099544
+# 联机会话里「头目复活」只有房主能用（联机计划 13.2 G5：会话里大家都在房主的世界，房主复活的所有人都看得到；
+# 客机熄的是自己存档里的击败标记，和房主的世界对不上）。客机选了只提示。
+# COOP_SESSION / COOP_HOST 和 dark_core coop.rs 的 SESSION_FLAG / HOST_FLAG 一样（两边一起改）
+COOP_SESSION, COOP_HOST, COOP_TEXT = 92570, 92571, 80099544
 BOSS_ROOT = json.load(open(os.path.join(DATA, 'gracemenu', 'meta.json'), encoding='utf-8'))['boss_root']
 
 
 def gate_boss(more, boss):
-    """「更多」里调用头目复活的那个状态：前面加一道，会话里弹提示回到原来返回的地方；不是会话里照原样进清单"""
+    """「更多」里调用头目复活的那个状态：前面加两道，会话里、又不是房主就弹提示回到原来返回的地方；其他照原样进清单"""
     hit = [sid for sid, s in more.items() if any(c['bank'] == 6 and (c['id'] & 0xFFFFFFFF) == boss for c in s['entry'])]
     if len(hit) != 1:
         raise RuntimeError('「更多选项」里调用头目复活的状态应该 1 个，实际：%s' % hit)
@@ -34,11 +35,12 @@ def gate_boss(more, boss):
     if len(more[sid]['conds']) != 1:
         raise RuntimeError('调用头目复活的状态返回不止一条，对不上')
     back = more[sid]['conds'][0]['target']
-    moved, dlg = max(more) + 1, max(more) + 2
+    moved, dlg, chk = max(more) + 1, max(more) + 2, max(more) + 3
     more = dict(more)
     more[moved] = more[sid]
     go = lambda t, ev: {'target': t, 'eval': ev, 'pass': [], 'sub': []}
-    more[sid] = {'entry': [], 'exit': [], 'while': [], 'conds': [go(dlg, flag_is_on(COOP_SESSION)), go(moved, ALWAYS)]}
+    more[sid] = {'entry': [], 'exit': [], 'while': [], 'conds': [go(chk, flag_is_on(COOP_SESSION)), go(moved, ALWAYS)]}
+    more[chk] = {'entry': [], 'exit': [], 'while': [], 'conds': [go(moved, flag_is_on(COOP_HOST)), go(dlg, ALWAYS)]}
     say = {'bank': 1, 'id': 17, 'args': [i32(7), i32(COOP_TEXT), i32(1), i32(0), i32(1)]}
     more[dlg] = {'entry': [say], 'exit': [], 'while': [], 'conds': [go(back, DIALOG_WAIT)]}
     return more
@@ -115,8 +117,8 @@ def merge(base):
 
 def texts(cx, key):
     out = {int(k): v for k, v in json.load(open(TEXT, encoding='utf-8'))[key].items()}
-    out[COOP_TEXT] = ('联机时不能复活头目：会和房主的世界对不上。离开联机会话后再来。' if key == 'zh' else
-                      "Bosses can't be revived during co-op: it would no longer match the host's world. Leave the session first.")
+    out[COOP_TEXT] = ('联机时只有房主可以复活头目（大家都在房主的世界里）。' if key == 'zh' else
+                      "During co-op, only the host can revive bosses (everyone is in the host's world).")
     return {'EventTextForTalk': out}
 
 

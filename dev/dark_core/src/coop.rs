@@ -196,6 +196,16 @@ pub struct Member {
     pub local: bool,
 }
 
+/// 大厅状态的原始值（读不到会话管理器 None）：0 不在会话中，1 正在建，3 主机，4 正在加入，6 客机……（lobby_name）
+pub fn lobby() -> Option<u32> {
+    session().map(|s| s.0)
+}
+
+/// 人物在场（读档、切图时没有主角）
+pub fn in_world() -> bool {
+    unsafe { WorldChrMan::instance() }.ok().is_some_and(|w| w.main_player.as_ref().is_some())
+}
+
 /// 会话就绪时的名单：大厅状态 主机 / 客机、协议 Ingame（6）、没人在加入中、正好一个本机、ID 不重复不为 0；不然 None。
 /// 按原始数值读两个状态（枚举里没有的值不能直接当枚举用）
 pub fn roster() -> Option<Vec<Member>> {

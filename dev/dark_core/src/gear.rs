@@ -3144,7 +3144,14 @@ pub(crate) fn flag_get(f: u32) -> Option<bool> {
     unsafe { CSEventFlagMan::instance_mut() }.ok().map(|m| m.virtual_memory_flag.get_flag(f))
 }
 
+/// dark_core 写标记都走这里：存档标记护栏（flagguard.rs）据此认出「本机写的」
 pub(crate) fn flag_set(f: u32, on: bool) -> bool {
+    crate::flagguard::own(f, on);
+    flag_set_raw(f, on)
+}
+
+/// 直接写，不告诉护栏（护栏改回外来改动时用）
+pub(crate) fn flag_set_raw(f: u32, on: bool) -> bool {
     unsafe { CSEventFlagMan::instance_mut() }.ok().map(|m| m.virtual_memory_flag.set_flag(f, on)).is_some()
 }
 

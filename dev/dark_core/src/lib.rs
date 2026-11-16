@@ -35,6 +35,7 @@ mod barrier;
 mod coop;
 mod curses;
 mod festive;
+mod flagguard;
 mod fusion;
 mod glow;
 mod gear;
@@ -238,7 +239,7 @@ pub unsafe extern "system" fn DllMain(hmodule: u64, reason: u32, _reserved: *mut
         };
         log(&format!("dark_core 已加载：{}；{}；{}；{}（{combat}）；{}；{}；{}；{}；{}；{}；{}；{}；{}；{}；{}；{}；{}；{}；{}；{}；{}；{}；{}；{scaling}", arena::describe(), festive::describe(), gear::describe(), runtime::describe(),
                      rules::describe(), procs::describe(), boat::describe(), attrstack::describe(), skillmult::describe(), spellbase::describe(), hpunify::describe(), ovldrop::describe(), fusion::describe(), nightmare::describe(), curses::describe(), notes::describe(), plague::describe(), wishstone::describe(), shopstage::describe(), clash::describe(), bossmode::describe(), glow::describe(), runebank::describe()));
-        let mut errs = [0u32; 29];
+        let mut errs = [0u32; 30];
         task.run_recurring(
             move |_: &FD4TaskData| {
                 prof::frame();
@@ -275,6 +276,8 @@ pub unsafe extern "system" fn DllMain(hmodule: u64, reason: u32, _reserved: *mut
                 guarded("联机诊断", &mut errs[6], coop::tick);
                 // 联机通道（Steam 消息，联机计划 13.4）：没加载 Seamless、没有开发工具请求时什么都不做
                 guarded("联机通道", &mut errs[28], link::tick);
+                // 存档标记护栏（联机计划 13.3 C7）：会话里把外来改动的卢恩银行余额、魇火等改回去
+                guarded("存档标记护栏", &mut errs[29], flagguard::tick);
             },
             CSTaskGroupIndex::FrameBegin,
         );
