@@ -17,6 +17,27 @@ $WebModTools = @(
     @('自定义配置', '用记事本打开 YAFSML自定义.ini：改模组加载器的设置（比如游戏里用输入法）、按路径加 mod 或 DLL。整合包更新不会动它；改完下次启动游戏生效')
 )
 
+# 「联机」一类（联机分支 coop，联机计划 13.3 C11）：只在新界面有。「联机」打开经典界面同一个联机菜单（gui.ps1 的 Show-CoopMenu，弹窗显示在页面里）
+$WebCoopTools = @(
+    @('联机', '和朋友用 Seamless Co-op 联机（要自己下载放进整合包的 dll\ 文件夹）：两种联机启动、复制 / 导入随机码，以及联机前要准备的'),
+    @('联机设置', '用记事本打开 Seamless Co-op 的设置文件（ersc_settings.ini）：联机密码（cooppassword，两人要填一样的）、随人数加强的血量和伤害等')
+)
+
+function Invoke-WebCoopTool([string]$Name) {
+    try {
+        switch ($Name) {
+            '联机' { Show-CoopMenu }
+            '联机设置' {
+                $e = Find-ErscPath
+                if (-not $e) { Show-Info '没找到 Seamless Co-op。它要自己下载：把压缩包里的 SeamlessCoop 文件夹整个放进整合包的 dll\ 文件夹（变成 dll\SeamlessCoop\ersc.dll）。'; return }
+                $ini = Join-Path (Split-Path $e -Parent) 'ersc_settings.ini'
+                if (-not (Test-Path -LiteralPath $ini)) { Show-Info ('Seamless Co-op 旁边没有设置文件：' + $ini + "`r`n`r`n" + '重新解压一次 Seamless Co-op 的压缩包。'); return }
+                Start-Process -FilePath 'notepad.exe' -ArgumentList ('"' + $ini + '"')
+            }
+        }
+    } catch { Send-WebJson (@{ type = 'toast'; text = '没能打开：' + $_.Exception.Message; error = $true } | ConvertTo-Json -Compress) }
+}
+
 function Invoke-WebModTool([string]$Name) {
     try {
         switch ($Name) {
@@ -136,7 +157,8 @@ function Get-WebState {
         run = @{ player = [bool]$script:PlayerView; lines = [string[]]$lines; pct = $pct; error = [bool]$script:SawError }
         # 「打开随机器」在新界面里是工具里的一行（和「一键重随物品」对调了位置，用户 2026-11-12），说明用经典界面那个大按钮的
         tools = @($small | ForEach-Object { @{ name = $_[0]; tip = $_[2] } }) + @(@{ name = '打开随机器'; tip = ([string]$bRandomizer.Sub + '。' + [string]$ToolTipCtl.GetToolTip($bRandomizer)) }) +
-                @($WebModTools | ForEach-Object { @{ name = $_[0]; tip = $_[1] } })
+                @($WebModTools | ForEach-Object { @{ name = $_[0]; tip = $_[1] } }) +
+                @($WebCoopTools | ForEach-Object { @{ name = $_[0]; tip = $_[1] } })
         update = $script:WebUpdate
         enemyInfo = (Get-WebEnemyInfo)
     }
@@ -433,6 +455,7 @@ function Invoke-WebMessage([string]$Json) {
             $n = [string]$m.name
             if ($smallBtns.ContainsKey($n)) { Invoke-ClassicClick $smallBtns[$n] }
             elseif (@($WebModTools | ForEach-Object { $_[0] }) -contains $n) { Invoke-WebModTool $n }
+            elseif (@($WebCoopTools | ForEach-Object { $_[0] }) -contains $n) { Invoke-WebCoopTool $n }
         }
         'openurl'    {      # 「关于」里的链接：只开写死的这几个，用系统默认浏览器
             if ($WebLinks -contains [string]$m.url) { Start-Process -FilePath ([string]$m.url) }

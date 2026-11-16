@@ -292,6 +292,7 @@
     { key: 'game', name: '游戏', tools: ['游戏路径'] },
     { key: 'save', name: '存档', tools: ['备份存档', '恢复存档'] },
     { key: 'rand', name: '敌人随机', tools: ['敌人设置', '打开随机器', '重随设置'] },
+    { key: 'coop', name: '联机', tools: ['联机', '联机设置'] },     // Seamless Co-op（联机分支 coop，联机计划 13.3 C11；webui.ps1 的 WebCoopTools）
     { key: 'update', name: '更新', tools: ['检查更新', '导入更新包', '更新日志'] },
     { key: 'mods', name: '模组', tools: ['mods 文件夹', 'DLL 文件夹', '自定义配置'] },     // 玩家自己加 mod（用户 2026-11-16，launcher\usermods.ps1）
     { key: 'help', name: '帮助与排查', tools: ['常见问题', '报告 / 日志', '导出诊断包'] },
@@ -427,7 +428,7 @@
   function btnText(n) {
     return { '游戏路径': '修改', '备份存档': '备份', '恢复存档': '恢复…', '敌人设置': '设置…', '打开随机器': '打开…', '重随设置': '打开',
              '检查更新': '检查', '导入更新包': '选择更新包…', '更新日志': '打开', '常见问题': '查看', '报告 / 日志': '打开文件夹', '导出诊断包': '导出',
-             'mods 文件夹': '打开', 'DLL 文件夹': '打开', '自定义配置': '编辑' }[n] || '打开';
+             'mods 文件夹': '打开', 'DLL 文件夹': '打开', '自定义配置': '编辑', '联机': '打开…', '联机设置': '编辑' }[n] || '打开';
   }
   function row(t, d, btn) {
     return '<div class="row"><div class="txt"><div class="t">' + esc(t) + '</div><div class="d">' + esc(d) + '</div></div>' + btn + '</div>';
@@ -462,7 +463,8 @@
     var kind = m.kind || 'msg';
     var btns = m.buttons || ['确定'];
     var d = { id: m.id, m: m, pick: typeof m.sel === 'number' ? m.sel : 0, e: -1, b: -1, done: false };
-    var w = kind === 'enemy' ? 700 : kind === 'pick' ? 660 : m.wide ? 880 : ((m.text || '').length > 400 ? 640 : 540);
+    // 按钮有 5 个以上（联机菜单）放宽，免得最后一个挤到第二行
+    var w = kind === 'enemy' ? 700 : kind === 'pick' ? 660 : m.wide ? 880 : (m.buttons || []).length >= 5 ? 760 : ((m.text || '').length > 400 ? 640 : 540);
     var icon = ICONS[m.icon] || '';
     var html = '<div class="dlg ' + kind + '" style="width:' + w + 'px" role="dialog" aria-modal="true">' +
       '<div class="dlg-head" data-drag><span data-drag>' + esc(m.title || '暗黑重铸') + '</span><button class="win-btn" data-x data-tip="关闭">' + XSVG + '</button></div>' +
