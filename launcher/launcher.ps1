@@ -1092,6 +1092,18 @@ function Test-ErscSettings($Ersc) {
                 Write-Player '联机时不开放入侵：已把 Seamless Co-op 设置里的入侵关掉（整合包的数据和别的玩家对不上，入侵会出问题）。'
             }
         }
+        # 中文（用户 2026-11-17「先把无缝联机的汉化做了」）：launcher\ersc_locale\*.json 复制进 Seamless Co-op 的 locale 文件夹（不一样才复制）。
+        # Seamless 按游戏的 Steam 语言找 locale\<语言>.json（简体中文 schinese）；Steam 语言是简体中文、mod_language_override 空着时再填上 schinese 保险
+        if (-not $DryRun) {
+            Install-ErscLocale $Ersc
+            $lo = Get-IniMatch $txt 'mod_language_override'
+            if ($lo -and -not $lo.Groups[1].Value.Trim() -and (Get-SteamGameLanguage) -eq 'schinese' -and
+                (Test-Path -LiteralPath (Join-Path $Ersc.DirectoryName 'locale\schinese.json'))) {
+                $txt = $txt.Substring(0, $lo.Groups[1].Index) + 'schinese' + $txt.Substring($lo.Groups[1].Index + $lo.Groups[1].Length)
+                [System.IO.File]::WriteAllText($ini, $txt, (New-Object System.Text.UTF8Encoding($bom)))
+                Write-Host '  Seamless Co-op 的语言设成简体中文（mod_language_override = schinese）'
+            }
+        }
         $sc = @()
         foreach ($p in @(@('enemy_health_scaling', '小怪血量'), @('boss_health_scaling', 'Boss 血量'), @('enemy_posture_scaling', '小怪架势'),
                          @('boss_posture_scaling', 'Boss 架势'), @('enemy_damage_scaling', '小怪伤害'), @('boss_damage_scaling', 'Boss 伤害'))) {
@@ -1112,6 +1124,37 @@ function Test-ErscSettings($Ersc) {
         Write-Err ('检查 Seamless Co-op 的配置失败，没有启动：' + $_.Exception.Message)
         return $false
     }
+}
+
+# Seamless Co-op 的中文：launcher\ersc_locale 里的语言文件（schinese.json，dev 用 scratchpad ersc_zh.py 照 english.json 逐行翻的）
+# 复制进 Seamless 的 locale 文件夹，内容不一样才复制（玩家自己下载的 Seamless 也能用上）
+$ErscLocaleDir = Join-Path $LauncherDir 'ersc_locale'
+function Install-ErscLocale($Ersc) {
+    try {
+        $dst = Join-Path $Ersc.DirectoryName 'locale'
+        foreach ($f in @(Get-ChildItem -LiteralPath $ErscLocaleDir -Filter '*.json' -File -ErrorAction SilentlyContinue)) {
+            $to = Join-Path $dst $f.Name
+            if ((Test-Path -LiteralPath $to) -and ((Get-FileHash -LiteralPath $to).Hash -eq (Get-FileHash -LiteralPath $f.FullName).Hash)) { continue }
+            New-Item -ItemType Directory -Force -Path $dst | Out-Null
+            Copy-Item -LiteralPath $f.FullName -Destination $to -Force
+            Write-Host ('  Seamless Co-op 中文：' + $f.Name + ' 已放进 ' + $dst)
+        }
+    } catch { Write-Warn ('Seamless Co-op 的中文没放进去：' + $_.Exception.Message) }
+}
+
+# 游戏的 Steam 语言（steamapps\appmanifest_1245620.acf 的 language，比如 schinese / english）；不是 Steam 版、读不到返回 ''
+function Get-SteamGameLanguage {
+    try {
+        $gr = Resolve-GameRoot
+        if (-not $gr) { return '' }
+        $steamapps = [IO.Path]::GetDirectoryName([IO.Path]::GetDirectoryName($gr.TrimEnd('\')))
+        if (-not $steamapps) { return '' }
+        $acf = [IO.Path]::Combine($steamapps, 'appmanifest_1245620.acf')
+        if (-not (Test-Path -LiteralPath $acf)) { return '' }
+        $m = Select-String -LiteralPath $acf -Pattern '"language"\s+"([^"]*)"' | Select-Object -First 1
+        if ($m) { return $m.Matches[0].Groups[1].Value }
+    } catch { }
+    return ''
 }
 
 # 文件在整合包里就写成相对 yafsml\ 的路径（..\dll\...，和用户 DLL 一样），不在就写完整路径
