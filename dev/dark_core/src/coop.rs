@@ -270,7 +270,7 @@ pub fn roster() -> Option<Vec<Member>> {
     (v.iter().filter(|m| m.local).count() == 1 && v.iter().filter(|m| m.host).count() <= 1).then_some(v)
 }
 
-fn describe_chr(c: &ChrIns) -> String {
+pub(crate) fn describe_chr(c: &ChrIns) -> String {
     format!(
         "NPC {}（实体 {}，阵营 {}，网络权 {}，按距离同步 {}，联机人数修正 {}）",
         c.npc_param_id,
