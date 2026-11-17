@@ -149,6 +149,44 @@ struct WolfLog {
 static CRUSH_ROLLING: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 /// 这一帧玩家要的动作速度（tick 算的；NaN = 不管）：联机时 pre_behavior 在动画更新前补写
 static PLAYER_WANT: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0x7FC0_0000);
+/// 实测玩家动作播放速度（诊断，用户 2026-11-17「还是有问题」）：上一帧的（动作, 播放时间, 时间）、这一段累计的（播放时间涨了多少, 过了多久）、
+/// 这一段开始的时间、写过几行
+static PROBE: Mutex<(Option<(i32, f32, Instant)>, f32, f32, Option<Instant>, u32)> = Mutex::new((None, 0.0, 0.0, None, 0));
+/// 每段多长、最多写几行（戴着加速的时候写；刚进游戏的头几段不戴也写，当作对照）
+const PROBE_EVERY: Duration = Duration::from_secs(5);
+const PROBE_MAX: u32 = 40;
+
+/// 同一个动作的播放时间每秒涨多少 = 实际播放速度（换了动作、播放时间往回跳的那一帧不算）。want = 这一帧要的速度，
+/// cur / hks = 这时 behavior.animation_speed 和 behavior_data.hks_animation_speed_multiplier 的值
+fn speed_probe(anim: Option<i32>, play: Option<f32>, want: f32, cur: f32, hks: f32, now: Instant) {
+    let mut g = PROBE.lock().unwrap_or_else(|e| e.into_inner());
+    if let (Some(a), Some(t)) = (anim, play) {
+        if let Some((pa, pt, at)) = g.0 {
+            let dt = now.duration_since(at).as_secs_f32();
+            if pa == a && t > pt && dt > 0.0 && dt < 0.5 {
+                g.1 += t - pt;
+                g.2 += dt;
+            }
+        }
+        g.0 = Some((a, t, now));
+    }
+    let start = *g.3.get_or_insert(now);
+    if now.duration_since(start) < PROBE_EVERY {
+        return;
+    }
+    let (sum_play, sum_t) = (g.1, g.2);
+    g.1 = 0.0;
+    g.2 = 0.0;
+    g.3 = Some(now);
+    let active = (want - 1.0).abs() > 1e-3;
+    if g.4 >= PROBE_MAX || sum_t < 0.5 || !(active || g.4 < 3) {
+        return;
+    }
+    g.4 += 1;
+    log(&format!("玩家动作速度（实测）：动作播放 ×{:.2}（{:.1} 秒里播了 {:.1} 秒）；要的 ×{want:.2}，animation_speed ×{cur:.2}，hks 倍数 ×{hks:.2}{}",
+                 sum_play / sum_t, sum_t, sum_play, if active { "" } else { "（没戴加速，当对照）" }));
+}
+
 /// pre_behavior 发现被改过的次数、写过几行日志、上次写统计的时间
 static PLAYER_FIX: Mutex<(u64, u32, Option<Instant>)> = Mutex::new((0, 0, None));
 
@@ -657,6 +695,8 @@ pub fn tick() {
     let quick = d.quickcharge.as_ref().and_then(|k| tier(k, &has).map(|r| charge_pct(run_num("quickcharge", k, r)))).filter(|_| charging);
     let action = if has(d.mark("sync")) { 1.0 } else { load * crate::rules::action_mult() };
     let speed = slip.unwrap_or(1.0) * deft.unwrap_or(1.0) * volley * quick.unwrap_or(1.0) * action * skill_speed(anim);
+    // 实测（诊断）：玩家动作实际播放有多快
+    speed_probe(anim, play, speed, p.chr_ins.modules.behavior.animation_speed, p.chr_ins.modules.behavior_data.hks_animation_speed_multiplier, now);
     // 动画更新前真正写进去（pre_behavior）：要的值记下来，不管的时候是 NaN
     PLAYER_WANT.store(if wings_frozen() || ((speed - 1.0).abs() <= 1e-6 && st.player_speed.is_none()) { f32::NAN } else { speed }.to_bits(),
                       std::sync::atomic::Ordering::Relaxed);
