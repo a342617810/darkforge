@@ -48,7 +48,7 @@ EXCL = ['launcher/game_path.txt', 'launcher/randomizer_settings_path.txt', 'laun
         '说明/*', '说明.txt', '*/说明.txt',
         '*.tmp', '*.prev', '*.prev.*', '*.bak', '*.bak_*', '*.packinfo.tmp', '*.rnglands.bak',
         # 源码仓库（用户 2026-11-16 传到 GitHub xp271/darkforge）：git 自己的文件不发
-        '.git/*', '.gitignore', '.gitattributes']
+        '.git/*', '.git', '.gitignore', '.gitattributes']     # .git：git 工作目录（worktree，比如联机分支的文件夹）里它是指向主仓库的一个文件
 # 上面排除了但要发的（用户 2026-11-16「带个说明文件进去」：mods 文件夹本身不发，里面这份怎么加 mod 的说明要发；说明文件不发的规矩对它例外）
 KEEP = ['mods/使用说明.txt']
 EMPTY_DIRS = ('yafsml/log/', 'yafsml/cache/', 'randomizer/spoiler_logs/')
