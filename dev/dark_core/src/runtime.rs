@@ -152,14 +152,12 @@ static PLAYER_WANT: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32:
 /// pre_behavior 发现被改过的次数、写过几行日志、上次写统计的时间
 static PLAYER_FIX: Mutex<(u64, u32, Option<Instant>)> = Mutex::new((0, 0, None));
 
-/// 联机时玩家自己的动作速度（时隙、巧手、寸劲、致命舞、处刑、转念……；用户 2026-11-17 联机实测「时隙，自己画面不快」）：
-/// 每帧的顺序是 FrameBegin（tick 写）→ 角色网络同步（WorldChrMan_ChrNetwork）→ 行为 / 动画更新（HavokBehavior）。
-/// 会话里网络同步多半会把本机玩家的动作速度改回去，这里（ChrIns_PreBehavior，动画更新前）发现不是 tick 写的值就补回去，
-/// 前 10 次写一行、之后每分钟一行累计（原因看这几行：被改成了多少）。不在会话里什么都不做
+/// 玩家自己的动作速度（时隙、巧手、寸劲、致命舞、处刑、转念、战技速度……）真正生效的地方：ChrIns_PreBehavior（动画更新前）。
+/// 每帧的顺序是 FrameBegin（tick 算、也写一次）→ 角色网络同步 → 行为前 → 动画更新（HavokBehavior）。玩家的动作速度在帧开头到
+/// 动画更新之间会被游戏重算（敌人的不会，写给敌人的能留住），FrameBegin 写的到动画更新时已经没了——用户 2026-11-17「时隙，自己画面不快」，
+/// 先以为是联机同步改的，只在会话里补写；单机下戴也不快（「时隙功能还是不正常」）。dark_wings 定住动画也是在这个阶段写，能生效。
+/// 单机、联机都在这里写 tick 算好的值（PLAYER_WANT；NaN = 不管，比如飞行中由 dark_wings 管）；第一次和之后每 10 分钟记一行
 pub fn pre_behavior() {
-    if !crate::coop::active() {
-        return;
-    }
     let want = f32::from_bits(PLAYER_WANT.load(std::sync::atomic::Ordering::Relaxed));
     if !want.is_finite() {
         return;
@@ -175,14 +173,10 @@ pub fn pre_behavior() {
     let mut g = PLAYER_FIX.lock().unwrap_or_else(|e| e.into_inner());
     g.0 += 1;
     let now = Instant::now();
-    if g.1 < 10 {
+    if g.1 == 0 || g.2.is_none_or(|t| now.duration_since(t) >= Duration::from_secs(600)) {
         g.1 += 1;
-        log(&format!("联机：你的动作速度在这一帧被改成了 ×{was:.3}（本来写的 ×{want:.3}），在动画更新前补回去{}",
-                     if g.1 == 10 { "；之后每分钟记一次累计" } else { "" }));
         g.2 = Some(now);
-    } else if g.2.is_none_or(|t| now.duration_since(t) >= Duration::from_secs(60)) {
-        g.2 = Some(now);
-        log(&format!("联机：你的动作速度累计被改回 {} 次（这次 ×{was:.3} → ×{want:.3}），都在动画更新前补回去了", g.0));
+        log(&format!("玩家动作速度：动画更新前读到 ×{was:.3}，写成 ×{want:.3}（帧开头写的被游戏重算掉了，在这里写才生效；累计 {} 帧）", g.0));
     }
 }
 /// 碾压：上一帧动作事件给翻滚设的无敌位（pre_physics 清之前读，tick 用来找无敌时间结束的那一刻）
@@ -663,7 +657,7 @@ pub fn tick() {
     let quick = d.quickcharge.as_ref().and_then(|k| tier(k, &has).map(|r| charge_pct(run_num("quickcharge", k, r)))).filter(|_| charging);
     let action = if has(d.mark("sync")) { 1.0 } else { load * crate::rules::action_mult() };
     let speed = slip.unwrap_or(1.0) * deft.unwrap_or(1.0) * volley * quick.unwrap_or(1.0) * action * skill_speed(anim);
-    // 联机时动画更新前再补一次（pre_behavior）：要的值记下来，不管的时候是 NaN
+    // 动画更新前真正写进去（pre_behavior）：要的值记下来，不管的时候是 NaN
     PLAYER_WANT.store(if wings_frozen() || ((speed - 1.0).abs() <= 1e-6 && st.player_speed.is_none()) { f32::NAN } else { speed }.to_bits(),
                       std::sync::atomic::Ordering::Relaxed);
     let cur = &mut p.chr_ins.modules.behavior.animation_speed;
