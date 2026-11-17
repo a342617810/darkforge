@@ -72,12 +72,19 @@ fn cont_of(d: &Defs, cat: usize, pid: u32) -> Option<u32> {
 /// dark_lock 建物品菜单时问：这件（类 0 武器 / 1 防具 / 2 护符，物品编号）能送给几个队友（0 = 不加选项）
 #[unsafe(no_mangle)]
 pub extern "C" fn dr_gift_can(cat: u32, id: u32) -> u32 {
+    // dark_lock 给的是背包里的物品编号，带类别高位（防具 0x1…、护符 0x2…）：去掉再认（同 dark_lock 的 key_id；联机实测 2026-11-17 菜单里没有「送给」）
+    let id = id & 0x0FFF_FFFF;
     let n = crate::link::gift_peers().len().min(MAX_PEERS);
     if n == 0 {
         return 0;
     }
     let Some(d) = defs() else { return 0 };
     if cont_of(d, cat as usize, id).is_none() {
+        // 诊断：有能送的队友、这件却认不出是新装备（前 10 件写一行）
+        static LOGGED: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+        if LOGGED.fetch_add(1, std::sync::atomic::Ordering::Relaxed) < 10 {
+            log(&format!("赠送：物品菜单问的这件（类 {cat}，编号 {id}）不是新装备，不加「送给」"));
+        }
         return 0;
     }
     n as u32
@@ -86,6 +93,7 @@ pub extern "C" fn dr_gift_can(cat: u32, id: u32) -> u32 {
 /// dark_lock：选了「送给第 i 个队友」
 #[unsafe(no_mangle)]
 pub extern "C" fn dr_gift_begin(cat: u32, id: u32, i: u32) {
+    let id = id & 0x0FFF_FFFF;
     with(|g| {
         if g.req.len() < 8 {
             g.req.push((cat as usize, id, i as usize));

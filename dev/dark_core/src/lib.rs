@@ -302,6 +302,9 @@ pub unsafe extern "system" fn DllMain(hmodule: u64, reason: u32, _reserved: *mut
         let mut err_bar = 0u32;
         task.run_recurring(move |_: &FD4TaskData| guarded("难度屏障", &mut err_bar, barrier::tick), CSTaskGroupIndex::ChrIns_PrePhysics);
         // 见切减速 / 影步停住的敌人：转身同样放慢（改朝向也要在物理更新前；没有减速中的敌人就什么都不做）
+        // 联机时玩家自己的动作速度：动画更新前补写一次（网络同步可能把它改回去，runtime::pre_behavior）
+        let mut err_pb = 0u32;
+        task.run_recurring(move |_: &FD4TaskData| guarded("联机：玩家动作速度", &mut err_pb, runtime::pre_behavior), CSTaskGroupIndex::ChrIns_PreBehavior);
         let mut err_turn = 0u32;
         task.run_recurring(move |_: &FD4TaskData| guarded("减速敌人的转身", &mut err_turn, rules::turn_hold), CSTaskGroupIndex::ChrIns_PrePhysics);
     });

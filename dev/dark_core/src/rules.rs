@@ -1561,6 +1561,8 @@ struct Engine {
     seed: u64,
     /// 见过的阵营号（tick 写日志用）
     teams_seen: HashSet<u8>,
+    /// 联机：「近战命中标记不是你打的」上次给这个敌人记的时间
+    not_mine_at: HashMap<usize, Instant>,
     /// 见切诊断：写过的人形敌人（NPC 编号）、查到过出招判定的人形敌人；发射者不在周围的子弹写过几次、是哪些发射者
     humanoid_seen: HashSet<i32>,
     humanoid_atk: HashSet<i32>,
@@ -3007,7 +3009,10 @@ pub fn tick() {
                 let ranged = hit_marks.iter().any(|x| x.1 == s.param_id);
                 let mine_ranged = ranged && *ranged_ok.get_or_insert_with(|| !coop_on || crate::shots::ranged_mine(c, fired, "积木引擎"));
                 // 远程为什么算 / 不算，shots::ranged_mine 自己写日志；这里只记近战
-                if melee && !mine_melee && !eng.land_seen.contains(&id) && eng.not_mine_logged < NOT_MINE_LOG {
+                if melee && !mine_melee && !eng.land_seen.contains(&id) && eng.not_mine_logged < NOT_MINE_LOG
+                    && eng.not_mine_at.get(&id).is_none_or(|t| now.duration_since(*t) >= Duration::from_secs(5)) {
+                    // 同一个敌人 5 秒内只记一次（标记会挂好几帧，以前每帧一行，2026-11-17 联机实测一秒刷满 20 行）
+                    eng.not_mine_at.insert(id, now);
                     eng.not_mine_logged += 1;
                     log(&format!("积木引擎（联机）：NPC {}（实体 {}）身上的近战命中标记不是你打的（这一刻你的连击值没涨），不算{}", c.npc_param_id, c.event_entity_id,
                                  if eng.not_mine_logged == NOT_MINE_LOG { "；后面同类不再记" } else { "" }));
