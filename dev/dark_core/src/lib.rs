@@ -209,7 +209,8 @@ pub unsafe extern "system" fn DllMain(hmodule: u64, reason: u32, _reserved: *mut
         }
     }));
     let t = local_time();
-    log(&format!("==== {}-{:02}-{:02} 加载（进程 {}）", t.year, t.month, t.day, std::process::id()));
+    // 构建版本（build.rs：git 提交号、src 有没提交的改动加「+改动」、构建时间）
+    log(&format!("==== {}-{:02}-{:02} 加载（进程 {}；构建 {}，{}）", t.year, t.month, t.day, std::process::id(), env!("DR_BUILD"), env!("DR_BUILD_TIME")));
     std::thread::spawn(|| {
         if !version_ok() {
             log("游戏版本不是 2.7.1.0（1.17.1）/ 2.7.2.0（1.17.2），dark_core 不工作");
