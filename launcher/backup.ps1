@@ -1,7 +1,7 @@
 ﻿# Dark Reforged · 启动前自动备份 / 恢复（启动器和图形界面共用，用 . 引入）
 # 我们自己的东西都在存档文件夹 %APPDATA%\EldenRing 下的 DarkReforged\ 里（游戏自己的 <SteamID>\ER0000.rng、GraphicsConfig.xml 不动）：
 #   DarkReforged\角色记录\     DLL 记的装备配方（items_<格子>.txt）、锁定名单、免费许愿次数，一次性重随的结果（once.json）
-#       角色记录\联机\            联机（Seamless Co-op）存档 ER0000.rng.co2 的角色的同样这些（格子编号和单机各算各的，dev\coop\联机计划.md 1.1）
+#       角色记录\联机\            联机（Seamless Co-op）存档 ER0000.rngcoop（以前叫 ER0000.rng.co2）的角色的同样这些（格子编号和单机各算各的，dev\coop\联机计划.md 1.1）
 #   DarkReforged\启动前备份\   每次启动游戏前（两种启动方式都一样）存一份：
 #       <时间>_启动前\<SteamID>\ER0000.rng、<时间>_启动前\角色记录\…、backup_info.json（什么时候、哪种启动）
 #   DarkReforged\旧文件\       不再使用的：RNG Lands 时代的 RNGLands_*（RNG Lands\）、重置前的一次性重随记录等，确认不要了可以整个删掉
@@ -32,8 +32,41 @@ function Add-RngOpsLog([string]$Text) {
     } catch { }
 }
 
-# 现在的 Dark Reforged 存档：<SteamID>\ER0000.rng，联机的 <SteamID>\ER0000.rng.co2（.bak 是游戏自己留的上一份，不备份）
-$RngSaveNames = @('ER0000.rng', 'ER0000.rng.co2')
+# 现在的 Dark Reforged 存档：<SteamID>\ER0000.rng，联机的 <SteamID>\ER0000.rngcoop（.bak 是游戏自己留的上一份，不备份）。
+# 联机存档以前叫 ER0000.rng.co2（2026-11-17 改名，见 launcher\YAFSML.ini.tpl）：旧备份里的照样认，恢复时换成新名字
+$RngCoopSave = 'ER0000.rngcoop'
+$RngCoopSaveOld = 'ER0000.rng.co2'
+$RngSaveNames = @('ER0000.rng', $RngCoopSave)
+
+function Test-RngCoopSaveName([string]$Name) { return ($Name -in @($RngCoopSave, $RngCoopSaveOld)) }
+
+# 联机存档换名字（联机启动前调）：每个 SteamID 文件夹里还没有 ER0000.rngcoop、却有旧的 ER0000.rng.co2（或以前套出来的
+# ER0000.rng.rng.co2 这类）时，挑修改时间最新的那份（真正在玩的；套出来的是复制的，修改时间和原来的一样）复制成 ER0000.rngcoop，
+# 它的 .bak 也一起。旧文件都不删。返回复制了几个
+function Move-CoopSaveName {
+    $n = 0
+    foreach ($d in (Get-ChildItem -LiteralPath $RngSaveRoot -Directory -ErrorAction SilentlyContinue)) {
+        $new = Join-Path $d.FullName $RngCoopSave
+        if (Test-Path -LiteralPath $new) { continue }
+        $old = @(Get-ChildItem -LiteralPath $d.FullName -File -ErrorAction SilentlyContinue |
+            Where-Object { $_.Name -match '^ER0000(\.rng)+\.co2$' } | Sort-Object LastWriteTime -Descending)
+        if (-not $old.Count) { continue }
+        $src = $old[0]
+        try {
+            Copy-Item -LiteralPath $src.FullName -Destination $new -ErrorAction Stop
+            if (Test-Path -LiteralPath ($src.FullName + '.bak')) {
+                Copy-Item -LiteralPath ($src.FullName + '.bak') -Destination ($new + '.bak') -ErrorAction SilentlyContinue
+            }
+            $n++
+            Add-RngOpsLog ('联机存档改名：' + $d.Name + '\' + $src.Name + '（' + $src.LastWriteTime.ToString('yyyy-MM-dd HH:mm') + '）复制成 ' + $RngCoopSave +
+                           $(if ($old.Count -gt 1) { '；同一文件夹里另有 ' + ($old.Count - 1) + ' 个旧联机存档（' + (($old | Select-Object -Skip 1 | ForEach-Object { $_.Name }) -join '、') + '），没动' } else { '' }))
+            Write-Host ('  联机存档：' + $d.Name + '\' + $src.Name + ' 复制成 ' + $RngCoopSave + '（联机存档换了名字，旧文件留着没删）')
+        } catch {
+            Write-Host ('  联机存档换名字失败：' + $src.FullName + ' → ' + $new + '：' + $_.Exception.Message)
+        }
+    }
+    return $n
+}
 function Get-RngSaveFiles {
     $out = @()
     foreach ($d in (Get-ChildItem -LiteralPath $RngSaveRoot -Directory -ErrorAction SilentlyContinue)) {
@@ -47,7 +80,7 @@ function Get-RngSaveFiles {
 
 # 一份备份（或任意文件夹）里的存档文件：单机的、联机的都算
 function Get-RngSavesIn([string]$Dir) {
-    return @(Get-ChildItem -LiteralPath $Dir -Recurse -File -ErrorAction SilentlyContinue | Where-Object { $_.Name -in $RngSaveNames })
+    return @(Get-ChildItem -LiteralPath $Dir -Recurse -File -ErrorAction SilentlyContinue | Where-Object { $_.Name -in ($RngSaveNames + $RngCoopSaveOld) })
 }
 
 # 角色记录：不给 $Backup 是现在的（角色记录\ 和 角色记录\联机\ 下的 .txt / .json；写到一半的 .tmp 不算）；
@@ -200,12 +233,18 @@ function Restore-RngBackup($Backup) {
     $done = @()
     $saves = @(Get-RngSavesIn $Backup.Dir)
     foreach ($f in $saves) {
+        $name = $f.Name
+        if ($name -eq $RngCoopSaveOld) {
+            # 改名以前的备份：联机存档换成新名字；同一份备份里已经有新名字的就不用旧的
+            if (Test-Path -LiteralPath (Join-Path $f.DirectoryName $RngCoopSave)) { continue }
+            $name = $RngCoopSave
+        }
         $to = Join-Path $RngSaveRoot $f.Directory.Name
         New-Item -ItemType Directory -Force -Path $to | Out-Null
-        Copy-Item -LiteralPath $f.FullName -Destination (Join-Path $to $f.Name) -Force
-        $done += ($(if ($f.Name -like '*.co2') { '联机存档 ' } else { '存档 ' }) + $f.Directory.Name)
+        Copy-Item -LiteralPath $f.FullName -Destination (Join-Path $to $name) -Force
+        $done += ($(if (Test-RngCoopSaveName $f.Name) { '联机存档 ' } else { '存档 ' }) + $f.Directory.Name)
     }
-    $coop = ($saves | Where-Object { $_.Name -like '*.co2' }) -or (Test-Path -LiteralPath (Join-Path $Backup.Dir '角色记录\联机'))
+    $coop = ($saves | Where-Object { Test-RngCoopSaveName $_.Name }) -or (Test-Path -LiteralPath (Join-Path $Backup.Dir '角色记录\联机'))
     $keep = @{}
     New-Item -ItemType Directory -Force -Path $RngRecordDir | Out-Null
     foreach ($f in (Get-RngRecordFiles $Backup.Dir)) {

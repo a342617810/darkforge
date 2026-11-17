@@ -146,7 +146,7 @@ $small = @(
     @('一键重随物品', 0xE72C, '骨灰的位置、开局装备、开局遗物只在第一次启动时抽一次，之后固定。点这里后，下次启动会重新抽一次（之后再固定）；只对之后新建的角色生效'),
     # 联机（Seamless Co-op）先不显示（用户 2026-11-10「先把联机隐藏不显示了」）：按钮去掉，Show-CoopMenu 和 launcher.ps1 的 -Action coop* 都还在，
     # 想恢复就把下面这一行放回来（位置换成「敌人设置」）
-    # @('联机', 0xE716, '和朋友联机（Seamless Co-op，要自己下载）：联机启动、复制 / 导入联机随机码。联机存档 ER0000.rng.co2 和单机存档分开'),
+    # @('联机', 0xE716, '和朋友联机（Seamless Co-op，要自己下载）：联机启动、复制 / 导入联机随机码。联机存档 ER0000.rngcoop 和单机存档分开'),
     @('敌人设置', 0xE9E9, '调整敌人随机：精英怪的多少、头目会不会出现在普通敌人的位置。改完点「一键重随敌人」生效'),
     @('报告 / 日志', 0xE8A5, '打开上次重随报告和 YAFSML 日志所在位置'),
     @('导出诊断包', 0xE7B8, '出问题时点这里：把日志、配置、游戏版本和 Windows 崩溃记录打成一个 zip 放到桌面，发给帮你排查的人（不含存档）'),
@@ -1042,7 +1042,7 @@ $smallBtns['恢复存档'].Add_Click({ Show-RestoreSaves })
 
 $smallBtns['备份存档'].Add_Click({
     $saves = @(Get-RngSaveFiles)
-    if ($saves.Count -eq 0) { Show-Info ('没有找到暗黑重铸存档（' + $RngSaveRoot + '\<SteamID>\ER0000.rng，联机的是 ER0000.rng.co2）。'); return }
+    if ($saves.Count -eq 0) { Show-Info ('没有找到暗黑重铸存档（' + $RngSaveRoot + '\<SteamID>\ER0000.rng，联机的是 ER0000.rngcoop）。'); return }
     $records = @(Get-RngRecordFiles)
     $dst = Join-Path (Join-Path $Paly '存档备份') (Get-Date -Format 'yyyyMMdd_HHmmss')
     foreach ($s in $saves) {
@@ -1294,7 +1294,7 @@ function Show-CoopMenu {
            "3. 进游戏后房主用 Seamless Co-op 的开房道具，队友用加入的道具。两边的游戏数据对不对得上，进同一个会话后自动核对。`r`n" +
            "下次还是同一队人：房主照样点「开房」，队友点「加入」（剪贴板里没有码时用上次的）。`r`n`r`n" +
            "联机时：以房主的世界为准；斗技场试炼不能用，头目复活只有房主能用；Seamless Co-op 的入侵会自动关掉；直接改敌人的词条效果由房主那边改。`r`n" +
-           "联机存档是 ER0000.rng.co2，和单机存档分开；联机角色的新装备、锁定等记录也单独存，互不影响。`r`n" +
+           "联机存档是 ER0000.rngcoop（以前叫 ER0000.rng.co2，联机启动时会自动换过来），和单机存档分开；联机角色的新装备、锁定等记录也单独存，互不影响。`r`n" +
            "联机还在测试：队友身上的新装备在你这边样子和名字不对；新装备可以在背包里点它「送给」队友。出问题时点「导出诊断包」发过来。"
     $r = Show-DrDialog $msg '暗黑重铸 · 联机（Seamless Co-op）' @('开房 · 敌人随机', '开房 · 无敌人随机', '加入', '复制联机码', '关闭') 0 4 'question' $form
     switch ($r) {
@@ -1403,7 +1403,7 @@ function Get-FaqText {
 "1. 关掉游戏。`r`n" +
 "2. 打开一份备份，把里面的 ER0000.rng 复制到「打开存档文件夹」里那个数字文件夹中，覆盖。`r`n" +
 "3. 把备份里「角色记录」文件夹中的文件复制到「打开存档文件夹」里的 DarkReforged\角色记录，覆盖。`r`n" +
-"   联机存档 ER0000.rng.co2 同样放进数字文件夹；备份的「角色记录」里的「联机」文件夹整个复制过去。`r`n" +
+"   联机存档 ER0000.rngcoop 同样放进数字文件夹；备份的「角色记录」里的「联机」文件夹整个复制过去。`r`n" +
 "   （2026-10-29 以前的备份里是 DarkReforged_*.txt、DarkReforged_once.json：去掉文件名开头的 DarkReforged_ 再放进去。）")
 }
 

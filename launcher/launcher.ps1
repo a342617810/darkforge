@@ -563,7 +563,7 @@ function Get-UserDllLines {
 
 # 会改存档文件名的 DLL：不处理的话会读写原版（.sl2）或法魂（.cnv）的存档
 #   Erd Tools：把 ini 里的 save_extension 写进游戏内存（缺省 sl2；没有 ini 时扩展名会变成空的）→ 保证同目录有 ini，
-#             单机为 rng、联机为 co2（$script:ErdSaveExt；和 Seamless Co-op 一致，YAFSML 再换成 .rng.co2，免得联机读写单机存档）
+#             单机为 rng、联机为 co2（$script:ErdSaveExt；和 Seamless Co-op 一致，YAFSML 再换成 .rngcoop，免得联机读写单机存档）
 #   独立存档类 dll（alt_saves）：存档已由 YAFSML 的 replace_save_filename 隔离，再叠一个会改成别的文件 → 不加载
 function Test-UserDllSafe($File) {
     $n = $File.Name.ToLowerInvariant()
@@ -1014,7 +1014,7 @@ function Get-NewGameSeed([bool]$Rand) {
 # ---------------------------------------------------------------- 联机（Seamless Co-op，dev\coop\联机计划.md 阶段一）
 # - ersc.dll 玩家自己放（不打包）：整合包 dll\ 下（dll\SeamlessCoop\ersc.dll，连同它的 ersc_settings.ini、locale 文件夹），
 #   没有就用游戏目录 Game\SeamlessCoop\ 里的。平常启动不加载它（Get-UserDllLines 跳过），联机启动才加载，和法魂一样放 [dll] 最后。
-# - 存档：Seamless Co-op 把存档扩展名换成 co2，YAFSML 的 replace_seamless_coop_save_filename 再换成 ER0000.rng.co2（和单机的 ER0000.rng 分开）；
+# - 存档：Seamless Co-op 把存档扩展名换成 co2，YAFSML 的 replace_seamless_coop_save_filename 再换成 ER0000.rngcoop（和单机的 ER0000.rng 分开；以前是 ER0000.rng.co2，见 YAFSML.ini.tpl）；
 #   dark_core / dark_sell / dark_lock 看到 ersc.dll 加载了，角色记录就用 角色记录\联机\（格子编号和单机各算各的）；Erd Tools 的存档扩展名跟着换成 co2。
 # - 两个人的游戏数据必须一样：重随用联机种子（敌人随机 = 随机器的种子，无敌人随机 = 固定的 $CoopVanillaSeed），
 #   一次性重随记录用 角色记录\联机\once_<种子>.json（同一个种子抽出来的都一样）；敌人随机靠联机码对齐（Get-CoopCode3）。
@@ -1050,7 +1050,7 @@ function Get-IniMatch([string]$Text, [string]$Key) {
 }
 
 # Seamless Co-op 的配置（ersc.dll 旁边的 ersc_settings.ini）：
-#   save_file_extension 必须是 co2（YAFSML 再换成 .rng.co2；别的扩展名会读写别的存档，sl2 还会被换成单机的 ER0000.rng）→ 不是就改（原 ini 备份）；
+#   save_file_extension 必须是 co2（YAFSML 再换成 .rngcoop；别的扩展名会读写别的存档，sl2 还会被换成单机的 ER0000.rng）→ 不是就改（原 ini 备份）；
 #   随人数加强（血量、架势、伤害，以主机的为准）会叠在整合包的敌人血量上 → 打印出来提醒；
 #   联机密码（cooppassword）空的不让启动：Seamless Co-op 2.0.1 会弹「Please enter a session password」然后整个游戏退出（2026-11-02 实测）。
 # 返回能不能联机启动
@@ -1077,7 +1077,7 @@ function Test-ErscSettings($Ersc) {
                     $txt = $txt.TrimEnd() + "`r`n`r`n[SAVE]`r`nsave_file_extension = co2`r`n"
                 }
                 [System.IO.File]::WriteAllText($ini, $txt, (New-Object System.Text.UTF8Encoding($bom)))
-                Write-Warn ('Seamless Co-op 的存档扩展名是「' + $ext + '」，已改成 co2（联机存档是 ER0000.rng.co2，和单机存档分开；原 ini 已备份）：' + $ini)
+                Write-Warn ('Seamless Co-op 的存档扩展名是「' + $ext + '」，已改成 co2（联机存档是 ER0000.rngcoop，和单机存档分开；原 ini 已备份）：' + $ini)
             }
         }
         # 入侵关掉（联机计划 13.2 G7）：入侵者的游戏数据和我们对不上，Seamless 的反作弊按什么限制匹配也看不到
@@ -1707,6 +1707,8 @@ function Invoke-Launch([bool]$Rand, [bool]$Coop = $false) {
         }
         Write-Host ('  Seamless Co-op：' + $ersc.FullName + '（版本 ' + (Get-ErscVersion $ersc) + '）')
         if (-not (Test-ErscSettings $ersc)) { return }
+        # 联机存档 2026-11-17 起叫 ER0000.rngcoop（YAFSML.ini.tpl）：还没有就从旧的 ER0000.rng.co2 复制，免得 YAFSML 从原版联机存档 ER0000.co2 复制一份新的
+        if (-not $DryRun) { [void](Move-CoopSaveName) }
         $script:CoopDll = Get-YafRelPath $ersc.FullName
     }
     # Boss 模组：按上次玩的角色的难度定这次加不加载（加载的挂在最前面 = 最底层）
@@ -2019,10 +2021,14 @@ function Save-DiagContent([string]$tmp, [string]$DumpPath) {
     $info.Add('一次性重随记录：' + $(if (Test-Path -LiteralPath $once) { (Get-Item -LiteralPath $once).LastWriteTime.ToString('yyyy-MM-dd HH:mm:ss') } else { '无' }))
     $info.Add('上次重随：' + (Get-RerollLastText))
     $saves = @(Get-RngSaveFiles)
-    foreach ($k in @(@('ER0000.rng', '单机'), @('ER0000.rng.co2', '联机'))) {
+    foreach ($k in @(@('ER0000.rng', '单机'), @($RngCoopSave, '联机'))) {
         $s = @($saves | Where-Object { $_.Name -eq $k[0] })
         $info.Add('暗黑重铸' + $k[1] + '存档（' + $k[0] + '）：' + $s.Count + ' 个' + $(if ($s) { '，最后修改 ' + ($s | Sort-Object LastWriteTime -Descending | Select-Object -First 1).LastWriteTime.ToString('yyyy-MM-dd HH:mm:ss') } else { '' }))
     }
+    # 改名以前的联机存档（ER0000.rng.co2，还有以前套出来的 ER0000.rng.rng.co2 这类）
+    $oldCoop = @(Get-ChildItem -LiteralPath $RngSaveRoot -Directory -ErrorAction SilentlyContinue | ForEach-Object {
+        Get-ChildItem -LiteralPath $_.FullName -File -ErrorAction SilentlyContinue | Where-Object { $_.Name -match '^ER0000(\.rng)+\.co2$' } })
+    if ($oldCoop) { $info.Add('旧名字的联机存档：' + (($oldCoop | ForEach-Object { $_.Name + '（' + $_.LastWriteTime.ToString('MM-dd HH:mm') + '）' }) -join '、')) }
     $info.Add('Seamless Co-op：' + $(if ($ersc) { $ersc.FullName + '，版本 ' + $ersc.VersionInfo.FileVersion } else { '没放' }))
     $info.Add('联机一次性重随记录：' + @(Get-ChildItem -LiteralPath (Join-Path $RngRecordDir '联机') -Filter 'once_*.json' -File -ErrorAction SilentlyContinue).Count + ' 份')
     $gps = @(Get-Process -Name 'eldenring' -ErrorAction SilentlyContinue)
