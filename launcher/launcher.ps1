@@ -1141,7 +1141,7 @@ function Get-ErscVersion($Ersc) {
 
 function Write-CoopProfile($Ersc, [string]$Fp, [bool]$Rand) {
     try {
-        $ver = Get-PackVersion
+        $ver = Get-CoopPackVersion
         $rules = @(Get-ErscRules $Ersc)
         $enemy = ''
         try {
@@ -1315,7 +1315,9 @@ $CoopHostModeFile = Join-Path $LauncherDir 'reroll\state\coop_host_mode.txt'
 $CoopJoinCodeFile = Join-Path $LauncherDir 'reroll\state\coop_join_code.txt'
 $CoopHostCodeFile = Join-Path $Paly 'dll\dark_core\coop_host_code.txt'
 
-function Get-PackVersion {
+# 本包的版本（字符串）。不能叫 Get-PackVersion：randomize.ps1 里有同名的（读指定整合包的版本，返回 [version]），
+# 后定义的会盖掉它，「沿用旧版本的敌人随机结果」就读成本包的版本、按字符串和 0.7 比，判成太旧（2026-11-17 测试包）
+function Get-CoopPackVersion {
     $vp = Join-Path $LauncherDir 'version.txt'
     if (Test-Path -LiteralPath $vp) { return ([System.IO.File]::ReadAllText($vp)).Trim() }
     return ''
@@ -1416,7 +1418,7 @@ function Get-CoopCode3([bool]$Rand, $Ersc) {
     $pw = Get-ErscPassword $Ersc
     if (-not $pw) { return @{ Ok = $false; Msg = '联机密码是空的：点「开房」会自动生成一个。' } }
     $world = if (@((Get-BossMods $true).Keys).Count) { 'high' } else { 'low' }
-    $f = @('DR3', ('v=' + (Get-PackVersion)), ('m=' + $(if ($Rand) { 'rand' } else { 'plain' })),
+    $f = @('DR3', ('v=' + (Get-CoopPackVersion)), ('m=' + $(if ($Rand) { 'rand' } else { 'plain' })),
            ('pw=' + [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes($pw))), ('w=' + $world), ('sc=' + (@(Get-ErscRules $Ersc) -join ',')))
     $info = $null
     if ($Rand) {
@@ -1589,7 +1591,7 @@ function Invoke-CoopJoin([string]$Text) {
     }
     $c = Read-CoopCode3 $code
     if (-not $c.Ok) { Write-Err ($from + '联机码不对：' + $c.Msg + '。让房主重新点「复制联机码」发一次。'); return $false }
-    $mine = Get-PackVersion
+    $mine = Get-CoopPackVersion
     if ($c.Version -and $mine -and $c.Version -ne $mine) {
         Write-Err ('房主的整合包是 ' + $c.Version + '，你的是 ' + $mine + '：两人先更新成同一个版本再联机。')
         return $false
