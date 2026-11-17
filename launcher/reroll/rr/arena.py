@@ -13,6 +13,9 @@
   精英用普通版、Boss 用 Boss 版），魇化在 dark_core 挂。
 - features.json 的 arena：地图要放的部件（sc/arena.py 用 msbtool 导进 m45 地图、写事件和雕像对话）；
   dll\\dark_core\\arena.txt：波次、奖励、标记（执行在 dark_core 的 arena.rs）。
+- 按波次挂的效果（用户 2026-11-17「给任意指定波数敌人挂自定义效果」）：settings 的 wave_fx 每条规则 = 哪个竞技场、哪种场次、第几波、
+  哪种敌人、几率、挂哪些效果包（rr/foefx.py 的通用敌人效果包；规则里也能直接写 fx，做成包 arena_rule<第几条>）→ arena.txt 的 wfx 行，
+  dark_core 出场时按规则挂（foefx.rs）。每波血量加成也走同一个模块。
 竞技场：0 王城（m45_00，DLC 后期强度）、1 盖利德（m45_01，王城）、2 宁姆格福（m45_02，利耶尼亚）。
 （2026-11-10 以前把 m45_01 当成宁姆格福、m45_02 当成盖利德，用户游戏里从宁姆格福的雕像进去是盖利德的竞技场）"""
 from .common import *  # noqa: F401,F403
@@ -60,7 +63,7 @@ RUN = 2620                            # 竞技场里的标记：F + 2620 + 雕�
 DEFAULT = dict(enabled=True, tiers=[31, 13, 8], bosses=8, elite_kinds=4, elite_copies=4, elite_per_wave=2, scarab_pct=20, scarab_copies=4,
                cost=[1, 2, 3], waves=[2, 4, 8],
                items_elite=2, items_boss=1, ash_boss=1, clear_bonus=[1, 2, 4], refund=[0, 1, 2], elite_two=[0, 0, 10, 15, 20, 30, 40, 50],
-               reward_tiers=[[4, 4], [3, 4], [2, 3]], reward_scale=[2, 1, 1], hp_every=2, hp_step=0.1,
+               reward_tiers=[[4, 4], [3, 4], [2, 3]], reward_scale=[2, 1, 1], hp_every=2, hp_step=0.1, wave_fx=[],
                ash_weights=[[0, 30, 40, 30], [0, 70, 20, 10], [50, 35, 10, 5]],
                difficulty_mult=[[1.6, 1.2, 0.7, 0.4], [1.3, 1.1, 0.85, 0.6], [1, 1, 1, 1], [0.85, 1, 1.15, 1.3],
                                 [0.7, 0.95, 1.3, 1.7], [0.55, 0.9, 1.45, 2.2], [0.4, 0.8, 1.6, 2.8], [0.3, 0.7, 1.7, 3.5]])
@@ -321,6 +324,81 @@ def build(ctx):
         ctx.report.append('  %s：%s' % (COLO_ZH[co['x']], '、'.join('%s%s(%d→%d)' % ({'b': 'B', 's': 'S'}.get(p['kind'], 'E'), p['part'], p['tier'], co['tier'])
                                                                    for p in co['parts'] if not ((p['kind'], p['src']) in seen or seen.add((p['kind'], p['src']))))))
     ctx.report.append('  血量：' + hp_msg)
+    inline_packs(ctx, c)
+
+
+def inline_packs(ctx, c):
+    """wave_fx 规则里直接写的效果（fx）：交给通用敌人效果包做成行（rr/foefx.py 在斗技场之后跑），包名 arena_rule<第几条>"""
+    more = {rule_pack(i): r['fx'] for i, r in enumerate(c.get('wave_fx') or []) if isinstance(r, dict) and isinstance(r.get('fx'), dict)}
+    if more:
+        ctx.foefx_more = dict(getattr(ctx, 'foefx_more', None) or {}, **more)
+
+
+COLO_KEYS = {'王城': 0, '盖利德': 1, '宁姆格福': 2}
+WHO_KEYS = {'boss': 'b', '精英': 'e', 'elite': 'e', '粪金龟': 's', 'scarab': 's'}
+WAVES_RE = re.compile(r'^\d+(-\d+|\+)?$')
+
+
+def rule_pack(i):
+    """wave_fx 第 i 条（0 起）里直接写的 fx 做成的效果包名"""
+    return 'arena_rule%d' % (i + 1)
+
+
+def wave_fx_lines(ctx, c):
+    """settings 的 arena.wave_fx → arena.txt 的 wfx 行：wfx 竞技场 场次的波数 哪种敌人 第几波 几率% 效果包（格式见 arena.rs；- = 不限）。
+    一条规则：waves「3」「3-6」「5+」逗号分开（默认 1+）；colos 王城 / 盖利德 / 宁姆格福（或 0 / 1 / 2，默认全部）；
+    runs 场次的总波数 2 / 4 / 8（默认全部）；who boss / elite / scarab（精英 / 粪金龟，all = 全部，默认 boss,elite）；
+    chance 每个敌人挂上的几率 %（默认 100）；packs 效果包名（enemy_fx.packs）；fx 直接写一包（格式同 enemy_fx.packs 的一项）"""
+    packs = getattr(ctx, 'foefx', None) or {}
+    out, bad = [], []
+    for i, r in enumerate(c.get('wave_fx') or []):
+        try:
+            if not isinstance(r, dict):
+                raise ValueError('要写成 {waves / who / packs …}')
+            if r.get('enabled', True) is False:
+                continue
+            ws = r.get('waves', '1+')
+            toks = [str(t).strip() for t in (ws if isinstance(ws, list) else str(ws).split(','))]
+            if not toks or not all(WAVES_RE.match(t) for t in toks):
+                raise ValueError('waves 写成 3 / 3-6 / 5+，逗号分开')
+            for t in toks:
+                a, _, b = t.rstrip('+').partition('-')
+                if int(a) < 1 or (b and int(b) < int(a)):
+                    raise ValueError('waves 的「%s」不对（从 1 数起）' % t)
+            cl = r.get('colos')
+            cl = [cl] if isinstance(cl, (str, int)) and cl != 'all' else [] if cl in (None, 'all') else cl
+            xs = sorted({COLO_KEYS.get(v, v) for v in cl})
+            if any(isinstance(x, bool) or x not in (0, 1, 2) for x in xs):
+                raise ValueError('colos 写王城 / 盖利德 / 宁姆格福')
+            rn = r.get('runs')
+            rn = [rn] if isinstance(rn, int) else rn or []
+            if any(isinstance(x, bool) or not isinstance(x, int) or x < 1 for x in rn):
+                raise ValueError('runs 写场次的总波数（2 / 4 / 8）')
+            who = r.get('who', 'boss,elite')
+            who = [w.strip() for w in (who.split(',') if isinstance(who, str) else who)]
+            kinds = {'b', 'e', 's'} if any(w in ('all', '全部') for w in who) else {WHO_KEYS.get(w.lower() if w.isascii() else w) for w in who}
+            if not kinds or None in kinds:
+                raise ValueError('who 写 boss / elite / scarab / all')
+            chance = float(r.get('chance', 100))
+            if not 0.0 < chance <= 100.0:
+                raise ValueError('chance 要在 0~100')
+            names = r.get('packs') or []
+            names = [names] if isinstance(names, str) else list(names)
+            if isinstance(r.get('fx'), dict):
+                names.append(rule_pack(i))
+            if not names:
+                raise ValueError('没写 packs 也没写 fx')
+            miss = [n for n in names if n not in packs]
+            if miss:
+                raise ValueError('效果包 %s 没有（或者不对，见「敌人效果包」那行报告）' % '、'.join(map(str, miss)))
+        except (TypeError, ValueError, AttributeError) as e:
+            bad.append('第 %d 条（%s）' % (i + 1, e))
+            continue
+        out.append('wfx\t%s\t%s\t%s\t%s\t%g\t%s' % (','.join(map(str, xs)) or '-', ','.join(map(str, sorted(set(rn)))) or '-',
+                                                    ','.join(sorted(kinds)), ','.join(toks), chance, ','.join(names)))
+    if out or bad:
+        ctx.report.append('斗技场试炼按波次挂的效果：%d 条规则%s' % (len(out), '；这些规则不对，跳过：' + '；'.join(bad) if bad else ''))
+    return out
 
 
 def align_hp(ctx, colos, N, S_sp, npc_of):
@@ -462,6 +540,7 @@ def def_lines(ctx):
         out.append('two\t%d\t%g' % (d, v))
     if float(c['hp_step']) > 0:
         out.append('hpwave\t%d\t%d\t%d' % (max(1, int(c['hp_every'])), HPW_SP0, HPW_N))
+    out += wave_fx_lines(ctx, c)
     for i, (w, cost) in enumerate(zip(c['waves'], c['cost'])):
         # run <场次> <波数> <碎片> <全部打完多给几件> <全部打完退还几个碎片>
         back = int(c['refund'][i]) if i < len(c.get('refund') or []) else 0

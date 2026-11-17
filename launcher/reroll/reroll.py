@@ -22,7 +22,7 @@ import time
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import erlib  # noqa: E402
-from rr import affixes, ailments, aoe, arena, ashcont, ashes, ashtest, atkfwd, bossaward, bosses, bossmods, containers, curses, darkshop, difficulty, dummy, enemies, extragrace, festive, hpunify, inherit, manuals, mariner, nightmare, notes, overlimit, plague, procs, unseen, quiver, reforge, remembrance, reuse, serpent, shops, skillgems, sounds, startgear, tweaks, unidentified, upgrade, wish, wishstone, world  # noqa: E402
+from rr import affixes, ailments, aoe, arena, ashcont, ashes, ashtest, atkfwd, bossaward, bosses, bossmods, containers, curses, darkshop, difficulty, dummy, enemies, extragrace, festive, foefx, hpunify, inherit, manuals, mariner, nightmare, notes, overlimit, plague, procs, unseen, quiver, reforge, remembrance, reuse, serpent, shops, skillgems, sounds, startgear, tweaks, unidentified, upgrade, wish, wishstone, world  # noqa: E402
 from rr.common import Ctx, log  # noqa: E402
 import progress  # noqa: E402
 
@@ -144,6 +144,7 @@ def run_steps(ctx):
     bossmods.after_hpunify(ctx)               # Boss 模组场地新加的随从跟着 Boss 乘同一档补正
     nightmare.build(ctx)                      # 魇化精英与魇印：精英的强化 / 描边效果行（挑精英、魇火、魇印在 dll\dark_core）
     arena.build(ctx)                          # 斗技场试炼：每个竞技场的 Boss / 精英池、敌人参数副本（地图、事件、雕像对话在 sc/arena.py，执行在 dll\dark_core；要在词条库之前：千钧认 Boss 看敌人参数）
+    foefx.build(ctx)                          # 敌人效果包（通用）：自定义效果行（斗技场按波次挂，挂在 dll\dark_core 的 foefx.rs；在斗技场之后：它的规则里直接写的效果也在这里做）
     festive.build(ctx)                        # 庆典油脂：卢恩越多伤害越高、每秒扣卢恩（扣卢恩、换档在 dll\dark_core）
     mariner.build(ctx)                        # 战灰「唤声船」：所有武器能装（含法杖 / 圣印记），骑船、瞬移、原版唤声船位置的 Boss 发碎片在 dll\dark_core（要在词条库之前）
     skillgems.build(ctx)                      # 专属战技战灰：判定行复制到共享层 + 战灰 + 文字，动作包改判定号（在范围放大之后，暗黑商店之前）
@@ -240,7 +241,8 @@ def write_dll_defs(ctx):
               wishstone.def_lines(ctx))
     # 魇化精英与魇印（dark_core 的 nightmare 模块）
     write_def(os.path.join(CORE_DIR, 'arena.txt'), '斗技场试炼（rr/arena.py）：req / shard / goods0 / local 标记；per / items / cat；diff / dmult；run 场次；'
-              'colo / statue / rar / ashrar / part 各竞技场；note 竞技场里的提示', arena.def_lines(ctx))
+              'colo / statue / rar / ashrar / part 各竞技场；note 竞技场里的提示；wfx 按波次挂的效果包', arena.def_lines(ctx))
+    write_def(os.path.join(CORE_DIR, 'foefx.txt'), '敌人效果包（rr/foefx.py）：pack 包名 动作速度 效果,效果…（- = 没有）', foefx.def_lines(ctx))
     write_def(os.path.join(CORE_DIR, 'nightmare.txt'), '魇化精英与魇印（rr/nightmare.py）：tier 当前档标记 魇化几率% 两条几率% 魇火稀有度 精英掉石几率%；hp / color / fam；'
               'ember_max；range；levels；slots；count0 / slot0 标记起点 位数；goods；mobe 实体… / mobn 敌人参数…', nightmare.def_lines(ctx))
     # 原版闪烁提示（dark_core 的 notes 模块）

@@ -35,6 +35,7 @@ mod barrier;
 mod coop;
 mod curses;
 mod festive;
+mod foefx;
 mod fusion;
 mod glow;
 mod gear;
@@ -236,9 +237,9 @@ pub unsafe extern "system" fn DllMain(hmodule: u64, reason: u32, _reserved: *mut
             log("10 分钟内等不到 CSTaskImp，dark_core 不工作");
             return;
         };
-        log(&format!("dark_core 已加载：{}；{}；{}；{}（{combat}）；{}；{}；{}；{}；{}；{}；{}；{}；{}；{}；{}；{}；{}；{}；{}；{}；{}；{}；{}；{scaling}", arena::describe(), festive::describe(), gear::describe(), runtime::describe(),
+        log(&format!("dark_core 已加载：{}；{}；{}；{}；{}（{combat}）；{}；{}；{}；{}；{}；{}；{}；{}；{}；{}；{}；{}；{}；{}；{}；{}；{}；{}；{}；{scaling}", arena::describe(), foefx::describe(), festive::describe(), gear::describe(), runtime::describe(),
                      rules::describe(), procs::describe(), boat::describe(), attrstack::describe(), skillmult::describe(), spellbase::describe(), hpunify::describe(), ovldrop::describe(), fusion::describe(), nightmare::describe(), curses::describe(), notes::describe(), plague::describe(), wishstone::describe(), shopstage::describe(), clash::describe(), bossmode::describe(), glow::describe(), runebank::describe()));
-        let mut errs = [0u32; 29];
+        let mut errs = [0u32; 30];
         task.run_recurring(
             move |_: &FD4TaskData| {
                 prof::frame();
@@ -270,6 +271,8 @@ pub unsafe extern "system" fn DllMain(hmodule: u64, reason: u32, _reserved: *mut
                 guarded("骨灰诊断", &mut errs[24], ashdiag::tick);
                 // 放在魇化后面：同一帧里登记的强制魇化下一帧生效（魇化每 250 毫秒扫一次，不差这一帧）
                 guarded("斗技场试炼", &mut errs[25], arena::tick);
+                // 敌人效果（通用，斗技场每波的效果走它）：放在斗技场后面，同一帧登记的这里就挂；在动作速度前面，报的速度这一帧就写
+                guarded("敌人效果", &mut errs[29], foefx::tick);
                 // 放在积木引擎后面：同一帧里它刚记下的改动、挂的效果这里都看得到
                 guarded("联机诊断", &mut errs[6], coop::tick);
                 // 别的角色的动作速度（时隙、见切 / 影步减速、魇化加快）：放在它们后面，乘起来写一次（speed.rs）
