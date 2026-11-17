@@ -45,6 +45,99 @@ type FnSetId = unsafe extern "C" fn(*mut Identity, u64);
 type FnGetId = unsafe extern "C" fn(*const Identity) -> u64;
 type FnRelease = unsafe extern "C" fn(*mut Msg);
 type FnSteamId = unsafe extern "C" fn(*mut c_void) -> u64;
+/// GetSessionConnectionInfo(接口, 对方身份, SteamNetConnectionInfo_t*, SteamNetConnectionRealTimeStatus_t*) → 连接状态
+type FnConnInfo = unsafe extern "C" fn(*mut c_void, *const Identity, *mut c_void, *mut c_void) -> i32;
+
+/// 和一个队员的 Steam 连接（日志用，联机计划 13.9 C）
+#[derive(Debug, Clone, PartialEq)]
+pub struct ConnInfo {
+    /// ESteamNetworkingConnectionState
+    pub state: i32,
+    /// 断开原因（ESteamNetConnectionEnd）、Steam 给的说明；结构读不准时 None / 空
+    pub end_reason: Option<i32>,
+    pub end_debug: String,
+    /// 往返（毫秒）、本机 / 对方看到的连接质量（0~1，丢包越多越低；-1 = 不知道）
+    pub ping: Option<i32>,
+    pub quality: Option<(f32, f32)>,
+}
+
+/// 读 C 字符串（到第一个 0；只留看得懂的字符）
+fn cstr(b: &[u8]) -> String {
+    let n = b.iter().position(|&x| x == 0).unwrap_or(b.len());
+    String::from_utf8_lossy(&b[..n]).chars().filter(|c| !c.is_control()).take(127).collect()
+}
+
+/// 从两块结构里读（纯函数，单元测试用）：偏移照 Steamworks SDK 的 steamnetworkingtypes.h（Windows 8 字节对齐）：
+/// SteamNetConnectionInfo_t 的 m_eState 在 176、m_eEndReason 180、m_szEndDebug 184（128 字节）；
+/// SteamNetConnectionRealTimeStatus_t（120 字节）m_eState 0、m_nPing 4、两个连接质量 8 / 12。读到的状态和函数返回的一样才信
+pub(crate) fn parse_conn(state: i32, info: &[u8], quick: &[u8]) -> ConnInfo {
+    let i32_at = |b: &[u8], o: usize| i32::from_le_bytes([b[o], b[o + 1], b[o + 2], b[o + 3]]);
+    let f32_at = |b: &[u8], o: usize| f32::from_le_bytes([b[o], b[o + 1], b[o + 2], b[o + 3]]);
+    let info_ok = info.len() >= 312 && i32_at(info, 176) == state;
+    let quick_ok = quick.len() >= 16 && i32_at(quick, 0) == state;
+    ConnInfo {
+        state,
+        end_reason: info_ok.then(|| i32_at(info, 180)),
+        end_debug: if info_ok { cstr(&info[184..312]) } else { String::new() },
+        ping: quick_ok.then(|| i32_at(quick, 4)),
+        quality: quick_ok.then(|| (f32_at(quick, 8), f32_at(quick, 12))),
+    }
+}
+
+/// 连接状态的中文
+pub fn state_zh(s: i32) -> &'static str {
+    match s {
+        0 => "没有连接",
+        1 => "正在连接",
+        2 => "正在找路线",
+        3 => "已连上",
+        4 => "被对方关掉",
+        5 => "本机发现连接有问题",
+        -1 => "正在收尾",
+        -2 => "正在收尾",
+        -3 => "已断开",
+        _ => "不认识的状态",
+    }
+}
+
+/// 断开原因的大类（ESteamNetConnectionEnd 按千位分段）
+pub fn end_zh(r: i32) -> &'static str {
+    match r {
+        0 => "",
+        1000..=1999 => "程序自己关的",
+        2000..=2999 => "程序出错关的",
+        3001 => "本机离线（没连上 Steam）",
+        3000..=3999 => "本机的网络问题",
+        4001 => "对方超时",
+        4000..=4999 => "对方的问题",
+        5001 => "其他错误",
+        5003 => "连接超时",
+        5005 => "连不上 Steam",
+        5008 | 5009 => "打洞失败（路由器 / 防火墙）",
+        5000..=5999 => "网络问题",
+        _ => "不认识的原因",
+    }
+}
+
+impl ConnInfo {
+    /// 日志用的一句
+    pub fn text(&self) -> String {
+        let mut s = format!("Steam 连接：{}（{}）", state_zh(self.state), self.state);
+        if let Some(r) = self.end_reason.filter(|&r| r != 0) {
+            s += &format!("，断开原因 {r} {}", end_zh(r));
+            if !self.end_debug.is_empty() {
+                s += &format!("（{}）", self.end_debug);
+            }
+        }
+        if let Some(p) = self.ping.filter(|&p| p >= 0) {
+            s += &format!("，Steam 测的延迟 {p} 毫秒");
+        }
+        if let Some((a, b)) = self.quality.filter(|q| q.0 >= 0.0 || q.1 >= 0.0) {
+            s += &format!("，连接质量 本机 {:.0}% / 对方 {:.0}%", a.max(0.0) * 100.0, b.max(0.0) * 100.0);
+        }
+        s
+    }
+}
 
 pub struct Steam {
     iface: usize,
@@ -55,6 +148,8 @@ pub struct Steam {
     set_id: FnSetId,
     get_id: FnGetId,
     release: FnRelease,
+    /// 连接状态（老的 steam_api64 没有也不影响收发）
+    info_fn: Option<FnConnInfo>,
     /// 本机的 Steam ID（SteamUser 接口给的；读不到是 0，会话里另外从名单拿）
     pub me: u64,
     /// 从哪个 DLL 取的接口
@@ -97,6 +192,8 @@ fn load() -> Result<Steam, String> {
             set_id: get!("SteamAPI_SteamNetworkingIdentity_SetSteamID64", FnSetId),
             get_id: get!("SteamAPI_SteamNetworkingIdentity_GetSteamID64", FnGetId),
             release: get!("SteamAPI_SteamNetworkingMessage_t_Release", FnRelease),
+            info_fn: unsafe { sym(m, b"SteamAPI_ISteamNetworkingMessages_GetSessionConnectionInfo\0") }
+                .map(|f| unsafe { std::mem::transmute::<unsafe extern "system" fn() -> isize, FnConnInfo>(f) }),
             me: 0,
             module,
         };
@@ -179,6 +276,17 @@ impl Steam {
         unsafe { (self.accept_fn)(self.iface as *mut c_void, &i) };
     }
 
+    /// 和这个人的 Steam 连接状态（日志用）；接口没有时 None
+    pub fn conn_info(&self, peer: u64) -> Option<ConnInfo> {
+        #[repr(C, align(8))]
+        struct Buf([u8; 1024]);
+        let f = self.info_fn?;
+        let i = self.ident(peer);
+        let (mut info, mut quick) = (Buf([0; 1024]), Buf([0; 1024]));
+        let state = unsafe { f(self.iface as *mut c_void, &i, info.0.as_mut_ptr() as *mut c_void, quick.0.as_mut_ptr() as *mut c_void) };
+        Some(parse_conn(state, &info.0, &quick.0))
+    }
+
     /// 关掉和这个人在本频道上的往来（不碰整个会话）
     pub fn close(&self, peer: u64) {
         let i = self.ident(peer);
@@ -189,6 +297,26 @@ impl Steam {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn conn_info_parsing() {
+        let mut info = vec![0u8; 696];
+        let mut quick = vec![0u8; 120];
+        info[176..180].copy_from_slice(&5i32.to_le_bytes());
+        info[180..184].copy_from_slice(&5003i32.to_le_bytes());
+        info[184..196].copy_from_slice(b"timed out\0\0\0");
+        quick[0..4].copy_from_slice(&5i32.to_le_bytes());
+        quick[4..8].copy_from_slice(&80i32.to_le_bytes());
+        quick[8..12].copy_from_slice(&0.9f32.to_le_bytes());
+        quick[12..16].copy_from_slice(&0.5f32.to_le_bytes());
+        let c = parse_conn(5, &info, &quick);
+        assert_eq!((c.end_reason, c.end_debug.as_str(), c.ping), (Some(5003), "timed out", Some(80)));
+        assert_eq!(c.text(), "Steam 连接：本机发现连接有问题（5），断开原因 5003 连接超时（timed out），Steam 测的延迟 80 毫秒，连接质量 本机 90% / 对方 50%");
+        // 读到的状态和返回的不一样：结构不信
+        let c = parse_conn(3, &info, &quick);
+        assert_eq!((c.end_reason, c.ping), (None, None));
+        assert_eq!(c.text(), "Steam 连接：已连上（3）");
+    }
 
     /// 结构大小、偏移照 Steamworks SDK（SteamNetworkingIdentity 136 字节、8 字节对齐；消息的对方身份在 16 字节处）
     #[test]

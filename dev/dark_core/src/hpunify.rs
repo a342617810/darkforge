@@ -233,7 +233,8 @@ fn each(wcm: &WorldChrMan, mut f: impl FnMut(&mut ChrIns)) {
 
 fn scan(wcm: &WorldChrMan, d: &Def, my_team: u8, st: &mut St) {
     let mut seen = HashSet::new();
-    let res = d.res.iter().find(|&&(f, _)| crate::gear::flag_get(f) == Some(true)).map(|&(_, sp)| sp);
+    // 会话里的客机按房主的档（coop::tier_flag，联机计划 13.9 A）
+    let res = d.res.iter().find(|&&(f, _)| crate::coop::tier_flag(f) == Some(true)).map(|&(_, sp)| sp);
     each(wcm, |c| {
         if !d.res.is_empty() && is_foe(c, my_team) && c.modules.data.hp > 0 {
             for &(_, sp) in &d.res {
@@ -434,7 +435,8 @@ pub fn tick() {
         return;
     };
     let my_team = player.chr_ins.team_type;
-    let on = d.flags.iter().any(|&f| crate::gear::flag_get(f) == Some(true));
+    // 会话里的客机按房主的档（敌人身上的效果不走网络同步，两边得一样；联机计划 13.9 A）
+    let on = d.flags.iter().any(|&f| crate::coop::tier_flag(f) == Some(true));
     if on {
         st.off_since = None;
         if !st.on {

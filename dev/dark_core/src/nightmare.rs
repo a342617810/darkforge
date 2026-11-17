@@ -234,6 +234,8 @@ struct St {
     /// 什么时候从存档标记读回魇火（换了角色以后）
     load_at: Option<Instant>,
     tier: Option<usize>,
+    /// 本机角色的档（会话里的客机 tier 是房主的；夺魇火、掉超限锻造石按这个）
+    own_tier: Option<usize>,
     rng: u64,
     n_elites: u32,
     /// 刚夺取过：下一次扫描给玩家挂 drain
@@ -593,6 +595,7 @@ pub fn tick() {
         dead_since: None,
         load_at: None,
         tier: None,
+        own_tier: None,
         rng: SystemTime::now().duration_since(UNIX_EPOCH).map_or(7, |t| t.as_nanos() as u64),
         n_elites: 0,
         drain: false,
@@ -649,7 +652,9 @@ pub fn tick() {
         save_embers(d, &[]);
     }
     st.sitting = sitting;
-    st.tier = d.tiers.iter().position(|t| flag_get(t.0) == Some(true));
+    // 敌人一侧（精英出不出、挂什么）按房主的档（会话里的客机，coop::tier_flag，联机计划 13.9 A）；夺魇火这类奖励按本机角色的档（own_tier）
+    st.tier = d.tiers.iter().position(|t| crate::coop::tier_flag(t.0) == Some(true));
+    st.own_tier = d.tiers.iter().position(|t| flag_get(t.0) == Some(true));
     dev_req(d, st, wcm, me, my_team);
     // 魇火、魇印：缺了补挂、不要了摘掉
     if now >= st.sync_at {
@@ -693,6 +698,8 @@ pub fn tick() {
     }
     // 不在标了 lock 的档（只有斗技场试炼登记的精英）：不随机魇化、死了不夺魇火
     let (chance, rar, stone) = st.tier.map_or((0.0, 0, 0.0), |t| (d.tiers[t].1, d.tiers[t].3, d.tiers[t].4));
+    // 夺魇火的稀有度、掉超限锻造石的几率按本机角色的档（会话里的客机，房主的档只管敌人一侧）
+    let (own_rar, own_stone) = st.own_tier.map_or((rar, stone), |t| (d.tiers[t].3, d.tiers[t].4));
     let Some(around) = around!(wcm, me) else { return };
     st.elites.retain(|a, _| live.contains(a));
     st.rolled.retain(|a| live.contains(a));
@@ -775,15 +782,16 @@ pub fn tick() {
         }
         let was = el.hp;
         el.hp = c.modules.data.hp;
-        if was > 0 && el.hp <= 0 && st.tier.is_none() {
-            log(&format!("魇化：精英 NPC {}（实体 {}）死了（不在高难度档，不夺魇火）", c.npc_param_id, c.event_entity_id));
+        if was > 0 && el.hp <= 0 && st.own_tier.is_none() {
+            log(&format!("魇化：精英 NPC {}（实体 {}）死了（{}，不夺魇火）", c.npc_param_id, c.event_entity_id,
+                         if st.tier.is_some() { "房主在高难度档、你的角色不在" } else { "不在高难度档" }));
         } else if was > 0 && el.hp <= 0 && (d.range <= 0.0 || e.distance <= d.range) && now.duration_since(el.at) >= SEEN_MIN {
             let fams = el.fams.clone();
             let why = format!("精英 NPC {}（实体 {}）死了（{:.0} 米）", c.npc_param_id, c.event_entity_id, e.distance);
             for k in fams {
-                seize(d, st, k, rar, &why);
+                seize(d, st, k, own_rar, &why);
             }
-            if d.goods[0] > 0 && st.chance(stone) {
+            if d.goods[0] > 0 && st.chance(own_stone) {
                 let g = d.goods[(st.roll() % 2) as usize];
                 if gift_n(1, g, 1) {
                     log(&format!("魇化：精英掉了超限锻造石 {g}"));

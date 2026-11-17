@@ -242,12 +242,12 @@ fn strip(wcm: &WorldChrMan, d: &Def, tier: usize, my_team: u8, st: &mut St) {
                 continue;
             }
             let sps = sps.get_or_insert_with(|| c.special_effect.entries().map(|e| e.param_id).collect());
-            // 客机不自己摘敌人的免疫效果（摘效果不同步），转给房主摘（联机计划 13.5）；抗性效果照常挂
+            // 客机：转给房主摘（房主那份敌人），本机这份也摘（敌人身上的效果不走网络同步，各摘各的；联机计划 13.9 A）；抗性效果照常挂
             let has_imm = ks[j] > 0 && d.imm[j] > 0 && sps.contains(&d.imm[j]);
             if has_imm && crate::coop::client() {
                 crate::link::foe_to_host(c.event_entity_id, "rmsp", d.imm[j] as f32);
             }
-            let imm = has_imm && !crate::coop::client_skip("疫病摘敌人的异常免疫：转给房主");
+            let imm = has_imm;
             if imm {
                 c.remove_speffect(d.imm[j]);
                 st.stripped += 1;

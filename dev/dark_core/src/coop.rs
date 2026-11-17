@@ -130,6 +130,44 @@ pub fn host() -> bool {
     HOST.load(Ordering::Relaxed)
 }
 
+// ------------------------------------------------------------------ 房主的难度档（联机计划 13.9 A）
+/// 难度档位标记的范围（rr/difficulty.py：死亡 9956、不可能 9957 …）
+pub const TIER_FLAGS: std::ops::RangeInclusive<u32> = 9950..=9969;
+/// 房主的档位多久没再收到就不用了（房主每 5 秒发一次）
+const HOST_TIER_KEEP: Duration = Duration::from_secs(30);
+/// 房主亮着的档位标记、收到的时间（link.rs 收到 TIER 时写）
+static HOST_TIER: Mutex<Option<(Vec<u32>, Instant)>> = Mutex::new(None);
+
+/// 敌人一侧（高难度血量补正、魇化）认的难度档位标记：会话里的客机用房主的（敌人身上的效果不走网络同步，两边得一样，
+/// 黄金树爬塔两台电脑实测：只在房主挂的加血效果让客机那份敌人 0 血不死）；别的情况、还没收到房主的档位时用本机的
+pub fn tier_flag(f: u32) -> Option<bool> {
+    if client() && TIER_FLAGS.contains(&f) {
+        if let Some((v, at)) = HOST_TIER.lock().unwrap_or_else(|e| e.into_inner()).as_ref() {
+            if at.elapsed() < HOST_TIER_KEEP {
+                return Some(v.contains(&f));
+            }
+        }
+    }
+    crate::gear::flag_get(f)
+}
+
+/// 本机亮着的档位标记（房主发给客机）
+pub fn my_tier_flags() -> Vec<u32> {
+    TIER_FLAGS.filter(|&f| crate::gear::flag_get(f) == Some(true)).collect()
+}
+
+/// link.rs：房主说它的档位是这些（变了写一行）
+pub fn set_host_tier(v: Vec<u32>) {
+    let mut g = HOST_TIER.lock().unwrap_or_else(|e| e.into_inner());
+    if g.as_ref().is_none_or(|x| x.0 != v) {
+        let mine = my_tier_flags();
+        log(&format!("联机：敌人一侧按房主的难度档（档位标记 {}；本机角色是 {}），高难度血量补正、魇化照房主的挂",
+                     if v.is_empty() { "无，普通".to_string() } else { format!("{v:?}") },
+                     if mine.is_empty() { "普通".to_string() } else { format!("{mine:?}") }));
+    }
+    *g = Some((v, Instant::now()));
+}
+
 /// 客机跳过了一种直接改敌人的操作：每种只记一行（联机计划 13.2 G2）
 static SKIPPED: Mutex<Vec<&'static str>> = Mutex::new(Vec::new());
 

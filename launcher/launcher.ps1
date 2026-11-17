@@ -1121,6 +1121,22 @@ function Get-YafRelPath([string]$Full) {
 # 联机兼容档案（联机计划 13.4）：联机启动时写给 dark_core，联机通道（dev\dark_core\src\link.rs）握手时发给队友逐项比对。
 # 一行「键<Tab>值」：整合包版本、联机核对码、世界、Seamless 的随人数加强和规则（不含密码）、敌人设置。改了键名要和 link.rs 的 LABELS 一起改
 $CoopProfile = Join-Path $Paly 'dll\dark_core\coop_profile.txt'
+# Seamless Co-op 的版本（联机计划 13.9 B）：ersc.dll 的 PE 时间戳 + 镜像大小；认得的写版本号（特征照黄金树爬塔记的），认不出写原始数值。
+# 两人的 Seamless 版本必须一样，写进兼容档案让联机通道比对
+$ErscKnown = @{ '6ae0ad1a:d65000' = '2.0.2'; '6af4b20a:d67000' = '2.0.3' }
+function Get-ErscVersion($Ersc) {
+    try {
+        $fs = [System.IO.File]::OpenRead($Ersc.FullName)
+        try { $b = New-Object byte[] 4096; [void]$fs.Read($b, 0, 4096) } finally { $fs.Close() }
+        $pe = [BitConverter]::ToInt32($b, 0x3C)
+        $ts = [BitConverter]::ToUInt32($b, $pe + 8)
+        $soi = [BitConverter]::ToUInt32($b, $pe + 24 + 56)
+        $key = ('{0:x8}:{1:x}' -f $ts, $soi)
+        if ($ErscKnown.ContainsKey($key)) { return ($ErscKnown[$key] + '（' + $key + '）') }
+        return ('未知（' + $key + '，' + $Ersc.Length + ' 字节）')
+    } catch { return '' }
+}
+
 function Write-CoopProfile($Ersc, [string]$Fp, [bool]$Rand) {
     try {
         $ver = Get-PackVersion
@@ -1132,7 +1148,7 @@ function Write-CoopProfile($Ersc, [string]$Fp, [bool]$Rand) {
         } catch { }
         $lines = @('# 联机兼容档案：启动器联机启动时写，dark_core 的联机通道握手时发给队友比对（不含联机密码）',
                    ('version' + "`t" + $ver), ('fingerprint' + "`t" + $Fp), ('world' + "`t" + $script:WorldSuffix),
-                   ('scaling' + "`t" + ($rules -join ',')), ('enemy' + "`t" + $enemy))
+                   ('scaling' + "`t" + ($rules -join ',')), ('enemy' + "`t" + $enemy), ('seamless' + "`t" + (Get-ErscVersion $Ersc)))
         # 联机码（不算比对的一项；DR3 带着联机密码，只发给会话里的队员）：队友和房主对不上时，联机通道把房主的存到队友的
         # dll\dark_core\coop_host_code.txt，队友退出后点「加入」剪贴板里没有码也能用它
         try { $cc = Get-CoopCode3 $Rand $Ersc; if ($cc.Ok) { $lines += ('code' + "`t" + $cc.Code) } } catch { }
@@ -1669,7 +1685,7 @@ function Invoke-Launch([bool]$Rand, [bool]$Coop = $false) {
             Write-Err ('没找到 Seamless Co-op。把它压缩包里的 SeamlessCoop 文件夹整个放进 ' + $UserDllDir + '（变成 dll\SeamlessCoop\ersc.dll；整合包不带 Seamless Co-op，要自己下载）。')
             return
         }
-        Write-Host ('  Seamless Co-op：' + $ersc.FullName + $(if ($ersc.VersionInfo.FileVersion) { '（版本 ' + $ersc.VersionInfo.FileVersion + '）' } else { '' }))
+        Write-Host ('  Seamless Co-op：' + $ersc.FullName + '（版本 ' + (Get-ErscVersion $ersc) + '）')
         if (-not (Test-ErscSettings $ersc)) { return }
         $script:CoopDll = Get-YafRelPath $ersc.FullName
     }

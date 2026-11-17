@@ -29,8 +29,9 @@ const RTT_LOG_EVERY: Duration = Duration::from_secs(60);
 const SELFTEST_WAIT: Duration = Duration::from_secs(5);
 const ROSTER_EVERY: Duration = Duration::from_millis(500);
 /// 兼容档案里各项的中文名（对不上时写日志用）
-const LABELS: [(&str, &str); 5] =
-    [("version", "整合包版本"), ("fingerprint", "联机核对码"), ("world", "世界"), ("scaling", "Seamless 随人数加强"), ("enemy", "敌人设置")];
+const LABELS: [(&str, &str); 6] =
+    [("version", "整合包版本"), ("fingerprint", "联机核对码"), ("world", "世界"), ("scaling", "Seamless 随人数加强"), ("enemy", "敌人设置"),
+     ("seamless", "Seamless Co-op 版本")];
 
 // ------------------------------------------------------------------ 消息
 
@@ -47,6 +48,8 @@ pub enum Kind {
     Nm,
     /// 客机 → 房主：我戴着时隙，这几个敌人（e 实体编号，逗号隔开）乘 m；m = 1 = 摘下了（speed.rs，协议 2 起）
     Slip,
+    /// 房主 → 客机：房主亮着的难度档位标记（f，逗号隔开；空 = 普通），客机的敌人一侧照用（coop::tier_flag，联机计划 13.9 A）
+    Tier,
     /// 赠送（联机计划 13.7，gear/gift.rs）：n 随机数、c 类别、lv 强化等级、r 配方
     Gift,
     /// 收下了（n）
@@ -66,6 +69,7 @@ impl Kind {
             Kind::Foe => "FOE",
             Kind::Nm => "NM",
             Kind::Slip => "SLIP",
+            Kind::Tier => "TIER",
             Kind::Gift => "GIFT",
             Kind::GiftOk => "GOK",
             Kind::GiftNo => "GNO",
@@ -82,6 +86,7 @@ impl Kind {
             "FOE" => Kind::Foe,
             "NM" => Kind::Nm,
             "SLIP" => Kind::Slip,
+            "TIER" => Kind::Tier,
             "GIFT" => Kind::Gift,
             "GOK" => Kind::GiftOk,
             "GNO" => Kind::GiftNo,
@@ -178,6 +183,15 @@ pub trait Transport {
     fn recv(&mut self) -> Vec<(u64, Vec<u8>)>;
     fn accept(&mut self, peer: u64);
     fn close(&mut self, peer: u64);
+    /// 和这个人的 Steam 连接状态（日志用的一句；测试的假网络没有）
+    fn conn_text(&mut self, _peer: u64) -> Option<String> {
+        None
+    }
+}
+
+/// 日志后面接的「；Steam 连接：…」
+fn conn_suffix(t: &mut impl Transport, peer: u64) -> String {
+    t.conn_text(peer).map_or(String::new(), |s| format!("；{s}"))
 }
 
 // ------------------------------------------------------------------ 每个队员的状态
@@ -260,8 +274,9 @@ impl Link {
         let gone: Vec<u64> = self.peers.keys().copied().filter(|id| !roster.iter().any(|(r, _)| r == id)).collect();
         for id in gone {
             self.peers.remove(&id);
+            let conn = conn_suffix(t, id);
             t.close(id);
-            log(&format!("联机通道：队员 {} 离开了会话", short(id)));
+            log(&format!("联机通道：队员 {} 离开了会话{conn}", short(id)));
         }
         for &(id, host) in roster {
             if id == self.me || id == 0 {
@@ -289,7 +304,7 @@ impl Link {
             {
                 let p = self.peers.get_mut(&id).unwrap();
                 if p.linked() && p.last_rx.is_some_and(|r| now.duration_since(r) >= LOST) {
-                    log(&format!("联机通道：队员 {} {} 秒没有消息，当作断了，重新握手", short(id), LOST.as_secs()));
+                    log(&format!("联机通道：队员 {} {} 秒没有消息，当作断了，重新握手{}", short(id), LOST.as_secs(), conn_suffix(t, id)));
                     reset = true;
                 } else if !p.linked() {
                     if p.last_hello.is_none_or(|h| now.duration_since(h) >= HELLO_EVERY) {
@@ -391,12 +406,12 @@ impl Link {
                     p.rtt_ms = Some(ms);
                     if p.rtt_logged.is_none_or(|l| now.duration_since(l) >= RTT_LOG_EVERY) {
                         p.rtt_logged = Some(now);
-                        log(&format!("联机通道：队员 {} 往返 {ms} 毫秒", short(from)));
+                        log(&format!("联机通道：队员 {} 往返 {ms} 毫秒{}", short(from), conn_suffix(t, from)));
                     }
                 }
             }
             Kind::Text => log(&format!("联机通道：队员 {} 发来测试消息「{}」", short(from), pk.get("text").unwrap_or(""))),
-            Kind::Foe | Kind::Nm | Kind::Slip | Kind::Gift | Kind::GiftOk | Kind::GiftNo => keep = Some(pk.clone()),
+            Kind::Foe | Kind::Nm | Kind::Slip | Kind::Tier | Kind::Gift | Kind::GiftOk | Kind::GiftNo => keep = Some(pk.clone()),
         }
         if p.linked() && !p.linked_logged {
             p.linked_logged = true;
@@ -473,6 +488,9 @@ impl Transport for SteamT {
     fn close(&mut self, peer: u64) {
         self.0.close(peer)
     }
+    fn conn_text(&mut self, peer: u64) -> Option<String> {
+        self.0.conn_info(peer).map(|c| c.text())
+    }
 }
 
 struct St {
@@ -482,11 +500,17 @@ struct St {
     /// 存过的房主联机随机码（不重复写）
     code_saved: Option<String>,
     foe_logged: u32,
+    /// 房主：上次发的难度档（档位标记, 时间）、下次看的时间
+    tier_sent: Option<(Vec<u32>, Instant)>,
+    tier_check: Option<Instant>,
     /// 名单里的名字（Steam ID → 名字）
     names: std::collections::BTreeMap<u64, String>,
 }
 
-static ST: Mutex<St> = Mutex::new(St { link: None, roster_at: None, me: 0, code_saved: None, foe_logged: 0, names: std::collections::BTreeMap::new() });
+static ST: Mutex<St> = Mutex::new(St { link: None, roster_at: None, me: 0, code_saved: None, foe_logged: 0, tier_sent: None, tier_check: None,
+                                       names: std::collections::BTreeMap::new() });
+/// 房主的难度档没变时多久重发一次
+const TIER_EVERY: Duration = Duration::from_secs(5);
 /// 发件箱：别的模块排进来（不碰 ST，免得互相锁住），tick 里发
 static OUT: Mutex<Vec<(To, Packet)>> = Mutex::new(Vec::new());
 #[derive(Clone, Copy)]
@@ -668,6 +692,16 @@ pub fn tick() {
     if let Some(l) = g.link.as_mut() {
         l.poll(&mut t, now);
     }
+    // 房主的难度档（联机计划 13.9 A）：每秒看一次，变了马上发、没变每 TIER_EVERY 发一次
+    if crate::coop::host() && g.link.as_ref().is_some_and(|l| l.peers.values().any(|p| p.linked())) && g.tier_check.is_none_or(|t| now >= t) {
+        g.tier_check = Some(now + Duration::from_secs(1));
+        let v = crate::coop::my_tier_flags();
+        if g.tier_sent.as_ref().is_none_or(|x| x.0 != v || now.duration_since(x.1) >= TIER_EVERY) {
+            let list: Vec<String> = v.iter().map(|f| f.to_string()).collect();
+            send_all(Packet::new(Kind::Tier).with("f", list.join(",")));
+            g.tier_sent = Some((v, now));
+        }
+    }
     // 发件箱
     let out: Vec<(To, Packet)> = std::mem::take(&mut *OUT.lock().unwrap_or_else(|e| e.into_inner()));
     if let Some(l) = g.link.as_mut() {
@@ -721,6 +755,10 @@ pub fn tick() {
                         log(&format!("联机通道：替客机 {} 改实体 {e} 的动作速度 ×{v}（{}）", short(from), if v == 1.0 { "改回" } else { "减速" }));
                     }
                 }
+            }
+            Kind::Tier if g.link.as_ref().is_some_and(|l| l.from_host(from)) => {
+                let f: Vec<u32> = pk.get("f").unwrap_or("").split(',').filter_map(|x| x.parse().ok()).collect();
+                crate::coop::set_host_tier(f);
             }
             Kind::Slip if crate::coop::host() => {
                 let m = pk.get("m").and_then(|x| x.parse::<f32>().ok()).unwrap_or(1.0);
