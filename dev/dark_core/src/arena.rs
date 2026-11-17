@@ -10,6 +10,8 @@
 //! - 离开：点亮离开标记（竞技场的事件把玩家传回进来的雕像旁）。
 //! - 死了：这次试炼发的道具全部收回（等发货队列发完再扣），提示「斗技场试炼失败」（notes.rs 的 arena fail）；
 //!   复活点由竞技场的事件设到进来的雕像旁（run 标记亮着时玩家死了，2003[23]）。没死就离开了竞技场（别的办法出去）：奖励保留。
+//!   真死了才算（death_tick）：血量 0 停了 DEATH_HOLD 还没被高难度的馈赠复活顶掉，或者血量回来了身上却没有「刚复活」的效果
+//!   （以前血量一到 0 就记死亡，馈赠复活以后这一波永远不结算、离开时还按失败收回；联机分支 276824b 一起改的）。
 //! - 稀有度：rar（这个竞技场所在地区档的权重）× dmult（当前难度档的倍率）；骨灰 ashrar × dmult。DLC 档的传说给传说（幽影之地）。
 //! - 竞技场里的提示（第几波、本波肃清、完成）：编号写进本图的 note0 起 note_n 位（竞技场的事件显示）。
 //! - 试炼中退出游戏：arena_run.txt 记着在哪个竞技场、从哪个雕像进来的；下次进存档人还在那个竞技场里就传回雕像旁（不在就删掉记录）。
@@ -49,6 +51,8 @@ const CLEAR_LEAVE_WAIT: Duration = Duration::from_secs(6);
 const AWAY_HOLD: Duration = Duration::from_secs(3);
 /// 读档后人在竞技场里、记录说试炼没结束：多久以后传回雕像旁
 const STUCK_AFTER: Duration = Duration::from_secs(8);
+/// 血量 0 停了这么久还没被馈赠复活顶掉，算真的死了（复活有时要等 1 秒多：咒痕 2026-11-14 的日志）
+const DEATH_HOLD: Duration = Duration::from_millis(2500);
 const RAR_ZH: [&str; 5] = ["普通", "稀有", "史诗", "传说", "传说（幽影之地）"];
 const CAT_ZH: [&str; 3] = ["武器", "防具", "护符"];
 const RUN_FILE: &str = "arena_run.txt";
@@ -265,8 +269,10 @@ struct Run {
     given: Vec<(u32, u32)>,
     n_items: u32,
     n_ashes: u32,
-    /// 在竞技场里死过（血量到 0）：离开竞技场时按失败处理
+    /// 在竞技场里真的死过（death_tick）：离开竞技场时按失败处理
     died: bool,
+    /// 血量到 0 的时间（还没认定死没死）
+    zero_at: Option<Instant>,
     checked: bool,
     /// 这一次问继续的标记点亮过了（at = 点亮的时间）
     asked: bool,
@@ -525,6 +531,7 @@ fn start_run(d: &Def, st: &mut St, ci: usize, v: u32, code: usize, cost: u32, ho
         n_items: 0,
         n_ashes: 0,
         died: false,
+        zero_at: None,
         checked: false,
         asked: false,
         reasks: 0,
@@ -690,8 +697,33 @@ fn present(wcm: &WorldChrMan, ents: &HashSet<u32>) -> usize {
     n
 }
 
+/// 本机角色在竞技场里真的死了没有（返回 true = 这一下认定死了）：
+/// 血量 0 停了 DEATH_HOLD 还没被馈赠复活顶掉；或者血量回来了身上却没有「刚复活」的效果
+fn death_tick(r: &mut Run, hp: i32, revived: bool, now: Instant) -> bool {
+    if r.died {
+        return false;
+    }
+    if hp <= 0 {
+        let t = *r.zero_at.get_or_insert(now);
+        if now.duration_since(t) >= DEATH_HOLD && !revived {
+            r.died = true;
+            r.zero_at = None;
+            return true;
+        }
+        return false;
+    }
+    let Some(t) = r.zero_at.take() else { return false };
+    if revived {
+        log(&format!("竞技场：血量到 0 后被馈赠复活了（停了 {:.1} 秒），试炼照常", now.duration_since(t).as_secs_f32()));
+        return false;
+    }
+    r.died = true;
+    log(&format!("竞技场：血量到 0 停了 {:.1} 秒后又有了，但不是馈赠复活，当成死亡", now.duration_since(t).as_secs_f32()));
+    true
+}
+
 /// 推进一次试炼；返回 false = 试炼结束（成功、失败、中止）
-fn step(d: &Def, st: &mut St, r: &mut Run, in_arena: bool, hp: i32, wcm: &WorldChrMan, now: Instant) -> bool {
+fn step(d: &Def, st: &mut St, r: &mut Run, in_arena: bool, hp: i32, revived: bool, wcm: &WorldChrMan, now: Instant) -> bool {
     let c = &d.colos[r.ci];
     let f = c.flag;
     if r.phase == Phase::Going {
@@ -715,6 +747,10 @@ fn step(d: &Def, st: &mut St, r: &mut Run, in_arena: bool, hp: i32, wcm: &WorldC
             finish(st, r, "已传回雕像旁");
             return false;
         }
+        // 血量 0 还没认定就复活在外面了
+        if r.zero_at.take().is_some() {
+            r.died = true;
+        }
         let t = *st.away.get_or_insert(now);
         if now - t >= AWAY_HOLD {
             st.away = None;
@@ -728,8 +764,7 @@ fn step(d: &Def, st: &mut St, r: &mut Run, in_arena: bool, hp: i32, wcm: &WorldC
         return true;
     }
     st.away = None;
-    if hp <= 0 && !r.died {
-        r.died = true;
+    if death_tick(r, hp, revived, now) {
         log(&format!("竞技场：玩家死亡（第 {} / {} 波）", r.wave + 1, r.waves));
     }
     // 试炼进行中的标记：结算前一直亮着（竞技场的事件这时看到玩家死了就把复活点设到雕像旁）；结算后熄灭
@@ -967,6 +1002,8 @@ pub fn tick() {
     let b = p.current_block_id;
     let blk = [b.area(), b.block(), b.region(), b.index()];
     let hp = p.chr_ins.modules.data.hp;
+    let just = crate::curses::revive_just();
+    let revived = just > 0 && p.chr_ins.special_effect.entries().any(|x| x.param_id == just);
     let in_ci = (blk[0] == 45).then(|| d.colos.iter().position(|c| c.x == blk[1] as u32)).flatten();
     notes_tick(d, st, in_ci);
     takeback_tick(st);
@@ -977,7 +1014,7 @@ pub fn tick() {
     match st.run.take() {
         Some(mut r) => {
             let in_arena = in_ci == Some(r.ci);
-            if step(d, st, &mut r, in_arena, hp, wcm, now) {
+            if step(d, st, &mut r, in_arena, hp, revived, wcm, now) {
                 st.run = Some(r);
             }
         }
@@ -1119,5 +1156,26 @@ part\t1\t11\ts\t45013011\t99300111\t6\tc4191_9003\npart\t1\t12\ts\t45013012\t993
         assert_eq!(wave_items(&d, c, &lu, 1), (3, 1));
         assert_eq!(wave_items(&d, c, &lu, 2), (2, 4));
         assert_eq!(wave_items(&d, c, &lu, 3), (3, 2));
+    }
+
+    /// 真死判定：血量 0 停够了才算；馈赠复活顶掉的不算；血量回来了却没有复活效果算
+    #[test]
+    fn death_needs_hold_or_no_revive() {
+        let d = parse(SAMPLE).unwrap();
+        let t0 = Instant::now();
+        let mut r = Run { ci: 0, v: 0, waves: 2, cost: 0, bonus: 0, refund: 0, lineup: vec![vec![2], vec![0]], wave: 0, phase: Phase::Fight, at: t0,
+                          diff: 2, given: Vec::new(), n_items: 0, n_ashes: 0, died: false, zero_at: None, checked: false, asked: false, reasks: 0,
+                          boosts: Vec::new(), left: false };
+        assert!(d.runs.len() > 0);
+        assert!(!death_tick(&mut r, 0, false, t0));
+        assert!(!death_tick(&mut r, 0, false, t0 + Duration::from_millis(1200)), "1.2 秒还不算");
+        assert!(!death_tick(&mut r, 500, true, t0 + Duration::from_millis(1300)), "馈赠复活了");
+        assert!(!r.died && r.zero_at.is_none());
+        assert!(!death_tick(&mut r, 0, false, t0 + Duration::from_secs(5)));
+        assert!(death_tick(&mut r, 0, false, t0 + Duration::from_secs(8)), "停了 3 秒");
+        assert!(r.died && !death_tick(&mut r, 0, false, t0 + Duration::from_secs(9)), "只认一次");
+        r.died = false;
+        assert!(!death_tick(&mut r, 0, false, t0));
+        assert!(death_tick(&mut r, 800, false, t0 + Duration::from_millis(500)), "血量回来了但没有复活效果");
     }
 }

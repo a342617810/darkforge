@@ -222,6 +222,11 @@ fn def() -> Option<&'static Def> {
     .as_ref()
 }
 
+/// 馈赠复活「刚复活」的效果编号（没有馈赠 = 0）：斗技场试炼看它分辨血量 0 是真死了还是被复活顶掉了（arena.rs）
+pub fn revive_just() -> i32 {
+    def().filter(|d| d.revive.0 > 0).map_or(0, |d| d.revive.1)
+}
+
 pub fn describe() -> String {
     match def() {
         Some(d) => format!("咒痕（{} 档，{} 场 Boss 掉碎片，{} 个事件标记）", d.tiers.len(), d.bosses.len(), d.marks.len()),
