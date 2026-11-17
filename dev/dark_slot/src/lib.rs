@@ -8,6 +8,8 @@
 //!   - 181 处定时检查（mov ecx,编号；call 取随机间隔；…；jb 跳过这次检查）的 jb 改成 jmp，检查就不跑了
 //!     （检查函数在 exe 的第二个加密 .text 里，照抄原 mod）。
 //! hook 点、函数表、181 处跳转按特征码现找；数据位置按版本写死，版本由 hook 点的 RVA 认。
+//! 槽位可用函数的开头被别的 mod 先 hook 了（联机启动时 Seamless Co-op 的 ersc.dll 有时比我们早，特征码就没了；2026-11-17 玩家诊断包）：
+//! 函数表本身在 .data 里没动，按版本写死的位置找表，第 23 / 24 项照样核对；日志写这个函数开头换成了什么、跳到哪个模块。
 //! 加载 5 秒后（同原 mod）全部核对，有一项对不上就一项都不改，只写 dark_slot.log。
 //! 认 eldenring.exe 2.7.1.0 / 2.7.2.0：dev\vendor\port_tools\verify_slot.py 照这里的逻辑在两个 exe 上离线核对过。
 
@@ -19,7 +21,10 @@ use std::time::Duration;
 
 use windows::Win32::Foundation::HMODULE;
 use windows::Win32::System::Diagnostics::Debug::FlushInstructionCache;
-use windows::Win32::System::LibraryLoader::{GetModuleFileNameW, GetModuleHandleW};
+use windows::Win32::System::LibraryLoader::{
+    GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS, GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, GetModuleFileNameW, GetModuleHandleExW, GetModuleHandleW,
+};
+use windows::core::PCWSTR;
 use windows::Win32::System::Memory::{
     MEM_COMMIT, MEM_RESERVE, PAGE_EXECUTE_READWRITE, PAGE_PROTECTION_FLAGS, VirtualAlloc, VirtualProtect,
 };
@@ -144,6 +149,52 @@ fn branches(t: &[u8]) -> Vec<usize> {
     out
 }
 
+/// 地址在哪个模块里（「ersc.dll+0x1234」）；不在模块里的（hook 库分配的跳板）照 jmp 再跟一两跳
+fn module_of(mut a: usize) -> String {
+    for _ in 0..3 {
+        let mut h = HMODULE::default();
+        let flags = GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT;
+        if unsafe { GetModuleHandleExW(flags, PCWSTR(a as *const u16), &mut h) }.is_ok() {
+            let mut buf = [0u16; 260];
+            let n = unsafe { GetModuleFileNameW(Some(h), &mut buf) } as usize;
+            let path = String::from_utf16_lossy(&buf[..n]);
+            let name = path.rsplit(['\\', '/']).next().unwrap_or(&path).to_string();
+            return format!("{name}+{:#x}", a - h.0 as usize);
+        }
+        match jmp_target(a) {
+            Some(to) => a = to,
+            None => break,
+        }
+    }
+    format!("{a:#x}（不在任何模块里）")
+}
+
+/// 这里是一条跳转（jmp rel32 / jmp [rip+0] 绝对地址 / mov rax,地址；jmp rax）就给跳到的地址
+fn jmp_target(at: usize) -> Option<usize> {
+    let h = unsafe { bytes(at, 12) };
+    match h {
+        [0xE9, ..] => Some(rel32(at + 1, at + 5)),
+        [0xFF, 0x25, 0, 0, 0, 0, ..] => Some(unsafe { ((at + 6) as *const usize).read_unaligned() }),
+        [0x48, 0xB8, _, _, _, _, _, _, _, _, 0xFF, 0xE0] => Some(unsafe { ((at + 2) as *const usize).read_unaligned() }),
+        _ => None,
+    }
+}
+
+/// 槽位可用函数的特征码没找到时：按「lea rcx,[函数表]；jmp [rcx+rax*8]」认出这个函数（lea 的 REX 前缀可能被 5 字节的 jmp 盖掉了，
+/// 从 8D 0D 开始认），写它开头现在是什么、跳到哪
+fn dispatch_note(t: &[u8], base: usize, table: usize) -> String {
+    let tva = t.as_ptr() as usize;
+    let hit = (5..t.len().saturating_sub(10))
+        .find(|&i| t[i] == 0x8D && t[i + 1] == 0x0D && t[i + 6..i + 10] == [0x48, 0xFF, 0x24, 0xC1] && rel32(tva + i + 2, tva + i + 6) == table);
+    let Some(i) = hit else {
+        return "函数里认表的那条指令也被盖掉了".into();
+    };
+    let f = tva + i - 5;
+    let head = unsafe { bytes(f, 6) };
+    let to = jmp_target(f).map(module_of);
+    format!("函数 exe+{:#x} 开头现在是 {head:02x?}{}", f - base, to.map_or(String::new(), |m| format!("，跳到 {m}")))
+}
+
 fn rel32(at: usize, end: usize) -> usize {
     (end as isize + unsafe { (at as *const i32).read_unaligned() } as isize) as usize
 }
@@ -208,12 +259,23 @@ fn install_at(base: usize) -> Result<String, String> {
     if head != HOOK_HEAD {
         return Err(format!("装备筛选函数开头对不上（{head:02x?}），可能已经装了别的第五护符槽 mod（比如 Golden Age 的 eldenring_covenant_slot）"));
     }
-    let d = tva + find_unique(t, &DISPATCH).map_err(|e| format!("槽位可用函数表特征码{e}"))?;
-    let table = rel32(d + 7, d + 11);
-    let entry = table + SLOT * 8;
-    if entry != base + v.entry {
-        return Err(format!("槽位可用函数表位置对不上（exe+{:#x}）", entry - base));
-    }
+    let mut via = String::new();
+    let entry = match find_unique(t, &DISPATCH) {
+        Ok(o) => {
+            let d = tva + o;
+            let entry = rel32(d + 7, d + 11) + SLOT * 8;
+            if entry != base + v.entry {
+                return Err(format!("槽位可用函数表位置对不上（exe+{:#x}）", entry - base));
+            }
+            entry
+        }
+        // 别的 mod 先 hook 了这个函数的开头（联机启动时的 Seamless Co-op）：表在 .data 里没动，按版本的位置找，下面照样核对第 23 / 24 项
+        Err(e) => {
+            let entry = base + v.entry;
+            via = format!("；槽位可用函数的特征码{e}（{}），按版本的位置找的函数表", dispatch_note(t, base, entry - SLOT * 8));
+            entry
+        }
+    };
     let on = unsafe { *((entry - 8) as *const usize) };
     let cur = unsafe { *(entry as *const usize) };
     if unsafe { bytes(on, 3) } != RET_TRUE {
@@ -268,7 +330,7 @@ fn install_at(base: usize) -> Result<String, String> {
     if todo.len() < BRANCHES {
         already.push("部分定时检查");
     }
-    let note = if already.is_empty() { String::new() } else { format!("；原来就改过的：{}", already.join("、")) };
+    let note = if already.is_empty() { String::new() } else { format!("；原来就改过的：{}", already.join("、")) } + &via;
     Ok(format!(
         "eldenring.exe {}：第五个护符槽已打开（装备筛选 exe+{:#x}，槽位可用 exe+{:#x}，数据 exe+{:#x}，定时检查改了 {}/{BRANCHES} 处{note}）",
         v.name,
@@ -375,6 +437,35 @@ mod tests {
             let again = install_at(base).unwrap_err();
             println!("  再装一次：{again}");
             assert!(again.contains("开头对不上"));
+            unsafe { VirtualFree(base as *mut _, 0, MEM_RELEASE).unwrap() };
+
+            // 槽位可用函数开头被别的 mod 用 5 字节 jmp hook 了（联机启动时的 Seamless Co-op）：按版本的位置找表，照样改好
+            let base = unsafe { map(path) };
+            let t = unsafe { text(base) }.unwrap();
+            let f = t.as_ptr() as usize + find_unique(t, &DISPATCH).unwrap();
+            let to = f + 0x100;
+            let mut jmp = [0xE9u8, 0, 0, 0, 0];
+            jmp[1..].copy_from_slice(&((to as isize - (f + 5) as isize) as i32).to_le_bytes());
+            unsafe { write_code(f, &jmp).unwrap() };
+            let msg = install_at(base).unwrap_or_else(|e| panic!("{path}（开头被 hook）：{e}"));
+            println!("  开头被 hook：{msg}");
+            assert!(msg.contains("按版本的位置找的函数表") && msg.contains("[e9,"), "{msg}");
+            let e = base + v.entry;
+            unsafe {
+                assert_eq!(*(e as *const usize), *((e - 8) as *const usize));
+                assert_eq!(bytes(f, 5), jmp, "别人的 hook 不动");
+            }
+            // 认表的指令也被盖掉（14 字节的 jmp）：还是按版本找
+            unsafe { VirtualFree(base as *mut _, 0, MEM_RELEASE).unwrap() };
+            let base = unsafe { map(path) };
+            let t = unsafe { text(base) }.unwrap();
+            let f = t.as_ptr() as usize + find_unique(t, &DISPATCH).unwrap();
+            let mut far = [0xFFu8, 0x25, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+            far[6..].copy_from_slice(&(f + 0x100).to_le_bytes());
+            unsafe { write_code(f, &far).unwrap() };
+            let msg = install_at(base).unwrap_or_else(|e| panic!("{path}（14 字节 hook）：{e}"));
+            println!("  14 字节 hook：{msg}");
+            assert!(msg.contains("认表的那条指令也被盖掉了"), "{msg}");
             unsafe { VirtualFree(base as *mut _, 0, MEM_RELEASE).unwrap() };
         }
     }
