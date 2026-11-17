@@ -147,7 +147,7 @@ fn session() -> Option<(u32, usize, bool)> {
     Some((raw, sm.players.len(), host))
 }
 
-fn describe_chr(c: &ChrIns) -> String {
+pub(crate) fn describe_chr(c: &ChrIns) -> String {
     format!(
         "NPC {}（实体 {}，阵营 {}，网络权 {}，按距离同步 {}，联机人数修正 {}）",
         c.npc_param_id,

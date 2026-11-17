@@ -14,7 +14,9 @@
 //!   现查一行，上限（+0x2C）= 基础 × 第 n 次的 add_rate + 第 n 次的 add_point。这张表只有这一处读、每次发作现读，改了下一次发作就生效，
 //!   不用 hook，也不用逐个敌人改。次数照常累积：戴上前涨过的，下一次发作回到基础值；摘下后下一次发作按累积的次数涨。
 //!   玩家没有敌人参数，不走这段；友方 NPC、骨灰也用这张表，一起不涨（它们很少中异常，不单独区分）。
-//! - 只在重随启动时工作（游戏里的参数没有这组效果就不挂）。联机先不管。
+//! - 只在重随启动时工作（游戏里的参数没有这组效果就不挂）。
+//! - 看不见的辅助角色（模型 c1000，地图事件、Boss 放招用的，原版七种全免疫）不管（2026-11-17 日志里它们也被摘了免疫）。
+//! - 挂上的抗性倍率没多久又没了的（2026-11-17 联机重进会话后一分钟重挂了近 10 万次）：等 RETRY 再挂，前 LOST_LOG 次逐个记是谁。
 
 use std::collections::HashMap;
 use std::fs;
@@ -37,6 +39,14 @@ const LOG_EACH: u32 = 30;
 /// 各异常的名字（plague.txt status 行的顺序，同 rr/plague.py 的 STATUS）
 const ZH: [&str; 7] = ["中毒", "腐败", "出血", "冻伤", "睡眠", "发狂", "咒死"];
 const RAR_ZH: [&str; 4] = ["普通", "稀有", "史诗", "传说"];
+/// 不管的模型：c1000（看不见的辅助角色）
+const SKIP_MODELS: [u32; 1] = [1000];
+/// 挂上的抗性倍率又没了：从发现没了起等这么久再挂；挂上超过这么久才没的（读图、换阶段）当场再挂
+const RETRY: Duration = Duration::from_secs(5);
+/// 挂上不到 RETRY 就没了的，前这么多次逐个写日志
+const LOST_LOG: u32 = 20;
+/// 记挂过的角色超过这么多条就清掉重记（角色换了一批，旧地址的记录没用了）
+const PUT_MAX: usize = 60_000;
 
 #[derive(Debug, Default, PartialEq)]
 struct Def {
@@ -163,6 +173,12 @@ struct St {
     told_at: Instant,
     /// 抗性上涨表改之前的原值（行编号 → 值；空 = 没改）
     growth: HashMap<u32, [f32; 10]>,
+    /// 挂过抗性倍率的：(角色地址, 第几种) → (什么时候挂的, 什么时候发现没了)
+    put: HashMap<(usize, u8), (Instant, Option<Instant>)>,
+    /// 挂上不到 RETRY 就没了的次数、等着没挂的轮数、写过几行
+    lost: u64,
+    waited: u64,
+    lost_logged: u32,
 }
 
 static ST: Mutex<Option<St>> = Mutex::new(None);
@@ -228,9 +244,12 @@ fn each(wcm: &WorldChrMan, mut f: impl FnMut(&mut ChrIns)) {
     wcm.open_field_chr_set.base.characters().for_each(&mut f);
 }
 
-fn strip(wcm: &WorldChrMan, d: &Def, tier: usize, my_team: u8, st: &mut St) {
+fn strip(wcm: &WorldChrMan, d: &Def, tier: usize, my_team: u8, st: &mut St, now: Instant) {
+    if st.put.len() > PUT_MAX {
+        st.put.clear();
+    }
     each(wcm, |c| {
-        if FRIENDLY_TEAMS.contains(&c.team_type) || c.team_type == my_team || c.modules.data.hp <= 0 {
+        if FRIENDLY_TEAMS.contains(&c.team_type) || c.team_type == my_team || c.modules.data.hp <= 0 || SKIP_MODELS.contains(&c.character_id) {
             return;
         }
         let none = vec![0; d.n()];
@@ -247,10 +266,39 @@ fn strip(wcm: &WorldChrMan, d: &Def, tier: usize, my_team: u8, st: &mut St) {
                 c.remove_speffect(d.imm[j]);
                 st.stripped += 1;
             }
-            let fresh = !sps.iter().any(|&sp| d.ours(j, sp));
+            let mut fresh = !sps.iter().any(|&sp| d.ours(j, sp));
+            let key = (c as *const ChrIns as usize, j as u8);
+            if fresh {
+                // 挂过又没了：挂了超过 RETRY 才没的（读图、换阶段）当场再挂；没多久就没了的等 RETRY 再挂，前几次记是谁
+                if let Some((put, gone)) = st.put.get_mut(&key) {
+                    let since = *gone.get_or_insert_with(|| {
+                        let held = now.duration_since(*put);
+                        if held < RETRY {
+                            st.lost += 1;
+                            if st.lost_logged < LOST_LOG {
+                                st.lost_logged += 1;
+                                log(&format!("疫病护符：{}（模型 c{:04}，血 {} / {}）{}的抗性倍率挂上 {:.1} 秒就没了，{} 秒后再挂{}",
+                                             crate::coop::describe_chr(c), c.character_id, c.modules.data.hp, c.modules.data.max_hp, zh(j),
+                                             held.as_secs_f32(), RETRY.as_secs(), if st.lost_logged == LOST_LOG { "；之后只记累计" } else { "" }));
+                            }
+                            now
+                        } else {
+                            now - RETRY
+                        }
+                    });
+                    if now.duration_since(since) < RETRY {
+                        st.waited += 1;
+                        fresh = false;
+                    }
+                }
+            } else if let Some((_, gone)) = st.put.get_mut(&key) {
+                // 等着的时候自己又回来了（多半是效果列表那一下没读全）：照挂着算
+                *gone = None;
+            }
             if fresh {
                 c.apply_speffect(d.base[j] + row - 1, false);
                 st.cut += 1;
+                st.put.insert(key, (now, None));
             }
             if (imm || fresh) && st.logged < LOG_EACH {
                 st.logged += 1;
@@ -301,6 +349,10 @@ pub fn tick() {
         told: 0,
         told_at: now,
         growth: HashMap::new(),
+        put: HashMap::new(),
+        lost: 0,
+        waited: 0,
+        lost_logged: 0,
     });
     if now < st.next {
         return;
@@ -317,6 +369,7 @@ pub fn tick() {
                 return;
             }
             if st.on != Some(tier) {
+                st.put.clear();
                 if st.on.is_some() {
                     let (n, back) = restore(wcm, d);
                     log(&format!("疫病护符：换成{}的，先恢复 {n} 个在场的敌人（挂回免疫效果 {back} 个）", RAR_ZH.get(tier).unwrap_or(&"?")));
@@ -327,11 +380,11 @@ pub fn tick() {
                              d.raise.get(tier).copied().unwrap_or(0)));
             }
             freeze_growth(st);
-            strip(wcm, d, tier, p.chr_ins.team_type, st);
+            strip(wcm, d, tier, p.chr_ins.team_type, st, now);
             if st.stripped + st.cut != st.told && now - st.told_at >= Duration::from_secs(60) {
                 st.told = st.stripped + st.cut;
                 st.told_at = now;
-                log(&format!("疫病护符：累计摘免疫 {} 次、挂抗性倍率 {} 次", st.stripped, st.cut));
+                log(&format!("疫病护符：累计摘免疫 {} 次、挂抗性倍率 {} 次（挂上没多久又没了 {} 次，等着再挂 {} 轮）", st.stripped, st.cut, st.lost, st.waited));
             }
         }
         None if st.on.is_some() => {
@@ -339,6 +392,7 @@ pub fn tick() {
             if now - t >= OFF_GRACE {
                 st.on = None;
                 st.off_since = None;
+                st.put.clear();
                 let (n, back) = restore(wcm, d);
                 log(&format!("疫病护符：摘下了，{n} 个在场的敌人恢复（挂回免疫效果 {back} 个）"));
                 thaw_growth(st);
