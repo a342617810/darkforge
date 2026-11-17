@@ -395,6 +395,7 @@ $SaveRootDir = Join-Path $env:APPDATA 'EldenRing'
 . (Join-Path $LauncherDir 'backup.ps1')
 . (Join-Path $LauncherDir 'randomize.ps1')
 . (Join-Path $LauncherDir 'ui.ps1')         # 弹窗 Show-DrDialog（和图形界面同样的风格；要弹的时候才加载界面控件）
+. (Join-Path $LauncherDir 'coopcode.ps1')   # 联机码压缩（DR3 ↔ DR4z，和图形界面共用）
 . (Join-Path $LauncherDir 'usermods.ps1')   # 玩家自己加的：整合包根目录 mods\ 文件夹、YAFSML自定义.ini（用户 2026-11-16）
 
 # 一键重随敌人（randomize.ps1）：用上次 / 默认的随机器设置、换新种子随机化一次，不启动游戏
@@ -1393,7 +1394,8 @@ function Initialize-CoopPassword($Ersc) {
 
 # 联机码里的密码换成「去掉了」（日志、诊断包用）
 function Hide-CoopSecret([string]$Text) {
-    return [regex]::Replace($Text, '(DR3\|[^\r\n]*?\|pw=)[A-Za-z0-9+/=]*', '${1}（去掉了）')
+    $t = [regex]::Replace($Text, '(DR3\|[^\r\n]*?\|pw=)[A-Za-z0-9+/=]*', '${1}（去掉了）')
+    return [regex]::Replace($t, 'DR4z[A-Za-z0-9_\-]{8,}', 'DR4z（去掉了）')      # 压缩过的（coopcode.ps1）解开就是带密码的原文
 }
 
 # 诊断包：文字文件里的联机码去掉密码
@@ -1501,7 +1503,8 @@ function Set-ErscFromCode($Ersc, $C) {
 # 复制联机码到剪贴板，告诉房主发给队友（日志里只打去掉密码的；复制失败才把完整的打出来让玩家手动复制）
 function Copy-CoopCode($C) {
     $ok = $true
-    try { Set-Clipboard -Value $C.Code } catch { $ok = $false }
+    $short = Compress-CoopCode $C.Code      # 无损压缩成 DR4z 开头的一串（coopcode.ps1）
+    try { Set-Clipboard -Value $short } catch { $ok = $false }
     $about = '（' + $(if ($C.Info) { '敌人随机，做于 ' + $C.Info.Time.ToString('yyyy-MM-dd HH:mm') } else { '无敌人随机' }) + '；世界：' +
              $(if ($C.World -eq 'high') { '死亡以上' } else { '普通' }) + '）'
     if ($ok) {
@@ -1509,7 +1512,7 @@ function Copy-CoopCode($C) {
         Write-Host ('  ' + (Hide-CoopSecret $C.Code))
     } else {
         Write-Player ('复制到剪贴板失败，手动复制下面这一行发给队友' + $about + '（里面有联机密码，只发给队友）：')
-        Write-Player $C.Code
+        Write-Player $short
     }
 }
 
@@ -1568,9 +1571,14 @@ function Invoke-CoopJoin([string]$Text) {
     $code = ''; $from = ''
     foreach ($c in $cands) {
         $t = ([string]$c[1] -replace '\s+', ' ').Trim()
-        if ($t -match '^DR[123]\|') { $code = $t; $from = $c[0]; break }
+        if ($t -match '^DR(?:[123]\||4)') { $code = $t; $from = $c[0]; break }
     }
-    if (-not $code) { Write-Err '没找到联机码：先复制房主发来的那一行（DR3| 开头），再点「加入」。'; return $false }
+    if (-not $code) { Write-Err '没找到联机码：先复制房主发来的那一串（DR4 开头），再点「加入」。'; return $false }
+    if ($code.StartsWith('DR4')) {
+        $plain = Expand-CoopCode $code
+        if (-not $plain) { Write-Err ($from + '联机码解不开（多半没复制完整）：让房主重新点「复制联机码」发一次。'); return $false }
+        $code = $plain
+    }
     if (-not $code.StartsWith('DR3|')) {
         # 旧版的码（DR2 / DR1）：不带联机密码和启动方式，按敌人随机
         Write-Warn '这是旧版的联机随机码（不带联机密码）：两人的联机密码要自己填一样的（「工具与设置」→「联机设置」）。'

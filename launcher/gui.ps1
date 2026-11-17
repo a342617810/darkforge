@@ -418,6 +418,7 @@ function Confirm-Box([string]$Text, [string]$Title) {
 $VersionFile = Join-Path $LauncherDir 'version.txt'
 . (Join-Path $LauncherDir 'backup.ps1')      # 启动前备份 / 恢复（和启动器共用）
 . (Join-Path $LauncherDir 'randomize.ps1')   # 一键重随敌人：用哪份设置（和启动器共用）
+. (Join-Path $LauncherDir 'coopcode.ps1')    # 联机码压缩（DR3 ↔ DR4z，和启动器共用）
 . (Join-Path $LauncherDir 'usermods.ps1')    # 网页界面「模组」：mods 文件夹、YAFSML自定义.ini（和启动器共用）
 $LastVerFile = $RngVersionFile
 $OldVerFile = Join-Path $RngSaveRoot 'DarkReforged_version.txt'   # 2026-10-29 以前的位置（游戏开着时还没搬过来）
@@ -1319,17 +1320,20 @@ function Show-CoopMenu {
             # 联机码：剪贴板 → 联机时联机通道存下的房主的码、上次加入用的码（新的先；launcher.ps1 的 Invoke-CoopJoin 同样的顺序）
             $code = try { [string][System.Windows.Forms.Clipboard]::GetText() } catch { '' }
             $code = ($code -replace '\s+', ' ').Trim()
-            if ($code -notmatch '^DR[123]\|') {
+            if ($code -notmatch '^DR(?:[123]\||4)') {
                 $code = ''
                 $files = @((Join-Path $Paly 'dll\dark_core\coop_host_code.txt'), (Join-Path $LauncherDir 'reroll\state\coop_join_code.txt') |
                            Where-Object { Test-Path -LiteralPath $_ } | Sort-Object { (Get-Item -LiteralPath $_).LastWriteTime } -Descending)
                 foreach ($f in $files) {
                     $t = (([System.IO.File]::ReadAllText($f)) -replace '\s+', ' ').Trim()
-                    if ($t -match '^DR[123]\|') { $code = $t; break }
+                    if ($t -match '^DR(?:[123]\||4)') { $code = $t; break }
                 }
             }
-            if (-not $code) { Show-Info '剪贴板里没有联机码。先复制房主发来的那一行（DR3| 开头），再点「加入」。'; return }
-            $rand = $code -notmatch '^DR3\|' -or $code -match '\|m=rand(\||$)'
+            if (-not $code) { Show-Info '剪贴板里没有联机码。先复制房主发来的那一串（DR4 开头），再点「加入」。'; return }
+            # 压缩过的（DR4z，coopcode.ps1）先解开，看是敌人随机还是无敌人随机
+            $plain = Expand-CoopCode $code
+            if (-not $plain) { Show-Info '这个联机码解不开（多半没复制完整）。让房主重新点「复制联机码」发一次。'; return }
+            $rand = $plain -notmatch '^DR3\|' -or $plain -match '\|m=rand(\||$)'
             if ($rand) {
                 if (-not (Confirm-Randomizer)) { return }
                 if (Get-Process -Name 'EldenRingRandomizer' -ErrorAction SilentlyContinue) { Show-Info '随机器已经开着，先把它关掉。'; return }
