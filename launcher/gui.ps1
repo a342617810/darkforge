@@ -702,7 +702,7 @@ function Before-Launch {
 # settings.json 的 boss_mods 是 auto、开着模组时，单机启动前看存档里有没有死亡以上难度的角色：dark_core 进存档后按格子记在
 # 角色记录\boss_slots.txt（还没有这个文件时用旧的 boss_mode.txt 记的最后那个），和存档 ER0000.rng 里现在的角色名对得上才算
 # （格子对不上、名字在别的格子也算：格子编号万一和存档的不一样，宁可多问一次）。有就问这次以哪种难度的世界启动，
-# 用 -BossWorld high|low 交给 launcher.ps1，选了死亡以上再提醒进游戏后读那个角色；没有就 low。联机不问（启动器按上次玩的角色）。
+# 用 -BossWorld high|low 交给 launcher.ps1，选了死亡以上再提醒进游戏后读那个角色；没有就 low。联机开房另外问（Ask-CoopWorld），加入照联机码。
 # 进游戏后读的角色和选的难度对不上时，dark_core 在角色周围围屏障、禁止传送、提示重启（barrier.rs）。
 function Test-BossAuto {
     try { $bm = ([System.IO.File]::ReadAllText($Settings) | ConvertFrom-Json).boss_mods } catch { return $false }
@@ -777,6 +777,25 @@ function Ask-BossWorld {
 }
 
 function Get-BossArg($Bw) { if ($Bw) { return ' -BossWorld ' + $Bw } else { return '' } }
+
+# 联机开房选世界（用户 2026-11-17「为什么开始联机没有难度选项」→「需要加难度选项」）：Boss 改版开着时问这次联机用哪种难度的世界，
+# 写进联机码（w=），队友点「加入」时照它；默认选房主上次玩的联机角色的难度。返回 '' = 功能没开（不传）、'high' / 'low'、$null = 取消
+function Ask-CoopWorld {
+    if (-not (Test-BossAuto)) { return '' }
+    $high = $false
+    try {
+        $rec = Join-Path (Join-Path $RngRecordDir '联机') 'boss_mode.txt'
+        if (Test-Path -LiteralPath $rec) { $high = @([System.IO.File]::ReadAllLines($rec, [Text.Encoding]::UTF8) | Where-Object { $_ -match '^high\t1' }).Count -gt 0 }
+    } catch { }
+    $msg = "这次联机用哪种难度的世界？`r`n`r`n" +
+           "· 死亡以上难度：加载 Boss 改版。进游戏后房主请读取死亡以上难度的联机角色。`r`n" +
+           "· 普通难度：原版 Boss。`r`n`r`n" +
+           "选的世界写进联机码，队友点「加入」时自动用同一个。"
+    $r = Show-DrDialog $msg '暗黑重铸 · 联机难度' @('死亡以上难度', '普通难度', '取消') $(if ($high) { 0 } else { 1 }) 2 'question' $form
+    if ($r -eq 0) { return 'high' }
+    if ($r -eq 1) { return 'low' }
+    return $null
+}
 
 # 敌人随机时选了死亡以上难度、这次用的随机结果却没有配套的世界（randomizer_hi，randomize.ps1 的 Get-RandHiWorld）：问玩家怎么办。
 # 原来启动器只在日志里提示一行、游戏照常启动，Boss 不在原位、场地也没移植，玩家以为改版没加载（2026-11-08 测试者诊断包）。
@@ -1284,12 +1303,16 @@ function Show-CoopMenu {
             $latest = Get-LatestRandom
             if (-not $latest -or $latest.Merged) { Show-Info '还没有能用的敌人随机结果：先「一键重随敌人」，或者点「开房 · 无敌人随机」。'; return }
             if (-not (Before-Launch)) { return }
-            Start-LauncherRun '联机开房 · 敌人随机' @('-Action coophost')
+            $bw = Ask-CoopWorld
+            if ($null -eq $bw) { return }
+            Start-LauncherRun '联机开房 · 敌人随机' @('-Action coophost' + (Get-BossArg $bw))
         }
         1 {
             if (-not $ersc) { Show-Info $need; return }
             if (-not (Before-Launch)) { return }
-            Start-LauncherRun '联机开房 · 无敌人随机' @('-Action coophostvanilla')
+            $bw = Ask-CoopWorld
+            if ($null -eq $bw) { return }
+            Start-LauncherRun '联机开房 · 无敌人随机' @('-Action coophostvanilla' + (Get-BossArg $bw))
         }
         2 {
             if (-not $ersc) { Show-Info $need; return }

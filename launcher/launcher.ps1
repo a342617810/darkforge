@@ -5,7 +5,8 @@
 #   ... -Action rand -DryRun / -NoLaunch         敌人随机
 #   ... -Action coop / coopvanilla               联机启动（Seamless Co-op；敌人随机 / 无敌人随机，dev\coop\联机计划.md）
 #   ... -Action coopcode / coopimport [-Code ..] 复制联机码 / 按联机随机码重随敌人（不给 -Code 读剪贴板）
-#   ... -Action coophost / coophostvanilla         联机开房：没密码就生成、联机码复制到剪贴板、联机启动（敌人随机 / 无敌人随机）
+#   ... -Action coophost / coophostvanilla [-BossWorld high|low]   联机开房：没密码就生成、联机码复制到剪贴板、联机启动（敌人随机 / 无敌人随机；
+#                                                  -BossWorld = 这次联机的世界，写进联机码，不给按上次玩的联机角色）
 #   ... -Action coopjoin [-Code ..]               加入队友：照联机码改好密码、Seamless 设置、敌人设置和世界，要重随才重随，然后联机启动
 #   ... -Action update -UpdateZip "a.zip|b.zip"   导入离线更新包（launcher\update.py；几个包用 | 隔开，自动按版本排序）
 #   ... -Action checkupdate / autoupdate          在线检查更新 / 下载并应用更新包（地址在 launcher\update_source.json；结果 logs\update_check.json）
@@ -1533,8 +1534,12 @@ function Invoke-CoopHost([bool]$Rand) {
     $ersc = Find-Ersc
     if (-not $ersc) { Write-Err ('没找到 Seamless Co-op。把它压缩包里的 SeamlessCoop 文件夹整个放进 ' + $UserDllDir + '（变成 dll\SeamlessCoop\ersc.dll；整合包不带 Seamless Co-op，要自己下载）。'); return $false }
     if ($Rand) { $rs = Get-RandomizerStatus; if (-not $rs.Ok) { Write-Err $rs.Msg; return $false } }
-    # 房主的世界按自己上次玩的联机角色定：以前当队友加入时照别人的码记下的世界不要了
-    if (Test-Path -LiteralPath $CoopWorldFile) {
+    # 世界：开房时选了（图形界面问的，-BossWorld high|low）就记下来，联机启动、联机码、标题封面都按它；
+    # 没选（Boss 改版没开）就按自己上次玩的联机角色，以前当队友加入时照别人的码记下的去掉
+    if ($BossWorld -in @('high', 'low')) {
+        if (-not $DryRun) { [System.IO.File]::WriteAllText($CoopWorldFile, ($BossWorld + "`n"), (New-Object System.Text.UTF8Encoding($false))) }
+        Write-Player ('联机世界：' + $(if ($BossWorld -eq 'high') { '死亡以上（改版 Boss）' } else { '普通' }) + '（开房时选的，队友加入时照联机码用同一个）')
+    } elseif (Test-Path -LiteralPath $CoopWorldFile) {
         if (-not $DryRun) { Remove-Item -LiteralPath $CoopWorldFile -Force -ErrorAction SilentlyContinue }
         Write-Host '  以前加入队友时记下的联机世界去掉了：开房按自己上次玩的联机角色定'
     }
@@ -1625,11 +1630,11 @@ function Get-BossMods([bool]$Coop = $false) {
     if ($r.Mode -eq 'on') { $r.Keys = $want; $r.Why = '设置成一直加载'; return $r }
     if (-not $Coop -and $BossWorld -eq 'high') { $r.Keys = $want; $r.Why = '启动时选了死亡以上难度'; return $r }
     if (-not $Coop -and $BossWorld -eq 'low') { $r.Why = '启动时选了普通难度'; return $r }
-    # 联机：导入过房主的联机随机码（DR2）就按里面的世界（联机计划 13.3 C9）
+    # 联机：开房时选的世界，或者加入时照房主的联机码记下的（联机计划 13.3 C9、13.8）
     if ($Coop -and (Test-Path -LiteralPath $CoopWorldFile)) {
         $w = ([System.IO.File]::ReadAllText($CoopWorldFile)).Trim()
-        if ($w -eq 'high') { $r.Keys = $want; $r.Why = '和房主一样（导入的联机随机码）：死亡以上'; return $r }
-        if ($w -eq 'low') { $r.Why = '和房主一样（导入的联机随机码）：普通'; return $r }
+        if ($w -eq 'high') { $r.Keys = $want; $r.Why = '联机世界（开房时选的 / 照房主的联机码）：死亡以上'; return $r }
+        if ($w -eq 'low') { $r.Why = '联机世界（开房时选的 / 照房主的联机码）：普通'; return $r }
     }
     $dir = if ($Coop) { Join-Path $RngRecordDir '联机' } else { $RngRecordDir }
     $rec = Join-Path $dir 'boss_mode.txt'
@@ -1645,6 +1650,11 @@ function Get-BossMods([bool]$Coop = $false) {
 function Get-TitleCover([bool]$Coop = $false) {
     if (-not $Coop -and $BossWorld -eq 'high') { return 'hard' }
     if (-not $Coop -and $BossWorld -eq 'low') { return 'normal' }
+    if ($Coop -and (Test-Path -LiteralPath $CoopWorldFile)) {
+        $w = ([System.IO.File]::ReadAllText($CoopWorldFile)).Trim()
+        if ($w -eq 'high') { return 'hard' }
+        if ($w -eq 'low') { return 'normal' }
+    }
     $dir = if ($Coop) { Join-Path $RngRecordDir '联机' } else { $RngRecordDir }
     $rec = Join-Path $dir 'boss_mode.txt'
     if (-not (Test-Path -LiteralPath $rec)) { return 'normal' }
