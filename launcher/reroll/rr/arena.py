@@ -57,6 +57,9 @@ STATUES = {
 }
 BANNER = 2604                         # 竞技场里的标记：F + 2604 = 放「TRIAL COMPLETE」大字幕（最后一波打完，sc/arena.py 的事件放）
 RUN = 2620                            # 竞技场里的标记：F + 2620 + 雕像序号 = 试炼进行中（dark_core 进场后点亮；这时死了把复活点设到那个雕像旁）
+# 联机（联机计划 13.13）：F + 2605 开打（dark_core 等各台电脑都就绪了点亮，事件打开 AI、关掉无敌）、F + 2606 本机死了（dark_core 点亮，
+# 复活点照设，不靠事件里的 10000）、F + 2640 + k 部件 k 读进来了（事件点亮，dark_core 看）
+ENGAGE, MYDEAD, READY = 2605, 2606, 2640
 DEFAULT = dict(enabled=True, tiers=[31, 13, 8], bosses=8, elite_kinds=4, elite_copies=4, elite_per_wave=2, scarab_pct=20, scarab_copies=4,
                cost=[1, 2, 3], waves=[2, 4, 8],
                items_elite=2, items_boss=1, ash_boss=1, clear_bonus=[1, 2, 4], refund=[0, 1, 2], elite_two=[0, 0, 10, 15, 20, 30, 40, 50],
@@ -310,6 +313,7 @@ def build(ctx):
                                         for co in colos],
                                  req=REQ, len0=LEN0, warp=WARP, shard=SHARD, cost=c['cost'], waves=c['waves'],
                                  spawn=SPAWN, dead=DEAD, ask=ASK, leave=LEAVE, run=RUN, banner=BANNER, note_bits=NOTE_BITS, note_n=NOTE_N, note_text0=NOTE_TEXT0,
+                                 ready=READY, engage=ENGAGE, mydead=MYDEAD,
                                  notes=note_rows(c))
     ctx.report.append('斗技场试炼：' + '；'.join('%s（强度 %d）Boss %d 个、精英 %d 种 × %d、粪金龟 %d 只' % (
         COLO_ZH[co['x']], co['tier'], sum(p['kind'] == 'b' for p in co['parts']), len({p['src'] for p in co['parts'] if p['kind'] == 'e'}),
@@ -450,7 +454,7 @@ def def_lines(ctx):
     _, ts = dif.tiers(ctx.S)
     cat = ctx.S.get('gear_category_share') or {'weapon': 30, 'armor': 60, 'talisman': 10}
     out = ['req\t%d\t%d\t%d\t%d' % (REQ, LEN0, LEN0 + 1, WARP), 'shard\t%d' % SHARD, 'goods0\t%d' % GOODS0,
-           'local\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d' % (SPAWN, DEAD, ASK, LEAVE, NOTE_BITS, NOTE_N, RUN, BANNER),
+           'local\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d' % (SPAWN, DEAD, ASK, LEAVE, NOTE_BITS, NOTE_N, RUN, BANNER, READY, ENGAGE, MYDEAD),
            'per\t%d' % int(c['elite_per_wave']), 'scarab\t%g' % max(0.0, min(100.0, float(c['scarab_pct']))), 'items\t%d\t%d\t%d' % (int(c['items_elite']), int(c['items_boss']), int(c['ash_boss'])),
            'cat\t%d\t%d\t%d' % (int(cat.get('weapon', 30)), int(cat.get('armor', 60)), int(cat.get('talisman', 10)))]
     if ctx.features.get('difficulty') and ts:

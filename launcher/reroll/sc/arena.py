@@ -9,7 +9,8 @@
 - 雕像旁的传送落点（离开时传到这里）：王城两张图照抄本图的玩家部件，野外小格子从 m60_40_52_00 照抄。
 - 公共事件：dark_core 点亮传送请求（93673）、场次位改成竞技场编号 + 1 以后，对应的事件把玩家传进竞技场。
 - 雕像对话：原版「解锁 / 联机检查」那一步换成我们的菜单（三种场次、竞技场（联机）= 原版流程、离开）；选了场次先看星光碎片够不够、确认，
-  点亮场次位和请求（93670~93672），dark_core 扣碎片、点传送请求。
+  点亮场次位和请求（93670~93672），dark_core 扣碎片、点传送请求。联机会话里只有房主能开始（确认框写明队友一起进），队员只看提示。
+- 联机（联机计划 13.13）：竞技场里加的事件都关掉网络同步；敌人出场先读进来、AI 关着，各台电脑都就绪了 dark_core 再点亮开打（map_events）。
 做不成的竞技场整个不改（日志说一句），其他照常。"""
 import hashlib
 import math
@@ -27,14 +28,18 @@ from .common import REROLL, last_with, vanilla
 from .esdutil import ALWAYS, CONFIRM_NO, CONFIRM_YES, flag_is_on, i32, menu_pick, wait_menu, write_check
 
 CACHE_DIR = os.path.join(REROLL, 'cache', 'arena')
-TALK_TEXT0 = 80099000        # EventTextForTalk：+r 三种场次，+3 竞技场（联机），+10+r 确认框，+20+r 碎片不够
+TALK_TEXT0 = 80099000        # EventTextForTalk：+r 三种场次，+3 竞技场（联机），+4 队员不能开始，+20+r 碎片不够，+30+10X+r 确认框，+60+10X+r 房主的确认框
 ASK_TEXT = 80099100          # EventTextForMap：继续下一波？
 LEAVE_TEXT = 20000009        # 原版「离开」
-# 联机会话里不能进（联机计划 13.2 G4：出场顺序、奖励每台各算各的）。COOP_SESSION 和 dark_core coop.rs 的 SESSION_FLAG 一样（两边一起改）
-COOP_SESSION, COOP_TEXT = 92570, TALK_TEXT0 + 4
+# 联机（联机计划 13.13）：会话里只有房主能在雕像开始，队员跟着房主进（dark_core arena.rs）。COOP_SESSION / COOP_HOST 和 dark_core coop.rs 的
+# SESSION_FLAG / HOST_FLAG 一样（两边一起改）
+COOP_SESSION, COOP_HOST, COOP_TEXT, HOST_TEXT0 = 92570, 92571, TALK_TEXT0 + 4, TALK_TEXT0 + 60
 CONFIRM_GID, DIALOG_GID, MENU_GID = 2147399100, 2147399101, 2147399102   # 加进雕像脚本的状态机
 WARP_EVENT0 = 1040490872     # 公共事件：传进竞技场 X = 1040490872~874（不存档的块；870 / 871 原版提示、880 音效、881~959 / 961~999 Boss 奖励，dev\event_flags\说明.md）
 EV_ASK, EV_NOTE, EV_LEAVE0, EV_RESPAWN0, EV_BANNER, EV_PART0 = 2700, 2701, 2702, 2704, 2706, 2800      # 竞技场地图里的事件编号（F + …；离开、复活点按雕像序号 +v）
+EV_READY0, EV_ENGAGE0, MAX_PARTS = 2850, 2900, 50        # 部件 k 的就绪、开打事件（F + … + k）
+# 联机时每台电脑各管各的（同 scripts.py 的 NO_SYNC，原版很多事件第一条就是它）：竞技场里我们加的事件都关掉网络同步
+NO_SYNC = emevd.ins(2000, 2, ('u8', 0))
 FLOOR = 'h001000'            # 竞技场地面的碰撞部件（三张图都有）
 Y = 0.3
 PLAYER_AT, PLAYER_YAW = (0.0, 15.0), 180.0
@@ -207,26 +212,53 @@ def note_body(bits, t0, n):
 
 
 def map_events(raw, co, f):
-    """竞技场地图的事件脚本加我们的事件；返回新的（解压后）"""
+    """竞技场地图的事件脚本加我们的事件；返回新的（解压后）。
+    联机（联机计划 13.13，照黄金树爬塔的做法，没抄代码）：我们加的事件都关掉网络同步（每台电脑点亮自己的出场标记、启用自己那份敌人）；
+    读图时除了禁用还去掉预读（2004[29]），出场时恢复预读再启用（爬塔两台电脑实测：不这样房主那边敌人一直没读进来）；
+    出场时 AI 关着、无敌，读进来了点亮就绪标记，dark_core 等各台电脑都就绪了再点亮开打标记（开打事件打开 AI、关掉无敌）。
+    就绪、开打各是一个事件：就绪那条指令（4[7]）万一一直等不到，dark_core 照样会开打，敌人不会一直站着不动"""
     e = emevd.read(raw)
     F = co['flag']
-    if any(ev['id'] == F + EV_ASK for ev in e['events']):
-        raise RuntimeError('%s 的事件脚本里已经有 %d' % (co['map'], F + EV_ASK))
+    ready, engage, mydead = f.get('ready', 0), f.get('engage', 0), f.get('mydead', 0)
+    if len(co['parts']) > MAX_PARTS or any(p['k'] >= MAX_PARTS for p in co['parts']):
+        raise RuntimeError('%s 的部件超过 %d 个' % (co['map'], MAX_PARTS))
+    ids = {F + x for x in (EV_ASK, EV_NOTE, EV_BANNER)} | {F + EV_LEAVE0 + s['v'] for s in co['statues']} | \
+          {F + EV_RESPAWN0 + s['v'] for s in co['statues']} | {F + b + p['k'] for p in co['parts'] for b in (EV_PART0, EV_READY0, EV_ENGAGE0)}
+    clash = sorted(ev['id'] for ev in e['events'] if ev['id'] in ids)
+    if clash:
+        raise RuntimeError('%s 的事件脚本里已经有 %s' % (co['map'], clash[:5]))
     ev0 = next(ev for ev in e['events'] if ev['id'] == 0)
     new = []
     for p in co['parts']:
-        ent, boss = p['ent'], p['kind'] == 'b'
+        ent, boss, k = p['ent'], p['kind'] == 'b', p['k']
         bar = lambda on: emevd.ins(2003, 11, ('s8', on), ('u32', ent), ('s16', 0), ('s32', p['name']))
-        body = [emevd.ins(2004, 5, ('u32', ent), ('u8', 0)),             # 读图时禁用
-                wait_flag(F + f['spawn'] + p['k']),                       # 等 dark_core 点亮出场
-                emevd.ins(2004, 5, ('u32', ent), ('u8', 1))]
+        body = []
+        if engage:
+            body += [emevd.ins(2004, 1, ('u32', ent), ('u8', 0)),       # AI 关、无敌：等开打
+                     emevd.ins(2004, 15, ('u32', ent), ('u8', 1))]
+        body += [emevd.ins(2004, 5, ('u32', ent), ('u8', 0)),            # 读图时禁用、去掉预读
+                 emevd.ins(2004, 29, ('u32', ent), ('u8', 1)),
+                 wait_flag(F + f['spawn'] + k),                           # 等 dark_core 点亮出场
+                 emevd.ins(2004, 35, ('u32', ent), ('u8', 1)),
+                 emevd.ins(2004, 29, ('u32', ent), ('u8', 0)),
+                 emevd.ins(2004, 5, ('u32', ent), ('u8', 1))]
         if boss and p['name'] > 0:
             body.append(bar(1))
         body += [emevd.ins(4, 0, ('s8', 0), ('u32', ent), ('u8', 1), ('u8', 0), ('f32', 1.0)),   # 等它死
-                 set_flag(F + f['dead'] + p['k'], 1)]
+                 set_flag(F + f['dead'] + k, 1)]
         if boss and p['name'] > 0:
             body.append(bar(0))
-        new.append({'id': F + EV_PART0 + p['k'], 'rest': 0, 'ins': body, 'params': []})
+        new.append({'id': F + EV_PART0 + k, 'rest': 0, 'ins': body, 'params': []})
+        if ready:
+            new.append({'id': F + EV_READY0 + k, 'rest': 0, 'params': [], 'ins': [
+                wait_flag(F + f['spawn'] + k),
+                emevd.ins(4, 7, ('s8', 0), ('u32', ent), ('u8', 1), ('s8', 0), ('f32', 1.0)),    # 等它读进来
+                set_flag(F + ready + k, 1)]})
+        if engage:
+            new.append({'id': F + EV_ENGAGE0 + k, 'rest': 0, 'params': [], 'ins': [
+                wait_flag(F + f['spawn'] + k), wait_flag(F + engage),
+                emevd.ins(2004, 1, ('u32', ent), ('u8', 1)),
+                emevd.ins(2004, 15, ('u32', ent), ('u8', 0))]})
     a = F + f['ask']
     # 问继续：照剑心修罗在同一张竞技场图里的写法（实测能用）——对话框实体 0、距离 5，结果标记不用竞技场本图的标记
     # （2026-11-10 两次测试：结果设在本图的 4500X2601~2603、实体填玩家，选了「是」标记都没亮，第二波一直不出），
@@ -256,11 +288,17 @@ def map_events(raw, co, f):
             wait_flag(lf), set_flag(lf, 0),
             emevd.ins(2003, 14, *[('u8', b) for b in s['block']], ('u32', s['ent']), ('s32', 0)),
             wait_s(1.0), RESTART]})
-        # 试炼中死了：复活点设到进来的那个雕像旁（2003[23]，原版也有跨地图设的；直到下次在赐福休息都按它）
+        # 试炼中死了：复活点设到进来的那个雕像旁（2003[23]，原版也有跨地图设的；直到下次在赐福休息都按它）。
+        # 联机时客机事件里的 10000 可能是房主（黄金树爬塔的玩家日志）：再加 dark_core 点亮的「本机死了」，哪个先到都算
+        died = [emevd.ins(4, 0, ('s8', 0), ('u32', 10000), ('u8', 1), ('u8', 0), ('f32', 1.0))]
+        if mydead:
+            died = [emevd.ins(4, 0, ('s8', -1), ('u32', 10000), ('u8', 1), ('u8', 0), ('f32', 1.0)), or1(F + mydead),
+                    emevd.ins(0, 0, ('s8', 0), ('u8', 1), ('s8', -1))]
         new.append({'id': F + EV_RESPAWN0 + s['v'], 'rest': 0, 'params': [], 'ins': [
-            wait_flag(F + f['run'] + s['v']),
-            emevd.ins(4, 0, ('s8', 0), ('u32', 10000), ('u8', 1), ('u8', 0), ('f32', 1.0)),
+            wait_flag(F + f['run'] + s['v'])] + died + [
             emevd.ins(2003, 23, ('u32', s['resp']))]})
+    for ev in new:
+        ev['ins'].insert(0, dict(NO_SYNC))
     e['events'] += new
     ev0['ins'][0:0] = [init(ev['id']) for ev in new]                     # 原版事件 0 不在对战里就提前结束：加在最前面
     return emevd.write(e)
@@ -374,8 +412,12 @@ def menu_group(f, x):
     for r, cost in enumerate(f['cost']):
         s = 10 * (r + 1)
         code = r + 1
-        g[s] = _st([], [_go(s + 6, flag_is_on(COOP_SESSION)), _go(s + 1, has_shards(int(f['shard']), int(cost))), _go(s + 5)])
+        shards = has_shards(int(f['shard']), int(cost))
+        # 会话里：房主照常（确认框写明队员会一起进），队员只看提示（由房主开始）
+        g[s] = _st([], [_go(s + 7, flag_is_on(COOP_HOST)), _go(s + 6, flag_is_on(COOP_SESSION)), _go(s + 1, shards), _go(s + 5)])
         g[s + 6] = _st([_cmd(6, DIALOG_GID, i32(COOP_TEXT))], [_go(1, CONFIRM_NO)])
+        g[s + 7] = _st([], [_go(s + 8, shards), _go(s + 5)])
+        g[s + 8] = _st([_cmd(6, CONFIRM_GID, i32(HOST_TEXT0 + 10 * x + r))], [_go(s + 2, CONFIRM_YES), _go(1, CONFIRM_NO)])
         g[s + 1] = _st([_cmd(6, CONFIRM_GID, i32(TALK_TEXT0 + 30 + 10 * x + r))], [_go(s + 2, CONFIRM_YES), _go(1, CONFIRM_NO)])
         g[s + 2] = _st([_cmd(1, 11, i32(f['len0']), i32(code & 1)), _cmd(1, 11, i32(f['len0'] + 1), i32((code >> 1) & 1)),
                         _cmd(1, 11, i32(f['req']), i32(1))], [_go(99)])
@@ -473,10 +515,18 @@ def texts(cx, key):
                 ('Spend %d Starlight Shard%s to take on a %d-wave Colosseum Trial?\nEnemy strength: %s\nNightmare elites and bosses take turns. '
                  'Each cleared wave puts its rewards in your inventory; then continue or leave. '
                  'Dying takes back everything this trial gave you.') % (cost, '' if cost == 1 else 's', w, se))
+            # 联机时房主的确认框（HOST_TEXT0 + 10 × 竞技场 + 场次）
+            talk[HOST_TEXT0 + 10 * co['x'] + r] = (
+                ('消耗 %d 个星光碎片，和队友一起挑战 %d 波斗技场试炼？\n敌人强度：%s\n队友会一起被传进竞技场，各自消耗自己的星光碎片，不够的只能帮忙、不拿奖励。'
+                 '每打完一波由你选择继续或离开；倒下的人会收回自己这次得到的奖励，所有人都倒下才算失败。') % (cost, w, sz) if zh else
+                ('Spend %d Starlight Shard%s to take on a %d-wave Colosseum Trial with your party?\nEnemy strength: %s\n'
+                 'Your teammates are brought in too and spend their own shards; anyone without enough can help but gets no rewards. '
+                 'You choose to continue or leave after each wave. Whoever falls loses the rewards this trial gave them; '
+                 'the trial fails only if everyone falls.') % (cost, '' if cost == 1 else 's', w, se))
         talk[TALK_TEXT0 + 20 + r] = ('需要 %d 个星光碎片' % cost) if zh else ('Requires %d Starlight Shard%s' % (cost, '' if cost == 1 else 's'))
     talk[TALK_TEXT0 + 3] = '竞技场（联机对战）' if zh else 'Colosseum (online)'
-    talk[COOP_TEXT] = ('联机时不能进行斗技场试炼：出场的敌人和奖励没法和队友对上。离开联机会话后再来。' if zh else
-                       "Colosseum Trials can't be taken during co-op: the enemies and rewards can't be matched with your party. Leave the session first.")
+    talk[COOP_TEXT] = ('联机时由房主在雕像开始斗技场试炼，你会和房主一起被传进竞技场。' if zh else
+                       'During co-op the host starts Colosseum Trials at a statue, and you are brought in with them.')
     mp[ASK_TEXT] = ('继续挑战下一波吗？\n选择「否」离开斗技场，已经得到的奖励保留' if zh else
                     'Continue to the next wave?\nChoose "No" to leave the colosseum and keep the rewards you have')
     for v, (_k, z, en) in enumerate(f['notes']):

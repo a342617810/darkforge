@@ -20,7 +20,7 @@ use eldenring::cs::ChrInsExt;
 use crate::{dir, log};
 
 /// 协议版本：消息格式改了就加一，不同版本的互相不认
-pub const PROTO: u32 = 2;
+pub const PROTO: u32 = 3;
 const MAGIC: &str = "DFL";
 const HELLO_EVERY: Duration = Duration::from_secs(1);
 const PING_EVERY: Duration = Duration::from_secs(5);
@@ -56,6 +56,8 @@ pub enum Kind {
     GiftOk,
     /// 没收下（n、why）
     GiftNo,
+    /// 斗技场试炼（arena.rs，协议 3 起）：房主 → 队员 op=state（进度），队员 → 房主 op=me（自己的情况）
+    Arena,
 }
 
 impl Kind {
@@ -73,6 +75,7 @@ impl Kind {
             Kind::Gift => "GIFT",
             Kind::GiftOk => "GOK",
             Kind::GiftNo => "GNO",
+            Kind::Arena => "ARENA",
         }
     }
 
@@ -90,6 +93,7 @@ impl Kind {
             "GIFT" => Kind::Gift,
             "GOK" => Kind::GiftOk,
             "GNO" => Kind::GiftNo,
+            "ARENA" => Kind::Arena,
             _ => return None,
         })
     }
@@ -411,7 +415,7 @@ impl Link {
                 }
             }
             Kind::Text => log(&format!("联机通道：队员 {} 发来测试消息「{}」", short(from), pk.get("text").unwrap_or(""))),
-            Kind::Foe | Kind::Nm | Kind::Slip | Kind::Tier | Kind::Gift | Kind::GiftOk | Kind::GiftNo => keep = Some(pk.clone()),
+            Kind::Foe | Kind::Nm | Kind::Slip | Kind::Tier | Kind::Gift | Kind::GiftOk | Kind::GiftNo | Kind::Arena => keep = Some(pk.clone()),
         }
         if p.linked() && !p.linked_logged {
             p.linked_logged = true;
@@ -505,10 +509,12 @@ struct St {
     tier_check: Option<Instant>,
     /// 名单里的名字（Steam ID → 名字）
     names: std::collections::BTreeMap<u64, String>,
+    /// 斗技场消息因为档案不一致没收的队员（每人只记一行）
+    arena_warned: std::collections::BTreeSet<u64>,
 }
 
 static ST: Mutex<St> = Mutex::new(St { link: None, roster_at: None, me: 0, code_saved: None, foe_logged: 0, tier_sent: None, tier_check: None,
-                                       names: std::collections::BTreeMap::new() });
+                                       names: std::collections::BTreeMap::new(), arena_warned: std::collections::BTreeSet::new() });
 /// 房主的难度档没变时多久重发一次
 const TIER_EVERY: Duration = Duration::from_secs(5);
 /// 发件箱：别的模块排进来（不碰 ST，免得互相锁住），tick 里发
@@ -789,6 +795,15 @@ pub fn tick() {
             Kind::GiftOk | Kind::GiftNo => {
                 if let Some(n) = pk.get("n").and_then(|x| x.parse::<u64>().ok()) {
                     crate::gear::gift_result(from, n, pk.kind == Kind::GiftOk, pk.get("why").unwrap_or("").to_string());
+                }
+            }
+            // 斗技场试炼：档案一致的才收（两边的 arena.txt 一样，出场的部件才对得上）；房主发来的进度、队员报的情况都交给 arena.rs
+            Kind::Arena => {
+                let (host, ok) = g.link.as_ref().map_or((false, false), |l| (l.from_host(from), l.compatible(from)));
+                if ok {
+                    crate::arena::net_in(from, host, pk);
+                } else if g.arena_warned.insert(from) {
+                    log(&format!("联机通道：队员 {} 的游戏数据和本机对不上，斗技场试炼的消息不收", short(from)));
                 }
             }
             Kind::Nm if g.link.as_ref().is_some_and(|l| l.from_host(from)) => {

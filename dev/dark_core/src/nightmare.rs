@@ -725,8 +725,9 @@ pub fn tick() {
             continue;
         }
         let hp = c.modules.data.hp;
-        // 客机：房主广播过这个敌人魇化了（联机计划 13.5）
-        if hp > 0 && st.tier.is_some() && !st.elites.contains_key(&a) {
+        // 客机：房主广播过这个敌人魇化了（联机计划 13.5）；斗技场试炼的精英（forced）任何难度都魇化，也照房主的
+        let is_forced = forced.contains(&c.event_entity_id);
+        if hp > 0 && (st.tier.is_some() || is_forced) && !st.elites.contains_key(&a) {
             if let Some(f) = remote.iter().find(|r| r.0 == c.event_entity_id && r.1.iter().all(|&k| k < d.fams.len())).map(|r| r.1.clone()) {
                 st.rolled.insert(a);
                 REMOTE.lock().unwrap_or_else(|e| e.into_inner()).retain(|x| x.0 != c.event_entity_id);   // 用掉了
@@ -735,10 +736,19 @@ pub fn tick() {
                 continue;
             }
         }
-        if hp > 0 && forced.contains(&c.event_entity_id) && !st.elites.contains_key(&a) && st.forced_done.insert(a) {
-            st.rolled.insert(a);
-            make_elite_with(d, st, c, a, true, Some(two));
-            continue;
+        if hp > 0 && is_forced && !st.elites.contains_key(&a) {
+            // 联机队员：斗技场的精英等房主广播的词条（arena.rs 的联机），自己不抽
+            if crate::coop::client() {
+                if st.forced_done.insert(a) {
+                    nm_log(1, || format!("斗技场的精英 NPC {}（实体 {}）出现了，等房主广播的词条", c.npc_param_id, c.event_entity_id));
+                }
+                continue;
+            }
+            if st.forced_done.insert(a) {
+                st.rolled.insert(a);
+                make_elite_with(d, st, c, a, true, Some(two));
+                continue;
+            }
         }
         if hp > 0 && st.rolled.insert(a) {
             let mob = d.mob_e.contains(&c.event_entity_id) || d.mob_n.contains(&c.npc_param_id);

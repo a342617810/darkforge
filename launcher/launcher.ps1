@@ -1053,6 +1053,7 @@ function Get-IniMatch([string]$Text, [string]$Key) {
 #   save_file_extension 必须是 co2（YAFSML 再换成 .rngcoop；别的扩展名会读写别的存档，sl2 还会被换成单机的 ER0000.rng）→ 不是就改（原 ini 备份）；
 #   随人数加强（血量、架势、伤害，以主机的为准）会叠在整合包的敌人血量上 → 打印出来提醒；
 #   联机密码（cooppassword）空的不让启动：Seamless Co-op 2.0.1 会弹「Please enter a session password」然后整个游戏退出（2026-11-02 实测）。
+#   入侵（allow_invaders）关掉、死后一直观战（always_spectate_on_death）打开（斗技场试炼联机，联机计划 13.13）。
 # 返回能不能联机启动
 function Test-ErscSettings($Ersc) {
     $ini = Join-Path $Ersc.DirectoryName 'ersc_settings.ini'
@@ -1090,6 +1091,19 @@ function Test-ErscSettings($Ersc) {
                 $txt = $txt.Substring(0, $inv.Groups[1].Index) + '0' + $txt.Substring($inv.Groups[1].Index + $inv.Groups[1].Length)
                 [System.IO.File]::WriteAllText($ini, $txt, (New-Object System.Text.UTF8Encoding($bom)))
                 Write-Player '联机时不开放入侵：已把 Seamless Co-op 设置里的入侵关掉（整合包的数据和别的玩家对不上，入侵会出问题）。'
+            }
+        }
+        # 死后一直观战（联机计划 13.13，照黄金树爬塔）：斗技场试炼倒下的队员留在竞技场里观战，队友接着打；所有人都倒下或者有人在赐福休息才复活。
+        # 默认 0 只在 Boss 战观战，斗技场里倒下的人会马上复活在外面
+        $spec = Get-IniMatch $txt 'always_spectate_on_death'
+        if ($spec -and $spec.Groups[1].Value.Trim() -ne '1') {
+            if ($DryRun) {
+                Write-Warn ('Seamless Co-op 的死后观战（always_spectate_on_death）不是 1，真的启动时会改成 1：' + $ini)
+            } else {
+                Copy-Item -LiteralPath $ini -Destination ($ini + '.bak_' + (Get-Date -Format 'yyyyMMdd_HHmmss')) -Force
+                $txt = $txt.Substring(0, $spec.Groups[1].Index) + '1' + $txt.Substring($spec.Groups[1].Index + $spec.Groups[1].Length)
+                [System.IO.File]::WriteAllText($ini, $txt, (New-Object System.Text.UTF8Encoding($bom)))
+                Write-Player '联机时倒下了会观战队友，直到所有人都倒下或者有人在赐福休息：已把 Seamless Co-op 设置里的死后观战打开。'
             }
         }
         # 中文（用户 2026-11-17「先把无缝联机的汉化做了」）：launcher\ersc_locale\*.json 复制进 Seamless Co-op 的 locale 文件夹（不一样才复制）。

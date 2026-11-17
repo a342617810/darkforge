@@ -66,6 +66,12 @@ def build(ctx):
     rows.append(('gift sent', '队友收下了你送的新装备', 'Your teammate received the gear you gave'))
     rows.append(('gift fail', '新装备没送出去，还在你这里', "The gear wasn't given and is still yours"))
     rows.append(('gift got', '收到队友送的新装备', 'You received gear from a teammate'))
+    # 联机斗技场试炼（联机计划 13.13，dark_core 的 arena.rs）：队员这边的提示。放最后，不动前面的编号
+    if getattr(ctx, 'arena', None):
+        rows.append(('arena coop join', '房主开始了斗技场试炼，你也会被传进竞技场', 'The host started a Colosseum Trial. You are being brought in'))
+        rows.append(('arena coop helper', '星光碎片不够：这次试炼你只能帮忙，不拿奖励', 'Not enough Starlight Shards: you can help in this trial but get no rewards'))
+        rows.append(('arena coop down', '你倒下了：这次试炼给你的奖励会收回', 'You fell. The rewards this trial gave you will be taken back'))
+        rows.append(('arena coop lost', '和房主断开了：斗技场试炼结束，奖励保留', 'Lost the host. The Colosseum Trial is over and you keep your rewards'))
     if len(rows) >= 1 << len(BITS):
         raise RuntimeError('原版提示：%d 条，%d 个标记放不下' % (len(rows), len(BITS)))
     ctx.notes = rows
