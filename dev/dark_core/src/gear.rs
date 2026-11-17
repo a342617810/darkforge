@@ -3234,7 +3234,9 @@ fn free(d: &Defs, st: &St, held: &HashSet<(usize, u32)>) -> [Vec<u32>; NCAT] {
         let ct = &d.items.cont[c];
         *v = (0..ct.count)
             .filter(|k| {
-                !(st.recs.contains_key(&(c, *k)) && held.contains(&(c, *k)))
+                // 背包 / 仓库里有这一格的东西就不算空格，记录里有没有都一样（联机分支 f70d696：记录丢了、或者联机捡到别人的，
+                // 以前当空格，下次鉴定用上它，背包里那件就跟着变成新鉴定的那件，背包里两件一样的）
+                !held.contains(&(c, *k))
                     && !sold.contains(&(c, *k))
                     && !shop.contains(&(c, *k))
                     && !locked.contains(&(c, ct.id(*k)))
