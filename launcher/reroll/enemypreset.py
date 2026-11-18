@@ -41,7 +41,10 @@ MARK_RS_ALL = (MARK_RS, '# RNG Lands：追忆 Boss 只在追忆 Boss 之间随�
 # 高难度世界（dev\boss_mods\README.md：只在「死亡」以上加载的 Boss 改版，用户 2026-11-05「只在高难度固定」）：
 # 整合了改版的 Boss 不随机、留在原场地（DontRandomize），也不放到别处（RemoveSource）。正常那一遍生成时还原
 MARK_DR = '# Dark Reforged：高难度世界把整合了改版的 Boss 固定在原位（enemypreset.py 自动生成，下一行每次重写）原有：'
-DLC_MAPS = ('m20', 'm21', 'm22', 'm25', 'm28', 'm61')
+# 幽影之地的地图（随机器没开 DLC 时，这些地图的敌人不能当来源、位置也不指定；和 rr/arena.py 的 DLC_MAP_PREFIX 一样）。
+# 以前漏了地下墓地、洞窟这类小地图 m40～m43：不开 DLC 时预设里还有它们，随机器每次都报错，一键重随敌人换 3 个种子都失败
+# （玩家诊断包 2026-11-18，用户「补上」）
+DLC_MAPS = ('m20', 'm21', 'm22', 'm25', 'm28', 'm40', 'm41', 'm42', 'm43', 'm61')
 ELITE_CAP = 60              # 精英比例乘了倍数以后每档最多 60%
 # Basic 来源组前面的说明行（缩进在 Basic 里面，strip_block 不动它；随机器界面另存预设会丢掉注释，所以「只有 default + AllBosses 两组」也算我们改的）
 MARK_BP = '    # Dark Reforged：头目出现在普通敌人位置（启动器「敌人设置」，enemypreset.py 每次重写）'
