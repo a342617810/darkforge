@@ -666,7 +666,11 @@ function Join-DllLines([string]$DllLines) {
     $u = Get-UserDllLines
     if ($u) { $DllLines = $DllLines + "`r`n" + $u }
     if ($script:PlayerLoad -and $script:PlayerLoad.Dll) { $DllLines = $DllLines + "`r`n" + $script:PlayerLoad.Dll }      # YAFSML自定义.ini 的 [dll]
-    if ($script:CoopDll) { $DllLines = $DllLines + "`r`n; 联机启动：Seamless Co-op（和法魂一样放最后）`r`nseamlesscoop=" + $script:CoopDll }
+    # 联机启动：Seamless Co-op 放在 [dll] 最前面、加 early（游戏入口之前加载，和 ModEngine2 加载它的时机一样）。
+    # 以前和法魂一样放最后（SteamAPI_Init 之后、我们 9 个 DLL 之后才初始化）：它初始化时要接管游戏自带的改动检测，
+    # 在有的电脑上时好时坏，失败就弹「Cheat detection spider has failed」中止游戏（玩家诊断包 2026-11-17 / 11-18：两台电脑都只偶尔成功；
+    # 用户 2026-11-18「把无缝加载优先级拉到最高吧」）
+    if ($script:CoopDll) { $DllLines = "; 联机启动：Seamless Co-op 最先加载（early）`r`nseamlesscoop=" + $script:CoopDll + "|early`r`n" + $DllLines }
     return $DllLines
 }
 
@@ -1014,7 +1018,7 @@ function Get-NewGameSeed([bool]$Rand) {
 
 # ---------------------------------------------------------------- 联机（Seamless Co-op，dev\coop\联机计划.md 阶段一）
 # - ersc.dll 玩家自己放（不打包）：整合包 dll\ 下（dll\SeamlessCoop\ersc.dll，连同它的 ersc_settings.ini、locale 文件夹），
-#   没有就用游戏目录 Game\SeamlessCoop\ 里的。平常启动不加载它（Get-UserDllLines 跳过），联机启动才加载，和法魂一样放 [dll] 最后。
+#   没有就用游戏目录 Game\SeamlessCoop\ 里的。平常启动不加载它（Get-UserDllLines 跳过），联机启动才加载，放 [dll] 最前面、early（Join-DllLines）。
 # - 存档：Seamless Co-op 把存档扩展名换成 co2，YAFSML 的 replace_seamless_coop_save_filename 再换成 ER0000.rngcoop（和单机的 ER0000.rng 分开；以前是 ER0000.rng.co2，见 YAFSML.ini.tpl）；
 #   dark_core / dark_sell / dark_lock 看到 ersc.dll 加载了，角色记录就用 角色记录\联机\（格子编号和单机各算各的）；Erd Tools 的存档扩展名跟着换成 co2。
 # - 两个人的游戏数据必须一样：重随用联机种子（敌人随机 = 随机器的种子，无敌人随机 = 固定的 $CoopVanillaSeed），
@@ -1022,7 +1026,7 @@ function Get-NewGameSeed([bool]$Rand) {
 # - 玩家流程（2026-11-16 起）：房主「开房」（Invoke-CoopHost），队友「加入」（Invoke-CoopJoin），一个联机码 DR3 带上密码、Seamless 规则、
 #   敌人设置、世界和启动方式。联机核对码（reroll\coopfp.py）写进兼容档案，进会话后联机通道自动比对。
 $CoopVanillaSeed = 20261102
-$script:CoopDll = ''          # 联机启动时 [dll] 最后加的 ersc.dll（YAFSML.ini 里的写法；Join-DllLines）
+$script:CoopDll = ''          # 联机启动时 [dll] 最前面加的 ersc.dll（YAFSML.ini 里的写法；Join-DllLines）
 $script:ErdSaveExt = 'rng'    # Erd Tools 的存档扩展名：单机 rng，联机 co2（Test-UserDllSafe）
 
 # 找 Seamless Co-op 的 ersc.dll：整合包 dll\ 和下一层文件夹（_ 开头的不算），再看游戏目录 Game\SeamlessCoop\；没有返回 $null

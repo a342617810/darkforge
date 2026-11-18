@@ -4,7 +4,7 @@
 #                         文件夹名以 _ 开头 = 停用；按名字顺序。解压多套了一两层文件夹的自己往里找；直接把 parts 之类放进 mods\ 的，把 mods\ 整个当一个 mod。
 #   YAFSML自定义.ini      整合包根目录，玩家改加载器设置的地方（yafsml\YAFSML.ini 每次启动按模板重写，改了会被覆盖）：
 #                         [patch] [tweak] [log] 等里写的项替换模板里同名的（存档、内存相关的几项不让改，见 $UserIniLocked）；
-#                         [mod] 的行排在整合包前面，[mod_after] 的排在最后（同名文件以它为准），[dll] 的加在 DLL 最后（联机的 ersc.dll 之前）。
+#                         [mod] 的行排在整合包前面，[mod_after] 的排在最后（同名文件以它为准），[dll] 的加在 DLL 最后（联机的 ersc.dll 在最前面）。
 #                         路径可以写完整的，也可以写相对整合包根目录的。没有这个文件时启动器第一次启动写一份带说明的。
 # 两样都不在发布包里（dev\tools\make_package.py 的 EXCL），整合包更新不会动。
 # launcher.ps1 和 gui.ps1（网页界面的「模组」按钮）都 dot-source 本文件：这里只定义函数，不做别的；要先有 $Paly。
