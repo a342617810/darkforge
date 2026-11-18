@@ -131,6 +131,23 @@ fn is_attack(a: i32) -> bool {
 pub static IFRAMES: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 /// 影步：tick 照引擎的 CutIFrames 设，runtime::pre_physics 看到就清玩家的无敌位
 pub static CUT_IFRAMES: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+/// 见切成立后给的无敌时间（用户 2026-11-17「给见切触发时加0.3s的无敌 不用写到说明里」）
+const MIKIRI_WARD: std::time::Duration = std::time::Duration::from_millis(300);
+/// 见切的无敌到什么时候：tick 在见切成立那一帧设，runtime::pre_physics 到点前每帧设翻滚同款的无敌位（在碾压 / 影步清无敌位之后）
+static MIKIRI_WARD_UNTIL: Mutex<Option<Instant>> = Mutex::new(None);
+
+/// 见切给的无敌还在不在（runtime::pre_physics 每帧问）
+pub fn mikiri_ward() -> bool {
+    let mut g = MIKIRI_WARD_UNTIL.lock().unwrap_or_else(|e| e.into_inner());
+    match *g {
+        Some(t) if Instant::now() < t => true,
+        Some(_) => {
+            *g = None;
+            false
+        }
+        None => false,
+    }
+}
 /// 减速 / 停住的敌人转身也放慢（用户 2026-11-03：见切后被影步停住的敌人还会朝人物转；见切减速时的转身也一样）：
 /// 地址 → (倍数, 上一次放行后的朝向 yaw, 最后一次压速度的时间)。积木引擎每帧压动作速度（Act::FoeSpeed）时记，改回 1 就去掉；
 /// turn_hold 在物理更新前（ChrIns_PrePhysics，同唤声船改朝向的时机）只放行游戏这一帧转的 × 倍数（停住 = 不转）
@@ -3512,6 +3529,7 @@ pub fn tick() {
     let air = present.contains("air");
     let acts = eng.step(d, &fr);
     if std::mem::take(&mut eng.mikiri_sound) {
+        *MIKIRI_WARD_UNTIL.lock().unwrap_or_else(|e| e.into_inner()) = Some(Instant::now() + MIKIRI_WARD);
         crate::clash::mikiri_sound();
         if let Some(sp) = crate::clash::mikiri_vfx() {
             p.apply_speffect(sp, false);           // 潜雾猛禽化成羽毛的原版特效（用户 2026-11-13「见切触发时加个视觉特效」→「用A吧」）
