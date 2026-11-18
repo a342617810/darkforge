@@ -35,13 +35,15 @@ EXCL = ['launcher/game_path.txt', 'launcher/randomizer_settings_path.txt', 'laun
         'boss/*',      # Boss 模组的原始压缩包：只给 dev\boss_mods\build.py 抽取数据用，运行时用的是 data\bossmods
         'randomizer_hi/*',      # 高难度世界（一键重随敌人时随机器多跑一遍的输出，按本机生成）
         'dll/dark_core/hpunify.txt', 'dll/dark_core/ovldrop.txt', 'dll/dark_core/ashes.txt', 'dll/dark_core/nightmare.txt', 'dll/dark_core/arena.txt', 'dll/dark_core/notes.txt', 'dll/dark_core/curses.txt',
-        'dll/dark_core/fusion.txt', 'dll/dark_core/plague.txt', 'dll/dark_core/unseen.txt', 'dll/dark_core/wishstone.txt', 'dll/dark_core/shopstage.txt', 'dll/dark_core/clash.txt', 'dll/dark_core/hitwin.txt', 'dll/dark_core/foewin.txt',
-        'dll/dark_core/*_req.txt', 'dll/dark_core/arena_run.txt',
-        'dll/dark_core/coop_profile.txt', 'dll/dark_core/coop_host_code.txt',      # 联机兼容档案：联机启动时按本机写（联机分支 coop，联机计划 13.4）      # 开发工具写的请求（dark_core 看到就删，残留的不发）；斗技场试炼进行中的记录
+        'dll/dark_core/fusion.txt', 'dll/dark_core/plague.txt', 'dll/dark_core/unseen.txt', 'dll/dark_core/wishstone.txt', 'dll/dark_core/shopstage.txt', 'dll/dark_core/clash.txt', 'dll/dark_core/hitwin.txt', 'dll/dark_core/foewin.txt', 'dll/dark_core/foefx.txt',
+        'dll/dark_core/*_req.txt', 'dll/dark_core/arena_run.txt',      # 开发工具写的请求（dark_core 看到就删，残留的不发）；斗技场试炼进行中的记录
+        'dll/dark_core/coop_profile.txt', 'dll/dark_core/coop_host_code.txt',      # 联机兼容档案：联机启动时按本机写（联机分支 coop，联机计划 13.4）
         'dll/dark_core/frames.txt',      # 稀有度边框图标的对照表：启动时 menu.py 合成菜单包成功才写
         'dll/dark_core/boat.txt', 'dll/dark_core/boat_req.txt', 'dll/dark_core/devsp_req.txt', 'dll/dark_core/devgive_req.txt', 'dll/dark_core/devsp.txt', 'dll/dark_dev/*',      # 开发工具（游戏里 F9 的悬浮窗口），只在本机测试用
         'dll/sv_config.toml',     # SoulsVision 的配置按本机分辨率生成（位置是绝对像素），让它在别的电脑上重新生成
         'dll/SeamlessCoop/*',     # Seamless Co-op 不随整合包发（玩家自己下载放进来，联机时启动器才加载）
+        # 联机还在测试（用户 2026-11-17：联机稳定了再公开）：联机测试包的使用说明、网页界面显示「联机」一类的测试开关不发
+        '联机使用说明.txt', 'launcher/coop_test.txt',
         # Alt Saves：存档已由 YAFSML 的 replace_save_filename 隔离，启动器也不加载它（launcher.ps1 跳过 *alt_saves*），作者不许转载（记忆 nexus-publish-permissions）→ 不发（用户 2026-11-12「拿掉」）
         'yafsml/dll/eldenring_alt_saves.dll',
         # 说明文件都不发（用户 2026-11-11「以后打包时说明不要打包进去了」→「全部说明都不带」）：根目录「说明」文件夹、各处的 说明.txt

@@ -13,6 +13,8 @@
 //!   复活点由竞技场的事件设到进来的雕像旁（run 标记亮着时玩家死了，2003[23]）。没死就离开了竞技场（别的办法出去）：奖励保留。
 //!   真死了才算（death_tick）：血量 0 停了 DEATH_HOLD 还没被高难度的馈赠复活顶掉，或者血量回来了身上却没有「刚复活」的效果
 //!   （以前血量一到 0 就记死亡，馈赠复活以后这一波永远不结算、离开时还按失败收回）。
+//! - 每波出场时给敌人挂的（通用的敌人效果模块 foefx.rs，来源「斗技场」；下一波、结束时放掉）：血量随波次（hpwave，粪金龟不挂），
+//!   加上 wfx 规则命中的效果包（用户 2026-11-17「给任意指定波数敌人挂自定义效果」：哪个竞技场、哪种场次、第几波、哪种敌人、几率）。
 //! - 稀有度：rar（这个竞技场所在地区档的权重）× dmult（当前难度档的倍率）；骨灰 ashrar × dmult。DLC 档的传说给传说（幽影之地）。
 //! - 竞技场里的提示（第几波、本波肃清、完成）：编号写进本图的 note0 起 note_n 位（竞技场的事件显示）。
 //! - 试炼中退出游戏：arena_run.txt 记着在哪个竞技场、从哪个雕像进来的；下次进存档人还在那个竞技场里就传回雕像旁（不在就删掉记录）。
@@ -33,14 +35,17 @@ use std::fs;
 use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
-use eldenring::cs::{ChrInsExt, GameDataMan, WorldChrMan};
+use eldenring::cs::{GameDataMan, WorldChrMan};
 use fromsoftware_shared::FromStatic;
 
+use crate::foefx::Fx;
 use crate::gear::{count_goods, flag_get, flag_set, gift_n, gifts_pending, give_ashes, remove_goods};
 use crate::link::{Kind, Packet};
 use crate::{dir, log};
 
 const STEP: Duration = Duration::from_millis(100);
+/// 在敌人效果模块（foefx.rs）里的来源名
+const FX_TAG: &str = "斗技场";
 /// 进了竞技场多久出第一波
 const ARRIVE_WAIT: Duration = Duration::from_secs(4);
 /// 扣了碎片多久还没进竞技场就算传送失败（退还碎片）
@@ -51,8 +56,6 @@ const NEXT_WAIT: Duration = Duration::from_secs(3);
 const ASK_DELAY: Duration = Duration::from_secs(4);
 /// 问了这么短就回「否」：人按不了这么快，当成对话框被别的提示顶掉、以取消结束，再问一次
 const TOO_FAST: Duration = Duration::from_millis(1500);
-/// 血量加成：出场后这么久还没挂上（敌人没读进来）就不管了
-const BOOST_GIVEUP: Duration = Duration::from_secs(20);
 /// 出场多久以后核对一次：一个都不在就是地图没放上（退还碎片、离开）
 const CHECK_AFTER: Duration = Duration::from_secs(8);
 /// 结算以后多久传出去（看完提示）
@@ -151,6 +154,77 @@ struct Def {
     two: Vec<f32>,
     /// 血量随波次：(每几波一档, 第一档的效果, 档数)；第 w 波（0 起）= w / every 档
     hpwave: Option<(usize, i32, usize)>,
+    /// 按波次挂的效果包
+    wfx: Vec<WaveFx>,
+}
+
+/// 按波次挂的效果（arena.txt 的 wfx 行，rr/arena.py wave_fx_lines）：wfx 竞技场 场次的总波数 哪种敌人 第几波 几率% 效果包（- = 不限）
+#[derive(Debug, Clone, PartialEq)]
+struct WaveFx {
+    /// 哪些竞技场（空 = 全部）
+    colos: Vec<u32>,
+    /// 哪种场次：场次的总波数（空 = 全部）
+    runs: Vec<usize>,
+    /// Boss / 精英 / 粪金龟
+    who: [bool; 3],
+    /// 第几波（1 起，闭区间；usize::MAX = 往后都算）
+    waves: Vec<(usize, usize)>,
+    /// 每个敌人挂上的几率 %
+    chance: f32,
+    packs: Vec<String>,
+}
+
+/// 「3」「3-6」「5+」逗号分开
+fn parse_waves(s: &str) -> Option<Vec<(usize, usize)>> {
+    let mut out = Vec::new();
+    for t in s.split(',').map(str::trim) {
+        let r: (usize, usize) = if let Some(a) = t.strip_suffix('+') {
+            (a.parse().ok()?, usize::MAX)
+        } else if let Some((a, b)) = t.split_once('-') {
+            (a.parse().ok()?, b.parse().ok()?)
+        } else {
+            let a = t.parse().ok()?;
+            (a, a)
+        };
+        if r.0 == 0 || r.1 < r.0 {
+            return None;
+        }
+        out.push(r);
+    }
+    (!out.is_empty()).then_some(out)
+}
+
+/// 逗号分开的数（- = 空，不限）
+fn num_list<T: std::str::FromStr>(s: &str) -> Option<Vec<T>> {
+    if s == "-" {
+        return Some(Vec::new());
+    }
+    s.split(',').map(|x| x.trim().parse().ok()).collect()
+}
+
+impl WaveFx {
+    fn parse(f: &[&str]) -> Option<WaveFx> {
+        let who = f.get(3)?;
+        let packs: Vec<String> = f.get(6)?.split(',').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect();
+        (!packs.is_empty()).then_some(())?;
+        Some(WaveFx {
+            colos: num_list(f.get(1)?)?,
+            runs: num_list(f.get(2)?)?,
+            who: [who.contains('b'), who.contains('e'), who.contains('s')],
+            waves: parse_waves(f.get(4)?)?,
+            chance: f.get(5)?.parse::<f32>().ok().filter(|x| x.is_finite())?.clamp(0.0, 100.0),
+            packs,
+        })
+    }
+
+    /// 竞技场 x、总波数 waves 的场次里第 wave 波（1 起）出场的 p 归不归这条规则管（几率另算）
+    fn matches(&self, x: u32, waves: usize, wave: usize, p: &Part) -> bool {
+        let kind = if p.boss { 0 } else if p.scarab { 2 } else { 1 };
+        self.who[kind]
+            && (self.colos.is_empty() || self.colos.contains(&x))
+            && (self.runs.is_empty() || self.runs.contains(&waves))
+            && self.waves.iter().any(|&(a, b)| (a..=b).contains(&wave))
+    }
 }
 
 static DEF: OnceLock<Option<Def>> = OnceLock::new();
@@ -196,6 +270,11 @@ fn parse(text: &str) -> Option<Def> {
                 d.dmult[k] = f4(&f[2..])?;
             }
             "hpwave" => d.hpwave = Some(((n(1)? as usize).max(1), n(2)? as i32, n(3)? as usize)),
+            // 写错的一条不要（不影响整个试炼）
+            "wfx" => match WaveFx::parse(&f) {
+                Some(w) => d.wfx.push(w),
+                None => log(&format!("竞技场：看不懂这条按波次挂的效果「{}」，不要", l)),
+            },
             "two" => {
                 let k = n(1)? as usize;
                 if d.two.len() <= k {
@@ -493,8 +572,6 @@ struct Run {
     asked: bool,
     /// 太快回「否」重新问过几次
     reasks: u32,
-    /// 这一波要挂的血量加成：(实体, 效果, 挂上时的血量上限)
-    boosts: Vec<(u32, i32, Option<i32>)>,
     left: bool,
     /// 联机的这次试炼编号（房主排的，队员照用）
     nonce: u64,
@@ -805,7 +882,6 @@ fn new_run(ci: usize, v: u32, code: usize, cost: u32, lineup: Vec<Vec<usize>>, r
         checked: false,
         asked: false,
         reasks: 0,
-        boosts: Vec::new(),
         left: false,
         nonce,
         role,
@@ -907,6 +983,17 @@ fn client_join(d: &Def, st: &mut St, host: u64, hs: HostState, hp: i32, now: Ins
     Ok(())
 }
 
+/// 按波次挂效果的几率用的随机数：只看试炼编号（房主开场时抽、发给队员）、第几波、实体编号、第几条规则，
+/// 两台电脑算出来一样（敌人身上的效果两边各挂各的，联机计划 13.2 G2；房主和队员各自 st.roll() 会对不上）
+fn fx_roll(nonce: u64, wave: usize, ent: u32, rule: usize) -> u64 {
+    let mut z = nonce ^ (wave as u64) << 48 ^ (rule as u64) << 32 ^ ent as u64;
+    // splitmix64
+    z = z.wrapping_add(0x9E37_79B9_7F4A_7C15);
+    z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
+    z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
+    z ^ (z >> 31)
+}
+
 fn start_wave(d: &Def, st: &mut St, r: &mut Run, i: usize, now: Instant) {
     let c = &d.colos[r.ci];
     r.wave = i;
@@ -929,14 +1016,40 @@ fn start_wave(d: &Def, st: &mut St, r: &mut Run, i: usize, now: Instant) {
     for &m in members {
         flag_set(c.flag + d.spawn + c.parts[m].k, true);
     }
-    r.boosts.clear();
-    if let Some((every, sp0, count)) = d.hpwave {
+    // 这一波要挂的：血量随波次（粪金龟不挂）+ 命中的 wfx 规则的效果包，交给敌人效果模块（出场后挂上、上限变了按比例补血）
+    crate::foefx::release(FX_TAG);
+    let hp_sp = d.hpwave.and_then(|(every, sp0, count)| {
         let step = (i / every).min(count);
-        if step > 0 {
-            let sp = sp0 + step as i32 - 1;
-            r.boosts = members.iter().filter(|&&m| !c.parts[m].scarab).map(|&m| (c.parts[m].ent, sp, None)).collect();
-            log(&format!("竞技场：第 {} 波敌人血量加成第 {step} 档（效果 {sp}）", i + 1));
+        (step > 0).then(|| (step, sp0 + step as i32 - 1))
+    });
+    if let Some((step, sp)) = hp_sp {
+        log(&format!("竞技场：第 {} 波敌人血量加成第 {step} 档（效果 {sp}）", i + 1));
+    }
+    for &m in members {
+        let p = &c.parts[m];
+        let mut fx = Fx::default();
+        if let Some((_, sp)) = hp_sp.filter(|_| !p.scarab) {
+            fx.add(&Fx::sp(sp));
         }
+        let mut got: Vec<&str> = Vec::new();
+        for (ri, w) in d.wfx.iter().enumerate() {
+            if !w.matches(c.x, r.waves, i + 1, p) || fx_roll(r.nonce, i, p.ent, ri) % 10_000 >= (w.chance * 100.0).round() as u64 {
+                continue;
+            }
+            for name in &w.packs {
+                match crate::foefx::pack(name) {
+                    Some(f) => {
+                        fx.add(&f);
+                        got.push(name);
+                    }
+                    None => log(&format!("竞技场：第 {} 条按波次挂的效果要的效果包「{name}」没有定义（foefx.txt），不挂", ri + 1)),
+                }
+            }
+        }
+        if !got.is_empty() {
+            log(&format!("竞技场：第 {} 波 {} 挂效果包 {}（效果 {:?}，动作速度 ×{:.2}）", i + 1, p.name, got.join("、"), fx.sps, fx.speed));
+        }
+        crate::foefx::attach(FX_TAG, p.ent, &fx);
     }
     // 队员这边也登记：nightmare.rs 看到是队员，不自己抽，等房主广播的词条
     let elites: Vec<u32> = members.iter().filter(|&&m| !c.parts[m].boss && !c.parts[m].scarab).map(|&m| c.parts[m].ent).collect();
@@ -1068,6 +1181,7 @@ fn fail(st: &mut St, r: &Run, why: &str) {
     st.takeback.extend(r.given.iter().copied());
     crate::notes::push("arena fail");
     crate::nightmare::unforce();
+    crate::foefx::release(FX_TAG);
     clear_run_file();
     st.notes.clear();
 }
@@ -1076,6 +1190,7 @@ fn fail(st: &mut St, r: &Run, why: &str) {
 fn finish(st: &mut St, r: &Run, why: &str) {
     log(&format!("竞技场：试炼结束（{why}），打完 {} / {} 波，奖励保留：{} 件物品、{} 个骨灰", r.cleared, r.waves, r.n_items, r.n_ashes));
     crate::nightmare::unforce();
+    crate::foefx::release(FX_TAG);
     clear_run_file();
     st.notes.clear();
 }
@@ -1105,43 +1220,7 @@ fn abort(d: &Def, r: &Run, why: &str) {
         gift_n(1, d.shard as i32, r.cost);
     }
     crate::nightmare::unforce();
-}
-
-/// 这一波的血量加成：敌人出现了（血量 > 0）就挂效果，上限变了以后补满血（出场时血是满的；挂效果游戏不按比例补当前血量）。
-/// 两台电脑都挂（敌人身上的效果不走网络同步，联机计划 13.9）；补满血只让房主写（血量跟着房主那份同步）
-fn boost_tick(r: &mut Run, wcm: &WorldChrMan, now: Instant) {
-    if r.boosts.is_empty() {
-        return;
-    }
-    if now - r.at > BOOST_GIVEUP {
-        log(&format!("竞技场：{} 个敌人的血量加成没挂上（没读进来），不管了", r.boosts.len()));
-        r.boosts.clear();
-        return;
-    }
-    for s in wcm.chr_sets.iter().flatten() {
-        for c in s.characters() {
-            let Some(b) = r.boosts.iter_mut().find(|b| b.0 == c.event_entity_id) else { continue };
-            if c.modules.data.hp <= 0 {
-                continue;
-            }
-            match b.2 {
-                None => {
-                    if !c.special_effect.entries().any(|x| x.param_id == b.1) {
-                        c.apply_speffect(b.1, false);
-                    }
-                    b.2 = Some(c.modules.data.max_hp);
-                }
-                Some(m0) if c.modules.data.max_hp != m0 => {
-                    if !crate::coop::client_skip("斗技场加血以后补满血") {
-                        c.modules.data.hp = c.modules.data.max_hp;
-                    }
-                    b.0 = 0; // 做完了
-                }
-                Some(_) => {}
-            }
-        }
-    }
-    r.boosts.retain(|b| b.0 != 0);
+    crate::foefx::release(FX_TAG);
 }
 
 /// 这个部件在不在场上（读图后的角色里有没有这个实体）
@@ -1318,7 +1397,6 @@ fn lead_step(d: &Def, st: &mut St, r: &mut Run, in_arena: bool, hp: i32, revived
             }
         }
         Phase::Fight => {
-            boost_tick(r, wcm, now);
             track_dead(d, c, r, wcm);
             let members = r.lineup[r.wave].clone();
             if !r.checked && now - r.at >= CHECK_AFTER {
@@ -1357,6 +1435,7 @@ fn lead_step(d: &Def, st: &mut St, r: &mut Run, in_arena: bool, hp: i32, revived
                 }
                 r.cleared = r.wave + 1;
                 crate::nightmare::unforce();
+                crate::foefx::release(FX_TAG);
                 if r.wave + 1 >= r.waves {
                     if d.banner > 0 {
                         flag_set(f + d.banner, true);
@@ -1580,7 +1659,6 @@ fn client_step(d: &Def, st: &mut St, r: &mut Run, in_arena: bool, hp: i32, reviv
         start_wave(d, st, r, hs.w, now);
     }
     if r.phase == Phase::Fight || r.phase == Phase::Ask || r.phase == Phase::Next {
-        boost_tick(r, wcm, now);
         if r.spawned == Some(hs.w) && r.bound != Some(hs.w) && bound_now(d, c, r, wcm, now) {
             r.bound = Some(hs.w);
             log(&format!("竞技场：第 {} 波本机就绪", hs.w + 1));
@@ -2028,7 +2106,42 @@ part\t1\t0\tb\t45013000\t99300100\t-1\tc4800_9000\npart\t1\t1\tb\t45013001\t9930
 part\t1\t2\te\t45013002\t99300102\t0\tc3010_9006\npart\t1\t3\te\t45013003\t99300103\t0\tc3010_9006\n\
 part\t1\t4\te\t45013004\t99300104\t0\tc3010_9006\npart\t1\t5\te\t45013005\t99300105\t1\tc4602_9004\n\
 part\t1\t6\te\t45013006\t99300106\t1\tc4602_9004\npart\t1\t7\te\t45013007\t99300107\t2\tc3970_9050\npart\t1\t8\te\t45013008\t99300108\t2\tc3970_9050\n\
-note\twave 2 1\t1\nnote\twave 2 2\t2\nnote\tclear\t15\n";
+note\twave 2 1\t1\nnote\twave 2 2\t2\nnote\tclear\t15\n\
+wfx\t-\t4,8\tb\t3-6,8+\t100\t狂暴,铁壁\nwfx\t1\t-\te,s\t2\t50\tarena_rule2\nwfx\t-\t-\tb\t0\t100\tx\nwfx\t-\t-\tb\t1\t100\t\n";
+
+    /// 按波次挂效果的几率：同样的试炼编号 / 波次 / 实体 / 规则两台电脑一样，换一样就变；50% 大约一半
+    #[test]
+    fn fx_roll_shared() {
+        assert_eq!(fx_roll(77, 2, 12001800, 0), fx_roll(77, 2, 12001800, 0));
+        assert_ne!(fx_roll(77, 2, 12001800, 0), fx_roll(78, 2, 12001800, 0));
+        assert_ne!(fx_roll(77, 2, 12001800, 0), fx_roll(77, 3, 12001800, 0));
+        assert_ne!(fx_roll(77, 2, 12001800, 0), fx_roll(77, 2, 12001801, 0));
+        assert_ne!(fx_roll(77, 2, 12001800, 0), fx_roll(77, 2, 12001800, 1));
+        let hit = (0..2000u32).filter(|&e| fx_roll(77, 0, 12000000 + e, 0) % 10_000 < 5_000).count();
+        assert!((850..1150).contains(&hit), "{hit}");
+    }
+
+    #[test]
+    fn wave_fx_rules() {
+        let d = parse(SAMPLE).unwrap();
+        // 后两条写错（第 0 波、没写效果包）：不要，其余照常
+        assert_eq!(d.wfx.len(), 2);
+        let w = &d.wfx[0];
+        assert_eq!((w.colos.clone(), w.runs.clone(), w.who, w.chance), (vec![], vec![4, 8], [true, false, false], 100.0));
+        assert_eq!(w.waves, vec![(3, 6), (8, usize::MAX)]);
+        assert_eq!(w.packs, vec!["狂暴".to_string(), "铁壁".to_string()]);
+        let c = &d.colos[0];
+        let (boss, elite) = (&c.parts[0], &c.parts[2]);
+        assert!(w.matches(1, 8, 3, boss) && w.matches(1, 8, 6, boss) && w.matches(1, 8, 12, boss));
+        assert!(!w.matches(1, 8, 7, boss) && !w.matches(1, 8, 2, boss), "第 7、2 波不在范围里");
+        assert!(!w.matches(1, 2, 3, boss), "2 波的场次不管");
+        assert!(!w.matches(1, 8, 4, elite), "只管 Boss");
+        let w2 = &d.wfx[1];
+        assert_eq!((w2.colos.clone(), w2.who, w2.chance), (vec![1], [false, true, true], 50.0));
+        assert!(w2.matches(1, 4, 2, elite) && !w2.matches(0, 4, 2, elite) && !w2.matches(1, 4, 2, boss));
+        assert_eq!(parse_waves("1, 3-4 ,7+"), Some(vec![(1, 1), (3, 4), (7, usize::MAX)]));
+        assert!(parse_waves("4-2").is_none() && parse_waves("").is_none() && parse_waves("a").is_none());
+    }
 
     #[test]
     fn parse_def() {

@@ -25,7 +25,7 @@ MAX_FRAMES = 40
 MAX_SCAN = 60
 SCAN_BYTES = 0x10000
 MAX_FULL = 3              # 完整写出的转储最多几份
-EXIT_CRASH = {0x1ebb809: '2.7.1.0', 0x1ebcef9: '2.7.2.0'}   # 退出时必崩的位置（DL_PANIC，存档已写完），只记一行
+EXIT_CRASH = {0x1ebb809: '2.7.1.0', 0x1ebcef9: '2.7.2.0', 0x1ebb799: '2.7.0.0'}   # 退出时必崩的位置（DL_PANIC，存档已写完），只记一行
 
 
 class Dump:

@@ -18,6 +18,8 @@ $WebModTools = @(
 )
 
 # 「联机」一类（联机分支 coop，联机计划 13.3 C11）：只在新界面有。「联机」打开经典界面同一个联机菜单（gui.ps1 的 Show-CoopMenu，弹窗显示在页面里）
+# 联机还在测试，默认不显示（用户 2026-11-17：先合进主分支一起发，联机稳定了再公开）：有 launcher\coop_test.txt 才显示这一类（打包不带它）
+$WebCoopOn = Test-Path -LiteralPath (Join-Path $LauncherDir 'coop_test.txt')
 $WebCoopTools = @(
     @('联机', '和朋友用 Seamless Co-op 联机（要自己下载放进整合包的 dll\ 文件夹）：房主点「开房」，把联机码发给队友，队友点「加入」'),
     @('联机设置', '用记事本打开 Seamless Co-op 的设置文件（ersc_settings.ini）：随人数加强的血量和伤害等。联机密码开房时自动生成、队友加入时自动填，一般不用改')
@@ -158,7 +160,8 @@ function Get-WebState {
         # 「打开随机器」在新界面里是工具里的一行（和「一键重随物品」对调了位置，用户 2026-11-12），说明用经典界面那个大按钮的
         tools = @($small | ForEach-Object { @{ name = $_[0]; tip = $_[2] } }) + @(@{ name = '打开随机器'; tip = ([string]$bRandomizer.Sub + '。' + [string]$ToolTipCtl.GetToolTip($bRandomizer)) }) +
                 @($WebModTools | ForEach-Object { @{ name = $_[0]; tip = $_[1] } }) +
-                @($WebCoopTools | ForEach-Object { @{ name = $_[0]; tip = $_[1] } })
+                @($WebCoopTools | Where-Object { $WebCoopOn } | ForEach-Object { @{ name = $_[0]; tip = $_[1] } })
+        coop = [bool]$WebCoopOn
         update = $script:WebUpdate
         enemyInfo = (Get-WebEnemyInfo)
     }
@@ -455,7 +458,7 @@ function Invoke-WebMessage([string]$Json) {
             $n = [string]$m.name
             if ($smallBtns.ContainsKey($n)) { Invoke-ClassicClick $smallBtns[$n] }
             elseif (@($WebModTools | ForEach-Object { $_[0] }) -contains $n) { Invoke-WebModTool $n }
-            elseif (@($WebCoopTools | ForEach-Object { $_[0] }) -contains $n) { Invoke-WebCoopTool $n }
+            elseif ($WebCoopOn -and @($WebCoopTools | ForEach-Object { $_[0] }) -contains $n) { Invoke-WebCoopTool $n }
         }
         'openurl'    {      # 「关于」里的链接：只开写死的这几个，用系统默认浏览器
             if ($WebLinks -contains [string]$m.url) { Start-Process -FilePath ([string]$m.url) }

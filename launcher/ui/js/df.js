@@ -351,7 +351,10 @@
   $('#modalClose').addEventListener('click', closeModal);
   $('#mask').addEventListener('mousedown', function (e) { if (e.target === this) closeModal(); });
   function renderCats() {
-    $('#cats').innerHTML = CATS.map(function (c) {
+    // 联机一类只在测试开关开着时显示（webui.ps1 的 coop；launcher\coop_test.txt）
+    var cats = CATS.filter(function (x) { return x.key !== 'coop' || (S && S.coop); });
+    if (!cats.some(function (x) { return x.key === curCat; })) curCat = cats[0].key;
+    $('#cats').innerHTML = cats.map(function (c) {
       return '<button class="cat' + (c.key === curCat ? ' on' : '') + '" data-cat="' + c.key + '">' + esc(c.name) +
         (c.key === 'update' && hasUpdate(S) ? '<i class="nd"></i>' : '') + '</button>';
     }).join('');

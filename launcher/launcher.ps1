@@ -861,6 +861,7 @@ function Start-YafGame([string]$Mode = '') {
     $gameExe = Join-Path $erRoot 'Game\eldenring.exe'
     if (-not (Test-Path -LiteralPath $gameExe)) { Write-Err ('游戏路径无效（找不到 Game\eldenring.exe）：' + $erRoot); return $false }
     Write-Host ('  游戏：' + $gameExe)
+    if ($script:GameVerOk -ne $gameExe -and -not (Test-GameVersion $gameExe)) { return $false }
     if ($NoLaunch) {
         Write-Warn '[-NoLaunch] 只写配置，不启动 YAFSML。'
         return $true
@@ -1748,6 +1749,51 @@ function Write-BossModeDef($Bm) {
 
 # ---------------------------------------------------------------- 动作：启动（$Rand = 敌人随机，在最近一次随机器输出上做；否则在原版上做）
 # $Coop = 联机启动（Seamless Co-op）：加载 ersc.dll、Erd Tools 存档扩展名换成 co2、重随用联机种子和联机专用的一次性记录（见上面「联机」一节）
+# ---------------------------------------------------------------- 游戏版本
+# 整合包认得的游戏版本（eldenring.exe 的文件版本 → 游戏里的版本号）。整合包的功能模块按版本找游戏里的位置，别的版本上大半不工作：
+# 2026-11-17 玩家诊断包是非 Steam 版 2.7.0.0（比 2.7.1.0 早一版），装备、商店、飞行、物品锁的模块都没工作，玩家只看到东西不对、老崩溃。
+# 支持了新版本在这里加（键 = 文件版本）
+$SupportedGameVersions = [ordered]@{ '2.7.1.0' = '1.17.1'; '2.7.2.0' = '1.17.2' }
+
+# eldenring.exe 的文件版本（「2.7.1.0」）；读不到返回空
+function Get-GameExeVersion([string]$GameExe) {
+    try {
+        $vi = (Get-Item -LiteralPath $GameExe -ErrorAction Stop).VersionInfo
+        if ($vi.FileMajorPart -or $vi.FileMinorPart) {
+            return ('{0}.{1}.{2}.{3}' -f $vi.FileMajorPart, $vi.FileMinorPart, $vi.FileBuildPart, $vi.FilePrivatePart)
+        }
+    } catch { }
+    return ''
+}
+
+# 启动前核对游戏版本：认得的（或读不到版本的）返回 $true；认不得的弹窗说明，玩家点「仍然启动」返回 $true，否则 $false。
+# -NoLaunch（只生成不启动，测试用）不弹窗，只写一行提示
+function Test-GameVersion([string]$GameExe) {
+    $v = Get-GameExeVersion $GameExe
+    if (-not $v) { Write-Warn ('读不到游戏版本（' + $GameExe + '），照常启动。'); return $true }
+    if ($SupportedGameVersions.Contains($v)) { Write-Host ('  游戏版本 : ' + $SupportedGameVersions[$v] + '（' + $v + '）'); return $true }
+    $names = @($SupportedGameVersions.Keys | ForEach-Object { $SupportedGameVersions[$_] + '（' + $_ + '）' }) -join '和 '
+    $newest = @($SupportedGameVersions.Keys | ForEach-Object { [version]$_ } | Sort-Object)[-1]
+    if ([version]$v -gt $newest) {
+        $why = '游戏更新到了 ' + $v + '，整合包还没跟上这个版本。'
+        $support = '整合包现在只支持 ' + $names + '。'
+        $fix = '等整合包出新版本（打开启动器时会自动检查更新）。'
+    } else {
+        $why = '这个游戏的版本是 ' + $v + '，比整合包支持的旧。'
+        $support = '整合包只支持 ' + $names + '。'
+        $fix = "Steam 版：在 Steam 里把游戏更新到最新。`r`n不是 Steam 版：换成 " + (@($SupportedGameVersions.Values) -join ' 或 ') + ' 的游戏文件。'
+    }
+    $lost = '在这个版本上，新装备的属性和词条、鉴定、商店等大部分功能都不会工作。'
+    if ($NoLaunch) { Write-PlayerWarn ($why + $support + $lost); return $true }
+    $r = Show-DrDialog ($why + "`r`n" + $support + "`r`n`r`n" + $lost + "`r`n`r`n" + $fix + "`r`n`r`n还是要启动吗？") '暗黑重铸 · 游戏版本不支持' @('不启动', '仍然启动') 0 0 'warn'
+    if ($r -eq 1) {
+        Write-PlayerWarn ('游戏版本 ' + $v + ' 不支持，按你的选择照常启动：大部分功能不会工作。')
+        return $true
+    }
+    Write-Err ('游戏版本 ' + $v + ' 不支持，没有启动。' + ($fix -replace "`r`n", ' '))
+    return $false
+}
+
 function Invoke-Launch([bool]$Rand, [bool]$Coop = $false) {
     foreach ($t in @($RerollTool, $ScriptsTool)) { if (-not (Test-Path -LiteralPath $t)) { Write-Err ('缺少脚本：' + $t); return } }
     $modeText = $(if ($Coop) { '联机 · ' } else { '' }) + $(if ($Rand) { '敌人随机' } else { '无敌人随机' })
@@ -1850,6 +1896,13 @@ function Invoke-Launch([bool]$Rand, [bool]$Coop = $false) {
     if (Get-Process -Name 'eldenring' -ErrorAction SilentlyContinue) {
         Write-Err '游戏还在运行。先在游戏里正常退出（系统 → 退出游戏），等游戏完全关闭后再启动。'
         return
+    }
+    # 游戏版本不对：大半功能不工作，生成之前先说（游戏路径还没选好的，到 Start-YafGame 选完再核对）
+    $script:GameVerOk = ''
+    $gr = Resolve-GameRoot
+    if ($gr -and (Test-Path -LiteralPath (Join-Path $gr 'Game\eldenring.exe'))) {
+        if (-not (Test-GameVersion (Join-Path $gr 'Game\eldenring.exe'))) { return }
+        $script:GameVerOk = Join-Path $gr 'Game\eldenring.exe'
     }
     $py = Find-Python
     if (-not $py) { Write-Err ('找不到 Python 3：包里自带的 ' + (Join-Path $LauncherDir 'python') + ' 不完整，系统里也没装（python.org 装 3.8 以上即可）'); return }
@@ -2349,9 +2402,9 @@ function Invoke-CrashWatch([int]$ProcId) {
     $msg = $ev.Message
     $module = [string]$ev.Properties[3].Value
     $offset = [string]$ev.Properties[7].Value
-    # 退出时的崩溃不算：游戏带 mod 退出时几乎每次都在 eldenring.exe+0x1ebb809（2.7.2.0 是 +0x1ebcef9，同一处 DL_PANIC）出错
+    # 退出时的崩溃不算：游戏带 mod 退出时几乎每次都在 eldenring.exe+0x1ebb809（2.7.2.0 是 +0x1ebcef9、不支持的 2.7.0.0 是 +0x1ebb799，同一处 DL_PANIC）出错
     #（存档已经写完，没有影响），或者窗口已经先关了。只记一行到日志，不弹窗、不导出诊断包
-    $exitCrash = ($module -ieq 'eldenring.exe' -and $offset -match '^(0x)?0*(1ebb809|1ebcef9)$') -or $windowClosedFirst
+    $exitCrash = ($module -ieq 'eldenring.exe' -and $offset -match '^(0x)?0*(1ebb809|1ebcef9|1ebb799)$') -or $windowClosedFirst
     if ($exitCrash) {
         Add-GameSession $started $ended ('退出时崩溃（没影响）：' + $module + ' ' + $offset)
         Add-ExitCrashLine ($module + ' ' + $offset + ' 进程 ' + $ProcId + ' 窗口先关闭=' + $windowClosedFirst)
