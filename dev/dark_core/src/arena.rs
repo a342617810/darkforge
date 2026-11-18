@@ -186,6 +186,8 @@ struct GenWatch {
     born: u32,
     died: u32,
     revived: u32,
+    /// 每个角色上次倒下的时间（又活了时写隔了几秒）
+    died_at: HashMap<usize, Instant>,
 }
 
 /// 按波次挂的效果（arena.txt 的 wfx 行，rr/arena.py wave_fx_lines）：wfx 竞技场 场次的总波数 哪种敌人 第几波 几率% 效果包（- = 不限）
@@ -2097,12 +2099,14 @@ fn gen_tick(d: &Def, st: &mut St, wcm: &WorldChrMan, now: Instant) {
             }
             Some(&(_, h0)) if h0 > 0 && hp <= 0 => {
                 w.died += 1;
+                w.died_at.insert(a, now);
                 lines.push(format!("倒下 地址 {a:x} 实体 {ent}{what} 位置 ({:.1}, {:.1}, {:.1})", pos[0], pos[1], pos[2]));
             }
             // 同一个角色血量从 0 回来（生成器把管的部件在出生点重新放出来？出生点 (-6, -12) / (6, -12) / (0, -14)，模板原位 (0, -18)）
             Some(&(_, h0)) if h0 <= 0 && hp > 0 => {
                 w.revived += 1;
-                lines.push(format!("又活了 地址 {a:x} 实体 {ent}{what} 血 {hp}/{max} 位置 ({:.1}, {:.1}, {:.1})", pos[0], pos[1], pos[2]));
+                let after = w.died_at.remove(&a).map_or(String::new(), |t| format!("，倒下后 {:.1} 秒", now.duration_since(t).as_secs_f32()));
+                lines.push(format!("又活了 地址 {a:x} 实体 {ent}{what} 血 {hp}/{max} 位置 ({:.1}, {:.1}, {:.1}){after}", pos[0], pos[1], pos[2]));
             }
             Some(&(e0, _)) if e0 != ent => lines.push(format!("实体编号变了 地址 {a:x}：{e0} → {ent}")),
             _ => {}

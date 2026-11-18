@@ -72,8 +72,10 @@ GEN_SRC_MAP, GEN_SRC_GEN, GEN_SRC_REGION = 'm14_00_00_00', 14003814, 14002900
 GEN_ENT, GEN_REG0, GEN_TMPL, GEN_FLAG0, GEN_EV0 = 3900, 3901, 3910, 2750, 2760
 GEN_AT = [(-6.0, -12.0), (6.0, -12.0), (0.0, -14.0)]      # 出生点（同 sc/arena.py 的坐标系：竞技场中心、玩家出生点朝 −z）
 GEN_TMPL_AT = (0.0, -18.0)
-# 同时最多 3 只、总数不限、一次 1 只、补一只等 3~5 秒、开场先生 1 只（学院的是 6 / -1 / 1 / 1 / 0~2 秒 / 5）
-GEN_PARAMS = dict(max_num=3, limit=-1, min_gen=1, max_gen=1, min_iv=3.0, max_iv=5.0, initial=1)
+# 同时最多 3 只、总数不限、一次 1 只、开场先生 1 只（学院的是 6 / -1 / 1 / 1 / 0~2 秒 / 5）。
+# 第三轮（间隔 3~5 秒）实测：生成器不复制，而是模板死了以后把它本身在出生点复活（地址、实体编号不变，满血）。
+# 第四轮：间隔 600 秒（死了不自己回来），看「刷一只」（2003[54]）能不能按需马上复活、关着的生成器还能不能刷
+GEN_PARAMS = dict(max_num=3, limit=-1, min_gen=1, max_gen=1, min_iv=600.0, max_iv=600.0, initial=1)
 DEFAULT = dict(enabled=True, tiers=[31, 13, 8], bosses=8, elite_kinds=4, elite_copies=4, elite_per_wave=2, scarab_pct=20, scarab_copies=4,
                cost=[1, 2, 3], waves=[2, 4, 8],
                items_elite=2, items_boss=1, ash_boss=1, clear_bonus=[1, 2, 4], refund=[0, 1, 2], elite_two=[0, 0, 10, 15, 20, 30, 40, 50],
