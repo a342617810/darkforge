@@ -3171,6 +3171,68 @@ fn rec_path(slot: i32) -> PathBuf {
     data_dir().join(format!("{REC_PREFIX}{slot}.txt"))
 }
 
+/// 角色记录里放「挪开的旧记录」的文件夹：同一格子换了角色（文件里的角色名和现在的对不上）时，原来那份先复制到这里再写新的，
+/// 读档时名字对不上就到这里找回这个角色的（玩家诊断包 2026-11-18：新建角色那一刻游戏报的格子还是上一个角色的，
+/// 上一个角色的记录被新角色的开局装备直接盖掉了，220 件装备变成占位文字；用户「改」）。装备、骨灰的记录都用
+const OLD_DIR: &str = "旧记录";
+
+/// 记录文本里的角色名（跳过 # 开头的说明行，第一行「name<TAB>角色名」）；没有就 None
+pub(super) fn rec_text_name(text: &str) -> Option<String> {
+    let l = text.lines().map(|l| l.trim_start_matches('\u{feff}')).find(|l| !l.starts_with('#'))?;
+    l.trim_end_matches('\r').strip_prefix("name\t").map(str::to_string)
+}
+
+/// 要写 path 了：它原来是别的角色的记录（名字不是 name、也不是空的）就先复制到 旧记录\<文件名>_<时间>.txt。返回复制了没有
+pub(super) fn rec_set_aside(path: &std::path::Path, name: &str) -> bool {
+    let Some(old) = fs::read_to_string(path).ok().as_deref().and_then(rec_text_name) else { return false };
+    if old.is_empty() || old == name {
+        return false;
+    }
+    let Some(dir) = path.parent().map(|p| p.join(OLD_DIR)) else { return false };
+    let stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or("record");
+    let t: String = crate::now_text().chars().filter(|c| c.is_ascii_digit()).collect();
+    let mut dst = dir.join(format!("{stem}_{t}.txt"));
+    let mut k = 1;
+    while dst.exists() {
+        k += 1;
+        dst = dir.join(format!("{stem}_{t}_{k}.txt"));
+    }
+    let ok = fs::create_dir_all(&dir).and_then(|_| fs::copy(path, &dst)).is_ok();
+    log(&format!(
+        "角色记录：{} 原来是「{old}」的，现在要写「{name}」的；原来那份{} {}",
+        path.display(),
+        if ok { "另存到" } else { "另存失败（照样写新的）：" },
+        dst.display()
+    ));
+    ok
+}
+
+/// path 里不是 name 的记录：到 旧记录 里找同一个文件名开头（同一格子）、角色名是 name 的，最新的一份 → (路径, 内容)
+pub(super) fn rec_find_aside(path: &std::path::Path, name: &str) -> Option<(PathBuf, String)> {
+    if name.is_empty() {
+        return None;
+    }
+    let dir = path.parent()?.join(OLD_DIR);
+    let prefix = format!("{}_", path.file_stem()?.to_str()?);
+    let mut best: Option<(SystemTime, PathBuf, String)> = None;
+    for e in fs::read_dir(&dir).ok()?.flatten() {
+        let p = e.path();
+        let Some(f) = p.file_name().and_then(|f| f.to_str()) else { continue };
+        if !f.starts_with(&prefix) || !f.ends_with(".txt") {
+            continue;
+        }
+        let Ok(text) = fs::read_to_string(&p) else { continue };
+        if rec_text_name(&text).as_deref() != Some(name) {
+            continue;
+        }
+        let t = e.metadata().and_then(|m| m.modified()).unwrap_or(UNIX_EPOCH);
+        if best.as_ref().is_none_or(|b| t > b.0) {
+            best = Some((t, p, text));
+        }
+    }
+    best.map(|(_, p, text)| (p, text))
+}
+
 /// 读出来的记录：这个角色的、回购商店里的、武器商店正在卖的
 type Loaded = (HashMap<(usize, u32), Rec>, Vec<Rec>, Vec<Rec>);
 
@@ -3224,6 +3286,7 @@ fn rec_save(who: &(i32, String), st: &St) {
     }
     let p = rec_path(who.0);
     let _ = fs::create_dir_all(data_dir());
+    rec_set_aside(&p, &who.1); // 这一格原来是别的角色的记录：先另存，不直接盖掉
     let tmp = p.with_extension("txt.tmp");
     let shop: Vec<Rec> = st.shop.iter().flatten().chain(&st.shop_prev).cloned().collect();
     if fs::write(&tmp, rec_text(&who.1, &st.recs, &st.sold, &shop)).and_then(|_| fs::rename(&tmp, &p)).is_err() {
@@ -3554,7 +3617,18 @@ pub(crate) fn remove_goods(pgd: &mut PlayerGameData, goods: u32, n: u32) -> u32 
 /// 进存档：按记录改写所有容器的行；发货表清空、标记熄灭；文字等扫完内存再写
 fn on_load(d: &'static Defs, st: &mut St, who: &(i32, String), pgd: &PlayerGameData) {
     unsell_tick(st, None); // 上一个角色锁定的改回能卖，这个角色的稳定后再按它的名单改
-    let (recs, sold, shop) = rec_load(&rec_read(&format!("{REC_PREFIX}{}.txt", who.0)).unwrap_or_default(), &who.1).unwrap_or_default();
+    let text = rec_read(&format!("{REC_PREFIX}{}.txt", who.0)).unwrap_or_default();
+    let mut loaded = rec_load(&text, &who.1);
+    if loaded.is_none() {
+        // 这一格的记录是别的角色的（或者没有）：到 旧记录 里找这个角色以前被挪开的那份
+        if let Some((p, t)) = rec_find_aside(&rec_path(who.0), &who.1) {
+            loaded = rec_load(&t, &who.1);
+            if let Some(l) = &loaded {
+                log(&format!("新装备系统：格子 {} 的记录不是「{}」的，从 {} 找回 {} 件（回购 {} 件）", who.0, who.1, p.display(), l.0.len(), l.1.len()));
+            }
+        }
+    }
+    let (recs, sold, shop) = loaded.unwrap_or_default();
     st.recs = recs;
     // 武器商店上一批：先留着（容器照记录重建，稳定后在背包 / 仓库里的算买走了、记进记录），这次进存档重新摆货
     st.shop_prev = shop.into_iter().filter(|r| r.cat == 0 && !st.recs.contains_key(&(r.cat, r.idx))).collect();
@@ -4928,6 +5002,40 @@ pub fn tick() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// 角色记录：写别的角色前把旧的另存到 旧记录\，读档时按「同一格子 + 角色名」找回最新那份；格子 1 不会拿到格子 10 的
+    #[test]
+    fn record_set_aside_and_find() {
+        let dir = std::env::temp_dir().join(format!("dr_rec_aside_{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        let p0 = dir.join("items_1.txt");
+        let head = "# 说明\n";
+        // 没有文件、同名：都不另存
+        assert!(!rec_set_aside(&p0, "bouu"));
+        fs::write(&p0, format!("{head}name\tbouu\nw\t1\t0\t100\n")).unwrap();
+        assert!(!rec_set_aside(&p0, "bouu"));
+        assert_eq!(rec_text_name(&fs::read_to_string(&p0).unwrap()).as_deref(), Some("bouu"));
+        // 换成别的角色：先另存
+        assert!(rec_set_aside(&p0, "aabs"));
+        fs::write(&p0, format!("{head}name\taabs\nw\t2\t0\t200\n")).unwrap();
+        let (_, text) = rec_find_aside(&p0, "bouu").expect("找得回 bouu");
+        assert!(text.contains("w\t1\t0\t100"));
+        assert!(rec_find_aside(&p0, "nobody").is_none());
+        // 再换回 bouu：aabs 那份也另存，两份都在
+        assert!(rec_set_aside(&p0, "bouu"));
+        assert!(rec_find_aside(&p0, "aabs").is_some());
+        // 格子 10 的旧记录不算格子 1 的
+        let p10 = dir.join("items_10.txt");
+        fs::write(&p10, format!("{head}name\tzed\n")).unwrap();
+        assert!(rec_set_aside(&p10, "other"));
+        assert!(rec_find_aside(&p0, "zed").is_none());
+        assert!(rec_find_aside(&p10, "zed").is_some());
+        // 骨灰的记录没有说明行，第一行就是名字
+        assert_eq!(rec_text_name("name\tx\n1\t2\n").as_deref(), Some("x"));
+        assert_eq!(rec_text_name("\u{feff}name\ty\r\n").as_deref(), Some("y"));
+        let _ = fs::remove_dir_all(&dir);
+    }
 
     /// 继承换词条：被换掉的那条没有别的装备提供、身上挂着才摘；别的装备也有的留着；新的身上没有才挂
     #[test]

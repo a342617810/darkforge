@@ -484,6 +484,7 @@ fn save(a: &AshSt) {
     if let Some(p) = path.parent() {
         let _ = fs::create_dir_all(p);
     }
+    rec_set_aside(&path, &who.1); // 这一格原来是别的角色的记录：先另存（gear.rs）
     let tmp = path.with_extension("tmp");
     if fs::write(&tmp, rec_text(&who.1, &a.recs)).is_ok() {
         let _ = fs::rename(&tmp, &path);
@@ -984,7 +985,15 @@ pub(super) fn on_load(who: &(i32, String)) {
     let mut g = AST.lock().unwrap_or_else(|e| e.into_inner());
     let a = g.get_or_insert_with(AshSt::default);
     a.who = Some(who.clone());
-    a.recs = rec_load_text(&fs::read_to_string(rec_file(who.0)).unwrap_or_default(), &who.1);
+    let text = fs::read_to_string(rec_file(who.0)).unwrap_or_default();
+    a.recs = rec_load_text(&text, &who.1);
+    if a.recs.is_empty() && rec_text_name(&text).as_deref() != Some(who.1.as_str()) {
+        // 这一格的记录是别的角色的（或者没有）：到 旧记录 里找这个角色以前被挪开的那份（gear.rs）
+        if let Some((p, t)) = rec_find_aside(&rec_file(who.0), &who.1) {
+            a.recs = rec_load_text(&t, &who.1);
+            log(&format!("骨灰：格子 {} 的记录不是「{}」的，从 {} 找回 {} 个", who.0, who.1, p.display(), a.recs.len()));
+        }
+    }
     a.recs.retain(|idx, r| *idx < def.n && def.kinds.iter().any(|k| k.base == r.kind));
     a.stale = a
         .recs
