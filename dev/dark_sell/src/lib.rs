@@ -11,8 +11,9 @@
 //!   哪些是 RNG 装备：DLL 旁边的 sell_items.txt（重随时自动生成：类别 编号，武器写 +0 的编号）；
 //!   稀有度、售价：游戏当时加载的参数（EquipParam 的 rarity 0 普通 / 1 稀有 / 2 史诗 / 3 传说、sellValue）。
 //!   移除物品调用游戏自己的函数（和 The Grand Archives CE 表的 RemoveItem 同一个，按特征码找）。
-//! 确认框里的预计件数 / 卢恩：bossres.py 在确认框文字里留了固定长度的占位「〔#S<序号> …〕」（英文 [ ]），
-//!   进游戏后在内存里找到这些占位（ReadProcessMemory 读，读不到只是失败、不会崩），每 30 帧按背包现状改写（长度不变）。
+//! 确认框里的预计件数 / 卢恩：sc/sell.py 在确认框文字里留了占位「〔#S<序号> …〕」（英文 [ ]），每 30 帧按背包现状算好，
+//!   交给 dll\dark_core 的取文字钩子（导出函数 dr_msg_confirm，msghook.rs），游戏取这段文字时换成算好的。
+//!   以前是扫内存找到占位原地改写：找到的多是临时副本，写进已经释放的内存会写坏游戏的堆（2026-11-18 改掉）。
 //! 锁定的装备不卖：%APPDATA%\EldenRing\DarkReforged\角色记录\lock_items.txt（dll\dark_lock 在物品弹出菜单里的「锁定」写的，按类别 + 编号，
 //!   武器不含强化等级；还没有这个文件时看 dll\dark_lock\lock_items.txt，旧版写在那）。
 //! 每个角色的记录（RNG Lands 自己的事件标记都在 1040490xxx，这一块在游戏里是单独分配的、不在存档的标记表里，重启游戏就全灭了）：
@@ -37,7 +38,7 @@ use std::fmt::Write as _;
 use std::fs;
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, AtomicUsize, Ordering};
 use std::sync::{Mutex, OnceLock};
 use std::time::Duration;
 
@@ -49,10 +50,7 @@ use eldenring::fd4::FD4TaskData;
 use eldenring::util::input;
 use fromsoftware_shared::{FromStatic, SharedTaskImpExt};
 use windows::Win32::Foundation::HMODULE;
-use windows::Win32::System::Diagnostics::Debug::{ReadProcessMemory, WriteProcessMemory};
-use windows::Win32::System::LibraryLoader::{GetModuleFileNameW, GetModuleHandleW};
-use windows::Win32::System::Memory::{MEM_COMMIT, MEM_PRIVATE, MEMORY_BASIC_INFORMATION, PAGE_GUARD, PAGE_READWRITE, VirtualQuery};
-use windows::Win32::System::Threading::GetCurrentProcess;
+use windows::Win32::System::LibraryLoader::{GetModuleFileNameW, GetModuleHandleW, GetProcAddress};
 
 const KEY_DUMP: i32 = 0x78; // F9
 const MAX_RUNES: u32 = 999_999_999;
@@ -106,9 +104,11 @@ static ASH_SEEN: AtomicBool = AtomicBool::new(false);
 static DIR: OnceLock<PathBuf> = OnceLock::new();
 static REMOVE_ITEM: OnceLock<Option<usize>> = OnceLock::new();
 static RNG_ITEMS: OnceLock<HashSet<(u8, u32)>> = OnceLock::new();
-/// 确认框里的占位：（第一个字符的地址, 括号里的字符数, 序号 0~COMBOS-1, 是不是中文）
-static FIELDS: Mutex<Vec<(usize, usize, usize, bool)>> = Mutex::new(Vec::new());
+/// 确认框各序号上次交给 dark_core 的文字（没变就不再交）
 static FIELD_TEXT: Mutex<[String; COMBOS]> = Mutex::new([const { String::new() }; COMBOS]);
+/// dark_core 的 dr_msg_confirm 的地址（0 = 还没找到）；找不到时记过一行日志没有
+static CONFIRM_FN: AtomicUsize = AtomicUsize::new(0);
+static CONFIRM_TOLD: AtomicBool = AtomicBool::new(false);
 
 fn dir() -> PathBuf {
     DIR.get().cloned().unwrap_or_else(|| PathBuf::from("."))
@@ -473,66 +473,32 @@ fn group_digits(v: u32) -> String {
     out
 }
 
-/// 在游戏内存里找确认框的占位（扫一遍可读写的私有内存，用 ReadProcessMemory 一块块读）
-fn scan_fields() -> Vec<(usize, usize, usize, bool)> {
-    let proc = unsafe { GetCurrentProcess() };
-    let mut found = Vec::new();
-    let mut addr = 0usize;
-    let mut buf = vec![0u8; 1 << 20];
-    loop {
-        let mut mbi = MEMORY_BASIC_INFORMATION::default();
-        let got = unsafe { VirtualQuery(Some(addr as *const _), &mut mbi, std::mem::size_of::<MEMORY_BASIC_INFORMATION>()) };
-        if got == 0 {
-            break;
-        }
-        let base = mbi.BaseAddress as usize;
-        let size = mbi.RegionSize;
-        if mbi.State == MEM_COMMIT && mbi.Type == MEM_PRIVATE && mbi.Protect == PAGE_READWRITE && (mbi.Protect & PAGE_GUARD).0 == 0 {
-            let mut off = 0usize;
-            while off < size {
-                let n = (size - off).min(buf.len());
-                let mut read = 0usize;
-                let ok = unsafe { ReadProcessMemory(proc, (base + off) as *const _, buf.as_mut_ptr() as *mut _, n, Some(&mut read)) }.is_ok();
-                if ok && read >= 8 {
-                    let w = unsafe { std::slice::from_raw_parts(buf.as_ptr() as *const u16, read / 2) };
-                    let mut i = 1;
-                    while i + 3 < w.len() {
-                        // 「#S<序号，一位十六进制> 」，前一个字符是〔或 [
-                        let idx = char::from_u32(w[i + 2] as u32).and_then(|c| c.to_digit(16)).map(|d| d as usize).filter(|&d| d < COMBOS);
-                        if w[i] == b'#' as u16 && w[i + 1] == b'S' as u16 && idx.is_some()
-                            && w[i + 3] == b' ' as u16 && (w[i - 1] == 0x3014 || w[i - 1] == b'[' as u16)
-                        {
-                            let zh = w[i - 1] == 0x3014;
-                            let close = if zh { 0x3015 } else { b']' as u16 };
-                            if let Some(len) = w[i..w.len().min(i + 60)].iter().position(|&c| c == close) {
-                                found.push((base + off + i * 2, len, idx.unwrap(), zh));
-                            }
-                        }
-                        i += 1;
-                    }
-                }
-                // 下一块往回退一点，免得占位正好跨在两块中间
-                off += if n > 256 { n - 256 } else { n };
-            }
-        }
-        addr = base + size;
-        if addr == 0 {
-            break;
-        }
+type ConfirmFn = unsafe extern "C" fn(u8, u8, *const u16, usize, *const u16, usize);
+
+/// dark_core 的取文字钩子收确认框文字的函数（dark_core 比我们先加载；没找到下次再找）
+fn confirm_fn() -> Option<ConfirmFn> {
+    let mut a = CONFIRM_FN.load(Ordering::Relaxed);
+    if a == 0 {
+        let m = unsafe { GetModuleHandleW(windows::core::w!("dark_core.dll")) }.ok()?;
+        a = unsafe { GetProcAddress(m, windows::core::s!("dr_msg_confirm")) }? as usize;
+        CONFIRM_FN.store(a, Ordering::Relaxed);
     }
-    found.sort();
-    found.dedup();
-    found
+    Some(unsafe { std::mem::transmute::<usize, ConfirmFn>(a) })
 }
 
-/// 把预计结果写进占位（写之前核对括号还在；长度不变，空位补空格）
+/// 一键出售确认框的预计结果（序号 i = 类别 × 4 + 档位）：中英文各一份交给 dark_core，变了才交
 fn write_fields() {
-    let fields = FIELDS.lock().unwrap().clone();
-    if fields.is_empty() {
-        return;
-    }
     let Ok(gdm) = (unsafe { GameDataMan::instance_mut() }) else { return };
     let pgd: &mut PlayerGameData = &mut gdm.main_player_game_data;
+    if pgd.level == 0 {
+        return;
+    }
+    let Some(publish) = confirm_fn() else {
+        if !CONFIRM_TOLD.swap(true, Ordering::Relaxed) {
+            log("一键出售确认框：找不到 dark_core 的 dr_msg_confirm（dark_core 没加载？），确认框里显示占位的提示");
+        }
+        return;
+    };
     let Some(inv_ptr) = inventory(pgd) else { return };
     let inv = unsafe { &*inv_ptr };
     let mut est = [(0u32, 0u32); COMBOS];
@@ -542,41 +508,20 @@ fn write_fields() {
             e.1 = e.1.saturating_add(price.saturating_mul(qty));
         }
     }
-    let mut last = FIELD_TEXT.lock().unwrap();
-    let proc = unsafe { GetCurrentProcess() };
-    for &(addr, len, i, zh) in &fields {
-        let (n, r) = est[i];
-        let mut t = if zh {
-            if n == 0 { "没有可卖的".to_string() } else { format!("预计卖出 {n} 件，约 {} 卢恩", group_digits(r)) }
-        } else if n == 0 {
-            "Nothing to sell".to_string()
+    let mut last = FIELD_TEXT.lock().unwrap_or_else(|e| e.into_inner());
+    for (i, &(n, r)) in est.iter().enumerate() {
+        let (zh, en) = if n == 0 {
+            ("没有可卖的".to_string(), "Nothing to sell".to_string())
         } else {
-            format!("Est. {n} items for {} runes", group_digits(r))
+            (format!("预计卖出 {n} 件，约 {} 卢恩", group_digits(r)), format!("Est. {n} items for {} runes", group_digits(r)))
         };
-        let key = format!("{}{t}", if zh { "z" } else { "e" });
+        let key = format!("{zh}|{en}");
         if last[i] == key {
             continue;
         }
-        let mut u: Vec<u16> = t.encode_utf16().collect();
-        u.truncate(len);
-        while u.len() < len {
-            u.push(b' ' as u16);
-        }
-        // 核对：前一个字符是开括号、后一个是闭括号（文字被换掉 / 重新加载过就不写）
-        let mut edge = [0u16; 1];
-        let mut read = 0usize;
-        let open_ok = unsafe { ReadProcessMemory(proc, (addr - 2) as *const _, edge.as_mut_ptr() as *mut _, 2, Some(&mut read)) }.is_ok()
-            && edge[0] == if zh { 0x3014 } else { b'[' as u16 };
-        let close_ok = unsafe { ReadProcessMemory(proc, (addr + len * 2) as *const _, edge.as_mut_ptr() as *mut _, 2, Some(&mut read)) }.is_ok()
-            && edge[0] == if zh { 0x3015 } else { b']' as u16 };
-        if !open_ok || !close_ok {
-            continue;
-        }
-        let mut wrote = 0usize;
-        if unsafe { WriteProcessMemory(proc, addr as *const _, u.as_ptr() as *const _, len * 2, Some(&mut wrote)) }.is_ok() {
-            last[i] = key;
-        }
-        t.clear();
+        let (z, e): (Vec<u16>, Vec<u16>) = (zh.encode_utf16().collect(), en.encode_utf16().collect());
+        unsafe { publish(b'S', i as u8, z.as_ptr(), z.len(), e.as_ptr(), e.len()) };
+        last[i] = key;
     }
 }
 
@@ -915,22 +860,6 @@ pub unsafe extern "system" fn DllMain(hmodule: u64, reason: u32, _reserved: *mut
             return;
         };
         log("dark_sell 已加载：赐福「一键出售」；F9 导出背包（排查用）");
-        // 找确认框里的占位：菜单文字开局就载入，进存档后找一次；没找到每 30 秒再找（最多 10 次）
-        std::thread::spawn(|| {
-            for _ in 0..10 {
-                while unsafe { GameDataMan::instance() }.map(|g| g.main_player_game_data.level == 0).unwrap_or(true) {
-                    std::thread::sleep(Duration::from_secs(2));
-                }
-                let t0 = std::time::Instant::now();
-                let f = scan_fields();
-                log(&format!("确认框占位：找到 {} 处（{:.1} 秒）", f.len(), t0.elapsed().as_secs_f32()));
-                if !f.is_empty() {
-                    *FIELDS.lock().unwrap() = f;
-                    return;
-                }
-                std::thread::sleep(Duration::from_secs(30));
-            }
-        });
         let mut frame = 0u32;
         task.run_recurring(
             move |_: &FD4TaskData| {

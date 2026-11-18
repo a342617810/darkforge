@@ -169,12 +169,8 @@ fn receive(d: &Defs, st: &mut St, pgd: &PlayerGameData, pk: &Packet) -> Result<(
     let free = free(d, st, &held);
     let idx = *free[cat].first().ok_or_else(|| e("对方这一类的新装备满了，放不下"))?;
     rec.idx = idx;
-    {
-        let mut g = TXT.lock().unwrap_or_else(|x| x.into_inner());
-        let t = g.get_or_insert_with(Txt::default);
-        write_row(d, st, &rec).map_err(|x| e(&format!("改写参数行失败：{x}")))?;
-        write_texts(d, t, &rec);
-    }
+    write_row(d, st, &rec).map_err(|x| e(&format!("改写参数行失败：{x}")))?;
+    write_texts(d, &rec);
     let id = d.items.cont[cat].id(idx) as i32 + if cat == 0 { lv as i32 } else { 0 };
     lot_write(&d.items, &[(LOT_CAT[cat], id, 1)]).map_err(|x| e(&format!("改写发货表失败：{x}")))?;
     if !flag_set(d.items.deliver_flag, true) {

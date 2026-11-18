@@ -5,13 +5,13 @@
 //! 流程：
 //!   1. 赐福菜单「一键鉴定」点亮请求标记（sc/identify.py）；这里看到（人物还要正坐在赐福点）就熄灭它，数背包里的未鉴定道具；
 //!   2. 每件挑一个这个角色没在用的容器，按词条库抽（本体、补正、异常、词条……），改写容器的参数行（照本体整行复制，
-//!      跟编号绑定的字段换回容器自己的）和三段文字（内存里找到占位后原地改写）；
+//!      跟编号绑定的字段换回容器自己的）和三段文字（游戏取文字时由 msghook.rs 的钩子换成我们的，不写游戏内存）；
 //!   3. 这批容器写进发货表、点亮发货标记，公共事件发完熄灭；再等 1 秒数背包 + 仓库，到了的才记进记录、扣掉对应的未鉴定道具
 //!      （游戏自己的移除函数，同 dark_sell）；一批最多发货表的行数，还有剩的接着发下一批。
 //! 记录：%APPDATA%\EldenRing\DarkReforged\角色记录\items_<格子>.txt（第一行角色名），一行一个容器的配方；进存档时按记录重建所有容器的行和文字。
 //!   （2026-10-29 以前在 EldenRing 根目录的 DarkReforged_items_<格子>.txt：启动器会搬过来，新位置没有时这里也读旧的，见 rec_read。）
 //!   容器只要不在背包 / 仓库里（卖了、丢了）就算空的，下次鉴定可以再用（不同角色各用各的，读档时按这个角色的记录改写）。
-//! 确认框里的「背包里几件、容器还剩多少」：对话脚本留的占位「〔#I0 …〕」（英文 [ ]），每 30 帧按背包现状改写。
+//! 确认框里的「背包里几件、容器还剩多少」：对话脚本留的占位「〔#I0 …〕」（英文 [ ]），每 30 帧按背包现状算好交给取文字钩子。
 //! 定向鉴定（用户 2026-11-03）：赐福「暗黑重铸」→「鉴定」里选武器类型、稀有度，菜单把类型序号、稀有度写进 items.txt dirident 行的标记再点亮请求；
 //! 这里只鉴定那个稀有度的未鉴定武器（全部 = 5），本体从那个类型里挑（同样偏向加点），稀有度不变，每件按它的稀有度扣卢恩（cost，
 //! 用户 2026-11-03：普通 10、稀有 100、史诗 500、传说 1000、传说（幽影之地）2000），付不起的不鉴定；
@@ -35,11 +35,7 @@ use eldenring::cs::{
     ItemLotParam_map, PlayerGameData, ShopLineupParam, SoloParam, SoloParamRepository, WorldChrMan,
 };
 use fromsoftware_shared::FromStatic;
-use windows::Win32::Foundation::HANDLE;
-use windows::Win32::System::Diagnostics::Debug::{ReadProcessMemory, WriteProcessMemory};
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
-use windows::Win32::System::Memory::{MEM_COMMIT, MEM_PRIVATE, MEMORY_BASIC_INFORMATION, PAGE_GUARD, PAGE_READWRITE, VirtualQuery};
-use windows::Win32::System::Threading::GetCurrentProcess;
 
 use crate::{dir, log};
 
@@ -66,8 +62,6 @@ const INV_GOODS: u8 = 4;
 const LOT_CAT: [i32; NCAT] = [2, 3, 4];
 const FIELDS: [char; 3] = ['N', 'I', 'C'];
 const REC_PREFIX: &str = "items_";
-/// 后台扫内存最多几次（没找到占位 / 占位失效时再扫）
-const MAX_SCANS: u32 = 4;
 /// 进存档后多少帧内亮着的鉴定请求算存档里残留的
 const SETTLE_FRAMES: u32 = 300;
 const STATUS_N: usize = 7;
@@ -1179,6 +1173,7 @@ fn defs() -> Option<&'static Defs> {
             log("新装备系统：items.txt 格式不对，不工作");
             return None;
         };
+        crate::msghook::set_labels(&items.label); // 取文字钩子按占位里的说明认语言
         let lt = fs::read_to_string(dir().join("affixes.txt")).ok();
         match lt.map(|t| parse_lib(&t)) {
             Some(Ok(mut lib)) => {
@@ -2569,282 +2564,49 @@ fn write_row(d: &Defs, st: &mut St, rec: &Rec) -> Result<(), String> {
 
 pub(crate) use gift::{gift_in, gift_result};
 
-// ------------------------------------------------------------------ 内存里的文字占位
-fn read_mem(proc: HANDLE, addr: usize, out: &mut [u16]) -> bool {
-    let mut read = 0usize;
-    unsafe { ReadProcessMemory(proc, addr as *const _, out.as_mut_ptr() as *mut _, out.len() * 2, Some(&mut read)) }.is_ok()
-        && read == out.len() * 2
-}
+// ------------------------------------------------------------------ 文字（游戏取文字时换成这里交的，msghook.rs）
+// 以前扫整个进程的内存找占位、原地改写（扫到的多是临时副本，写进已经释放的内存会写坏游戏的堆，2026-11-18 两位玩家的崩溃），
+// 现在只把文字交给取文字钩子，不写游戏的内存
 
-fn write_mem(proc: HANDLE, addr: usize, data: &[u16]) -> bool {
-    let mut wrote = 0usize;
-    unsafe { WriteProcessMemory(proc, addr as *const _, data.as_ptr() as *const _, data.len() * 2, Some(&mut wrote)) }.is_ok()
-        && wrote == data.len() * 2
-}
-
-/// 新文字放进 cap 个字的位置：截到 cap 个字（不拆开代理对），没满就补一个结束符，后面剩下的照旧
-fn fit(text: &str, old: &[u16]) -> Vec<u16> {
-    let cap = old.len();
+/// 新文字放进 cap 个字：截到 cap 个字（不拆开代理对），短的后面补 0
+fn fit_cap(text: &str, cap: usize) -> Vec<u16> {
     let mut u: Vec<u16> = text.encode_utf16().take(cap).collect();
     if u.len() == cap && u.last().is_some_and(|c| (0xD800..0xDC00).contains(c)) {
         u.pop();
     }
-    let mut out = old.to_vec();
-    out[..u.len()].copy_from_slice(&u);
-    if u.len() < cap {
-        out[u.len()] = 0;
-    }
-    out
-}
-
-fn hole_text(items: &Items, id: u32, field: usize, lang: usize) -> Vec<u16> {
-    let mut u: Vec<u16> = format!("#DRC{id}#{} {}", FIELDS[field], items.label[lang]).encode_utf16().collect();
-    u.resize(items.cap[field], b' ' as u16);
+    u.resize(cap, 0);
     u
 }
 
-#[derive(Debug, Clone)]
-struct Spot {
-    addr: usize,
-    lang: usize,
-    /// 上次写进去的 cap 个字；None = 还是占位
-    last: Option<Vec<u16>>,
-    dead: bool,
-}
-
-/// 一处占位最多认几份：别的模组把文字表复制一份（Map For Goblins 把装备名全抄进地名表）时同一处占位在内存里有好几份，
-/// 只写先扫到的那份可能写进了复制品、背包里还是占位，所以每份都写
-const MAX_COPIES: usize = 4;
-
 #[derive(Default)]
 struct Txt {
-    /// (容器编号, 字段 0~2) → 位置（可能有几份，见 MAX_COPIES）
-    spots: HashMap<(u32, usize), Vec<Spot>>,
-    /// 确认框占位（第几种：0 一键鉴定 / 1 许愿 1 次 / 2 许愿 10 次 / 3~6 装备回收各档 / 7~A 定向鉴定 / 8 许愿石 / B 卢恩银行）
-    confirm: Vec<Conf>,
+    /// 确认框文字上次交给钩子的那一套（没变就不再交）
     confirm_last: String,
-    scanning: bool,
-    scans: u32,
-    /// 扫完了、还没按记录写文字
+    /// 开局装备改好了 / 进了存档，还没按记录交一遍文字
     fresh: bool,
 }
 
 static TXT: Mutex<Option<Txt>> = Mutex::new(None);
 
-/// 一处确认框占位「〔#I0 说明……〕」：改写时从左括号到右括号整段盖掉（括号和 #I 记号都不留，用户 2026-11-10「前面都有字符」），
-/// 以后靠「这块内存还是上次写的那段」认它（last）；重扫找不到记号了，上次写的还在就留着
-#[derive(Debug, Clone, PartialEq)]
-struct Conf {
-    /// 「#」的地址（左括号在它前面一个字）
-    addr: usize,
-    /// 「#」到右括号之前的字符数
-    len: usize,
-    zh: bool,
-    kind: u8,
-    /// 上次写进去的整段（左括号起 len + 2 个字）；还没写过是 None（这时认「左括号 + #I + 种类字」）
-    last: Option<Vec<u16>>,
-}
-
-impl Conf {
-    fn start(&self) -> usize {
-        self.addr - 2
-    }
-
-    /// 整段（含两个括号）多少字
-    fn total(&self) -> usize {
-        self.len + 2
-    }
-}
-
-/// 确认框占位的整段文字：说明居中不了，后面补空格到原来的长度（超长截断）
-fn conf_text(text: &str, total: usize) -> Vec<u16> {
-    let mut u: Vec<u16> = text.encode_utf16().take(total).collect();
-    u.resize(total, b' ' as u16);
-    u
-}
-
-/// 扫一遍可读写的私有内存：容器占位「#DRC<编号>#<字段> 说明…」（前一个字是结束符、cap 个字后是结束符）和确认框占位「〔#I0 」/「[#I0 」
-fn scan(items: &Items) -> (HashMap<(u32, usize), Vec<Spot>>, Vec<Conf>) {
-    let token: Vec<u8> = "#DRC".encode_utf16().flat_map(|c| c.to_le_bytes()).collect();
-    let token2: Vec<u8> = "#I".encode_utf16().flat_map(|c| c.to_le_bytes()).collect();
-    let f1 = memchr::memmem::Finder::new(&token);
-    let f2 = memchr::memmem::Finder::new(&token2);
-    let labels: Vec<Vec<u16>> = items.label.iter().map(|l| l.encode_utf16().collect()).collect();
-    let mut buf = vec![0u8; 1 << 20];
-    let longest = items.cap.iter().max().copied().unwrap_or(0) + 2;
-    let mut got = vec![0u16; longest];
-    let own = [(buf.as_ptr() as usize, buf.len()), (got.as_ptr() as usize, got.len() * 2)];
-    let proc = unsafe { GetCurrentProcess() };
-    let mut spots: HashMap<(u32, usize), Vec<Spot>> = HashMap::new();
-    let mut confirm = Vec::new();
-    let mut addr = 0usize;
-    loop {
-        let mut mbi = MEMORY_BASIC_INFORMATION::default();
-        if unsafe { VirtualQuery(Some(addr as *const _), &mut mbi, std::mem::size_of::<MEMORY_BASIC_INFORMATION>()) } == 0 {
-            break;
-        }
-        let (base, size) = (mbi.BaseAddress as usize, mbi.RegionSize);
-        if mbi.State == MEM_COMMIT && mbi.Type == MEM_PRIVATE && mbi.Protect == PAGE_READWRITE && (mbi.Protect & PAGE_GUARD).0 == 0 {
-            let mut off = 0usize;
-            while off < size {
-                let n = (size - off).min(buf.len());
-                let mut read = 0usize;
-                // 别的线程正好释放了这一块后面的内存时读取会失败，但 read 是读到的那部分，照样找
-                let ok = unsafe { ReadProcessMemory(proc, (base + off) as *const _, buf.as_mut_ptr() as *mut _, n, Some(&mut read)) }.is_ok();
-                if ok || read > 0 {
-                    for p in f1.find_iter(&buf[..read]) {
-                        let a = base + off + p;
-                        if a % 2 != 0 || own.iter().any(|&(o, l)| a >= o && a < o + l) {
-                            continue;
-                        }
-                        if let Some((key, spot)) = check_spot(proc, items, &labels, a, &mut got) {
-                            let v = spots.entry(key).or_default();
-                            // 两块之间往回退的那一点会把同一处扫到两次
-                            if v.len() < MAX_COPIES && !v.iter().any(|s| s.addr == a) {
-                                v.push(spot);
-                            }
-                        }
-                        got.fill(0);
-                    }
-                    for p in f2.find_iter(&buf[..read]) {
-                        let a = base + off + p;
-                        if a % 2 != 0 || own.iter().any(|&(o, l)| a >= o && a < o + l) || confirm.iter().any(|c: &Conf| c.addr == a) {
-                            continue;
-                        }
-                        let mut prev = [0u16];
-                        if !read_mem(proc, a - 2, &mut prev) || (prev[0] != 0x3014 && prev[0] != b'[' as u16) {
-                            continue;
-                        }
-                        let close = if prev[0] == 0x3014 { 0x3015 } else { b']' as u16 };
-                        let mut w = [0u16; 64];
-                        // 「#I」后面是种类字和空格才是占位：0~9、A（10）；8 = 许愿石升级（wishstone.rs），9 / A = 防具、护符鉴定
-                        if read_mem(proc, a, &mut w) && w[3] == b' ' as u16 {
-                            let kind = match w[2] {
-                                c if (b'0' as u16..=b'9' as u16).contains(&c) => Some((c - b'0' as u16) as u8),
-                                c if c == b'A' as u16 => Some(10u8),
-                                c if c == b'B' as u16 => Some(11u8),   // 卢恩银行（runebank.rs）
-                                // C~G：物品菜单「送给 <队友>」的第 1~5 个（gear/gift.rs、sc/lock.py）
-                                c if (b'C' as u16..=b'G' as u16).contains(&c) => Some((c - b'C' as u16) as u8 + 12),
-                                _ => None,
-                            };
-                            if let (Some(kind), Some(len)) = (kind, w.iter().position(|&c| c == close)) {
-                                confirm.push(Conf { addr: a, len, zh: prev[0] == 0x3014, kind, last: None });
-                            }
-                        }
-                    }
-                }
-                // 下一块往回退一点，免得占位开头正好跨在两块中间
-                off += if n > 64 { n - 64 } else { n };
-            }
-        }
-        addr = base + size;
-        if addr == 0 {
-            break;
-        }
-    }
-    buf.fill(0);
-    (spots, confirm)
-}
-
-/// 核对 a 处是不是一个容器占位：「#DRC<编号>#<N/I/C> <说明>」补空格到 cap 个字、前后都是结束符
-fn check_spot(proc: HANDLE, items: &Items, labels: &[Vec<u16>], a: usize, got: &mut [u16]) -> Option<((u32, usize), Spot)> {
-    let mut prev = [1u16];
-    if !read_mem(proc, a - 2, &mut prev) || prev[0] != 0 {
-        return None;
-    }
-    let mut head = [0u16; 24];
-    if !read_mem(proc, a, &mut head) {
-        return None;
-    }
-    let s: String = String::from_utf16_lossy(&head);
-    let rest = s.strip_prefix("#DRC")?;
-    let hash = rest.find('#')?;
-    let id: u32 = rest[..hash].parse().ok()?;
-    let field = FIELDS.iter().position(|&c| rest[hash + 1..].starts_with(c))?;
-    let cap = items.cap[field];
-    let g = &mut got[..cap + 1];
-    if !read_mem(proc, a, g) || g[cap] != 0 || g[..cap].contains(&0) {
-        return None;
-    }
-    let pre = format!("#DRC{id}#{} ", FIELDS[field]).encode_utf16().count();
-    let lang = labels.iter().position(|l| g[pre..].starts_with(l))?;
-    Some(((id, field), Spot { addr: a, lang, last: None, dead: false }))
-}
-
-/// 一件装备的三段文字写进找到的占位（每一份；写之前核对内容还是占位 / 上次写的）：返回（写了几处, 核对不上几处）
-fn write_texts(d: &Defs, t: &mut Txt, rec: &Rec) -> (usize, usize) {
+/// 一件装备的三段文字交给取文字钩子（中英文各一份）：返回交了几条
+fn write_texts(d: &Defs, rec: &Rec) -> usize {
     let id = rec_id(&d.items, rec);
     let tx = [compose_cap(&d.lib, rec, 0, d.items.cap[1]), compose_cap(&d.lib, rec, 1, d.items.cap[1])];
-    let (mut n, mut bad) = (0, 0);
-    for field in 0..3 {
-        let (a, b) = write_field(d, t, id, field, [&tx[0][field], &tx[1][field]]);
-        n += a;
-        bad += b;
-    }
-    (n, bad)
+    (0..3).map(|field| write_field(d, id, field, [&tx[0][field], &tx[1][field]])).sum()
 }
 
-/// 往占位（编号, 字段）的每一份写文字，各份按自己的语言取 by_lang（写之前核对内容还是占位 / 上次写的）：返回（写了几处, 核对不上几处）
-fn write_field(d: &Defs, t: &mut Txt, id: u32, field: usize, by_lang: [&str; 2]) -> (usize, usize) {
-    let proc = unsafe { GetCurrentProcess() };
-    let (mut n, mut bad) = (0, 0);
-    let Some(v) = t.spots.get_mut(&(id, field)) else { return (0, 0) };
-    for s in v.iter_mut().filter(|s| !s.dead) {
-        let cur = s.last.clone().unwrap_or_else(|| hole_text(&d.items, id, field, s.lang));
-        let mut now = vec![0u16; cur.len()];
-        if !(read_mem(proc, s.addr, &mut now) && now == cur) {
-            s.dead = true;
-            bad += 1;
-            continue;
-        }
-        let new = fit(by_lang[s.lang.min(1)], &cur);
-        if write_mem(proc, s.addr, &new) {
-            s.last = Some(new);
-            n += 1;
-        }
+/// 占位（编号, 字段）的文字：各语言取 by_lang，截到这个字段的长度；返回交了几条
+fn write_field(d: &Defs, id: u32, field: usize, by_lang: [&str; 2]) -> usize {
+    let cap = d.items.cap[field];
+    for (lang, t) in by_lang.iter().enumerate() {
+        crate::msghook::set_item(id, field as u8, lang, &fit_cap(t, cap));
     }
-    (n, bad)
+    by_lang.len()
 }
 
-fn start_scan(d: &'static Defs) {
-    let mut g = TXT.lock().unwrap_or_else(|e| e.into_inner());
-    let t = g.get_or_insert_with(Txt::default);
-    if t.scanning || t.scans >= MAX_SCANS {
-        return;
-    }
-    t.scanning = true;
-    std::thread::spawn(move || {
-        let t0 = Instant::now();
-        let (spots, confirm) = scan(&d.items);
-        let secs = t0.elapsed().as_secs_f32();
-        let n = spots.len();
-        let copies = spots.values().map(|v| v.len() - 1).sum::<usize>();
-        let total = d.items.cont.iter().map(|c| c.count as usize).sum::<usize>() * 3;
-        let mut g = TXT.lock().unwrap_or_else(|e| e.into_inner());
-        let t = g.get_or_insert_with(Txt::default);
-        t.scanning = false;
-        t.scans += 1;
-        t.spots = spots;
-        // 已经改写过的占位（记号盖掉了，这次扫不到）：内存里还是上次写的那段就留着
-        let proc = unsafe { GetCurrentProcess() };
-        let kept: Vec<Conf> = std::mem::take(&mut t.confirm)
-            .into_iter()
-            .filter(|c| {
-                let Some(last) = &c.last else { return false };
-                let mut cur = vec![0u16; c.total()];
-                !confirm.iter().any(|n| n.addr == c.addr) && read_mem(proc, c.start(), &mut cur) && &cur == last
-            })
-            .collect();
-        t.confirm = confirm;
-        t.confirm.extend(kept);
-        t.confirm_last.clear();            // 新扫到的那几处要写一遍
-        t.fresh = true;
-        log(&format!(
-            "新装备系统：内存里找到文字占位 {n} / {total} 处{}、确认框占位 {} 处（{secs:.1} 秒）",
-            if copies > 0 { format!("（另有 {copies} 份复制的，别的模组抄了文字表，一起写）") } else { String::new() },
-            t.confirm.len()
-        ));
-    });
+/// 文字要重新交一遍（开局装备改好了、进了存档）：下一帧由 start_texts / texts_tick 交
+fn texts_fresh() {
+    TXT.lock().unwrap_or_else(|e| e.into_inner()).get_or_insert_with(Txt::default).fresh = true;
 }
 
 // ------------------------------------------------------------------ 状态
@@ -3121,34 +2883,22 @@ fn start_tick(d: &'static Defs, st: &mut St) {
         recs.len() - errs.len(),
         if errs.is_empty() { String::new() } else { format!("（{} 件失败：{}）", errs.len(), errs[0]) }
     ));
-    let mut g = TXT.lock().unwrap_or_else(|e| e.into_inner());
-    let t = g.get_or_insert_with(Txt::default);
-    if t.spots.is_empty() && !t.scanning {
-        drop(g);
-        start_scan(d);
-    } else {
-        t.fresh = true;
-    }
+    texts_fresh();
 }
 
-/// 还在主菜单（没进存档）时，扫完内存就把开局装备的文字写上
+/// 还在主菜单（没进存档）时，把开局装备的文字交上（建新角色时看到的就是这一份）
 fn start_texts(d: &Defs, st: &St) {
     if st.who.is_some() || !st.start_rows {
         return;
     }
     let mut g = TXT.lock().unwrap_or_else(|e| e.into_inner());
     let Some(t) = g.as_mut() else { return };
-    if !t.fresh || t.scanning {
+    if !t.fresh {
         return;
     }
     t.fresh = false;
-    let (mut n, mut bad) = (0, 0);
-    for r in start_recs(d) {
-        let (a, b) = write_texts(d, t, r);
-        n += a;
-        bad += b;
-    }
-    log(&format!("新装备系统：开局装备的文字写了 {n} 处{}", if bad > 0 { format!("，{bad} 处核对不上没写") } else { String::new() }));
+    let n: usize = start_recs(d).iter().map(|r| write_texts(d, r)).sum();
+    log(&format!("新装备系统：开局装备的文字交好了 {n} 条{}", if crate::msghook::hooked() { "" } else { "（取文字挂钩还没挂上）" }));
 }
 
 /// 角色记录的文件夹 %APPDATA%\EldenRing\DarkReforged\角色记录（和存档、启动前备份放一起，整合包换目录 / 更新都不丢）；没有 APPDATA 就用 DLL 所在目录。
@@ -3679,15 +3429,7 @@ fn on_load(d: &'static Defs, st: &mut St, who: &(i32, String), pgd: &PlayerGameD
             Err(e) => format!("没清空：{e}"),
         }
     ));
-    let mut g = TXT.lock().unwrap_or_else(|e| e.into_inner());
-    let t = g.get_or_insert_with(Txt::default);
-    if t.spots.is_empty() || t.spots.values().flatten().all(|s| s.dead) {
-        t.spots.clear();
-        drop(g);
-        start_scan(d);
-    } else {
-        t.fresh = true;
-    }
+    texts_fresh();
 }
 
 /// 开局装备 / 追忆换的武器（items.txt 的 start 行）：身上 / 仓库里有、记录里还没有的，记下现在这一份
@@ -3709,8 +3451,7 @@ fn record_start(d: &Defs, st: &mut St, who: &(i32, String), pgd: &PlayerGameData
                 r.recipe = recipe;
                 match write_row(d, st, &r) {
                     Ok(()) => {
-                        let mut g = TXT.lock().unwrap_or_else(|e| e.into_inner());
-                        write_texts(d, g.get_or_insert_with(Txt::default), &r);
+                        write_texts(d, &r);
                         log(&format!("新装备系统：{} 按人物现在的属性 {stats:?} 生成：{}", rec_id(&d.items, &r), rec_line(&r)));
                     }
                     Err(e) => log(&format!("新装备系统：{} 按属性生成后改写失败：{e}", rec_id(&d.items, &r))),
@@ -3732,15 +3473,14 @@ fn pick_recipe(lib: &Lib, s: &StartSpec, stats: [u32; 5]) -> Option<Recipe> {
     gen_weapon_on(lib, s.tier as usize, Some(WFix { maxreq, main, ..s.wfix() }), &mut Rng(seed))
 }
 
-/// 文字：扫完内存（或进存档）后把记录里的和正在发的都写一遍
+/// 文字：进存档后把记录里的和正在发的都交一遍
 fn texts_tick(d: &Defs, st: &St) {
     let mut g = TXT.lock().unwrap_or_else(|e| e.into_inner());
     let Some(t) = g.as_mut() else { return };
-    if !t.fresh || t.scanning {
+    if !t.fresh {
         return;
     }
     t.fresh = false;
-    let (mut n, mut bad) = (0, 0);
     let global = start_recs(d).iter().filter(|r| !mine(st, (r.cat, r.idx)));
     let all = st
         .recs
@@ -3749,13 +3489,9 @@ fn texts_tick(d: &Defs, st: &St) {
         .chain(st.shop.iter().flatten())
         .chain(st.pending.iter().flat_map(|p| p.items.iter().filter_map(|x| x.0.rec())))
         .chain(global);
-    for r in all {
-        let (a, b) = write_texts(d, t, r);
-        n += a;
-        bad += b;
-    }
-    if bad > 0 || !st.recs.is_empty() {
-        log(&format!("新装备系统：文字写了 {n} 处{}", if bad > 0 { format!("，{bad} 处核对不上没写") } else { String::new() }));
+    let n: usize = all.map(|r| write_texts(d, r)).sum();
+    if !st.recs.is_empty() {
+        log(&format!("新装备系统：文字交好了 {n} 条{}", if crate::msghook::hooked() { "" } else { "（取文字挂钩还没挂上）" }));
     }
 }
 
@@ -3877,13 +3613,11 @@ fn ship(d: &Defs, st: &mut St, items: Vec<(Made, u32)>) -> Option<Vec<(Made, u32
     let mut rows = Vec::new();
     let mut ok_items = Vec::new();
     {
-        let mut g = TXT.lock().unwrap_or_else(|e| e.into_inner());
-        let t = g.get_or_insert_with(Txt::default);
         for (made, goods) in items {
             match &made {
                 Made::Gear(rec) => match write_row(d, st, rec) {
                     Ok(()) => {
-                        write_texts(d, t, rec);
+                        write_texts(d, rec);
                         rows.push((LOT_CAT[rec.cat], d.items.cont[rec.cat].id(rec.idx) as i32, 1));
                     }
                     Err(e) => {
@@ -4208,8 +3942,6 @@ fn shop_fill(d: &Defs, st: &mut St, now: &HashSet<(usize, u32)>, slots: &[usize]
     let mut free = free.into_iter();
     let mut rng = Rng::new();
     let (mut ok, mut bad) = (0, 0);
-    let mut g = TXT.lock().unwrap_or_else(|e| e.into_inner());
-    let t = g.get_or_insert_with(Txt::default);
     for &k in slots {
         let Some(&(row, typ, tier)) = d.items.wshop.get(k) else { continue };
         let Some(recipe) = gen_weapon_typed(&d.lib, tier as usize, typ, &mut rng) else {
@@ -4244,7 +3976,7 @@ fn shop_fill(d: &Defs, st: &mut St, now: &HashSet<(usize, u32)>, slots: &[usize]
             continue;
         };
         sr.set_equip_id(rec_id(&d.items, &rec) as i32);
-        write_texts(d, t, &rec);
+        write_texts(d, &rec);
         st.shop[k] = Some(rec);
         ok += 1;
     }
@@ -4264,18 +3996,8 @@ fn shop_sort(d: &Defs, repo: &SoloParamRepository, typ: u16) -> Option<(u8, i32)
         .min_by_key(|x| x.1)
 }
 
-/// 确认框里的「背包里几件、容器还剩多少」
-/// 确认框占位的种类字：0~9，10 起 A、B…
-fn kind_char(kind: u8) -> char {
-    if kind < 10 { (b'0' + kind) as char } else { (b'A' + kind - 10) as char }
-}
-
+/// 确认框里的「背包里几件、容器还剩多少」等：算好交给取文字钩子（占位「〔#I<种类> …〕」，种类 0~9、A~G = 10~16；msghook.rs）
 fn confirm_tick(d: &Defs, st: &St, pgd: &PlayerGameData) {
-    let mut g = TXT.lock().unwrap_or_else(|e| e.into_inner());
-    let Some(t) = g.as_mut() else { return };
-    if t.confirm.is_empty() {
-        return;
-    }
     let n: u32 = unidentified(d, pgd).iter().map(|x| x.1).sum();
     let held = held(d, pgd);
     let f = free(d, st, &held);
@@ -4335,36 +4057,18 @@ fn confirm_tick(d: &Defs, st: &St, pgd: &PlayerGameData) {
         tx.push(gift::label(i));
     }
     let key = tx.iter().map(|x| x.as_ref().map_or_else(String::new, |(a, b)| format!("{a}|{b}"))).collect::<Vec<_>>().join("|");
+    let mut g = TXT.lock().unwrap_or_else(|e| e.into_inner());
+    let t = g.get_or_insert_with(Txt::default);
     if key == t.confirm_last {
         return;
     }
     t.confirm_last = key;
-    let proc = unsafe { GetCurrentProcess() };
-    t.confirm.retain_mut(|c| {
-        let Some(Some((zh, en))) = tx.get(c.kind as usize) else { return true };
-        let u = conf_text(if c.zh { zh } else { en }, c.total());
-        let mut cur = vec![0u16; c.total()];
-        if !read_mem(proc, c.start(), &mut cur) {
-            return false;
+    for (kind, x) in tx.iter().enumerate() {
+        if let Some((zh, en)) = x {
+            let (zh, en): (Vec<u16>, Vec<u16>) = (zh.encode_utf16().collect(), en.encode_utf16().collect());
+            crate::msghook::set_confirm(b'I', kind as u8, &zh, &en);
         }
-        // 还是这一处才写：写过的要和上次写的一样；没写过的是「左括号 + #I + 种类字」
-        let ours = match &c.last {
-            Some(last) => &cur == last,
-            None => {
-                let open = if c.zh { 0x3014 } else { b'[' as u16 };
-                let head: Vec<u16> = format!("#I{}", kind_char(c.kind)).encode_utf16().collect();
-                cur.first() == Some(&open) && cur[1..].starts_with(&head)
-            }
-        };
-        if !ours {
-            return false;
-        }
-        if cur != u && !write_mem(proc, c.start(), &u) {
-            return false;
-        }
-        c.last = Some(u);
-        true
-    });
+    }
 }
 
 // ------------------------------------------------------------------ 武器重铸石、装备回收（rr/reforge.py，用户 2026-10-30）
@@ -4396,10 +4100,7 @@ fn reforge_apply(d: &Defs, st: &mut St, pgd: &mut PlayerGameData, who: &(i32, St
         let _ = write_row(d, st, &old);
         return Err(e("扣不掉武器重铸石，已改回原样", "could not use a Weapon Reforge Stone; nothing changed"));
     }
-    {
-        let mut g = TXT.lock().unwrap_or_else(|e| e.into_inner());
-        write_texts(d, g.get_or_insert_with(Txt::default), &new); // 全能（五项补正）会写进名字
-    }
+    write_texts(d, &new); // 全能（五项补正）会写进名字
     log(&format!("武器重铸：{base} 重铸（属性 {stats:?}）\n  旧 {}\n  新 {}", rec_line(&old), rec_line(&new)));
     let names = [plain_name(d, &new, 0), plain_name(d, &new, 1)];
     st.recs.insert((new.cat, new.idx), new);
@@ -4789,10 +4490,7 @@ fn ih_apply(
                 let _ = write_row(d, st, &old);
                 return Err(e("来源移除失败，目标已改回", "could not remove the source; the target was restored"));
             }
-            {
-                let mut g = TXT.lock().unwrap_or_else(|e| e.into_inner());
-                write_texts(d, g.get_or_insert_with(Txt::default), &new);
-            }
+            write_texts(d, &new);
             let tname = [plain_name(d, &new, 0), plain_name(d, &new, 1)];
             let worn = worn_armor(pgd).contains(&tid);
             log(&format!("装备继承：{} 的 {key} 转到 {tid}\n  旧 {}\n  新 {}", rec_line(&src), rec_line(&old), rec_line(&new)));
@@ -5612,9 +5310,9 @@ mod tests {
 
     #[test]
     fn fit_text() {
-        let old: Vec<u16> = "abcdefgh".encode_utf16().collect();
-        assert_eq!(String::from_utf16_lossy(&fit("xy", &old)), "xy\0defgh");
-        assert_eq!(String::from_utf16_lossy(&fit("0123456789", &old)), "01234567");
+        assert_eq!(String::from_utf16_lossy(&fit_cap("xy", 8)), "xy\0\0\0\0\0\0");
+        assert_eq!(String::from_utf16_lossy(&fit_cap("0123456789", 8)), "01234567");
+        assert_eq!(fit_cap("a😀", 2), vec![b'a' as u16, 0], "不拆开代理对");
     }
 
     #[test]
@@ -6052,16 +5750,6 @@ mod tests {
         }
     }
 
-    #[test]
-    fn conf_span() {
-        let c = Conf { addr: 1000, len: 10, zh: true, kind: 0, last: None };
-        assert_eq!((c.start(), c.total()), (998, 12));
-        let u = conf_text("背包里 3 件", 12);
-        assert_eq!(u.len(), 12);
-        assert_eq!(String::from_utf16(&u).unwrap(), "背包里 3 件     ");
-        assert_eq!(conf_text("一二三四五六七八九十甲乙丙", 12).len(), 12);
-    }
-
     /// 补正高的那项需求不低于补正低的
     fn ordered(cor: &[f32; 5], req: &[u8; 5]) -> bool {
         (0..5).all(|a| (0..5).all(|b| !(cor[a] > 0.0 && cor[b] > 0.0 && cor[a] > cor[b] && req[a] < req[b])))
@@ -6221,38 +5909,6 @@ mod tests {
         assert_eq!((p.second, p.id(5999), p.idx_of(30599900), p.idx_of(30600000)), (None, 30599900, Some(5999), None));
     }
 
-    /// 同一处占位在内存里有两份（别的模组抄了文字表）：扫内存两份都认（以前只认先扫到的一份，写进复制品、背包里还是占位）
-    #[test]
-    fn scan_finds_every_copy() {
-        let it = parse_items(
-            "container\tw\t240000000\t10000\t3000\t664\t96:4\ncontainer\tp\t30000000\t100\t6000\t416\t\n\
-             container\ta\t20000\t1\t600\t96\t\ntext\tN\t128\ntext\tI\t160\ntext\tC\t640\nlabel\tzh\tq7Zk\nlabel\ten\tw3Xj\ngoods\t0\t0\t8000\n\
-             deliver\t10900\t32\t93501\nidentify\t93502\nlotlayout\t44\t0\t32\t40\t36\t28\n",
-        )
-        .unwrap();
-        let id = 241760000;
-        let copy = || {
-            let mut b = vec![0u16];
-            b.extend(hole_text(&it, id, 0, 0));
-            b.push(0);
-            b
-        };
-        let (a, b) = (copy(), copy());
-        let (pa, pb) = (a.as_ptr() as usize + 2, b.as_ptr() as usize + 2);
-        // 别的测试并行地申请 / 释放内存，一遍偶尔会漏读一块：最多扫三遍
-        let mut found: Vec<usize> = Vec::new();
-        for _ in 0..3 {
-            let (spots, _) = scan(&it);
-            found = spots.get(&(id, 0)).map(|v| v.iter().map(|s| s.addr).collect()).unwrap_or_default();
-            if found.contains(&pa) && found.contains(&pb) {
-                break;
-            }
-        }
-        assert!(found.contains(&pa) && found.contains(&pb), "两份都要认：{pa:#x} {pb:#x}，认到 {found:x?}");
-        assert!(found.len() <= MAX_COPIES);
-        assert_eq!(std::hint::black_box((a.len(), b.len())), (130, 130));
-    }
-
     /// 装备继承（装备工坊）：items.txt 的 inherit 行；各种放法（部位限制、机制类进前缀 / 数值类进后缀、空位补上、满了分别替换、
     /// 同一条 / 同组不行、目标满了没位置）、能不能提取成护符；词条带别的稀有度的效果时说明按那个稀有度写、注明
     #[test]
@@ -6386,8 +6042,6 @@ mod tests {
         let di = items.dirid.clone().unwrap();
         assert_eq!((di.kind0, di.cost_of(2, 1), di.cost_of(1, 1), di.cost_of(0, 4)), ((93668, 2), 1000, 100, 2000));
         assert_eq!(di.archs, vec!["异常".to_string(), "法术".to_string()]);
-        assert_eq!(kind_char(7), '7');
-        assert_eq!(kind_char(10), 'A');
         let Some((_items, lib)) = real_defs() else {
             eprintln!("没有 dll\\dark_core\\affixes.txt（先跑一次重随），跳过");
             return;

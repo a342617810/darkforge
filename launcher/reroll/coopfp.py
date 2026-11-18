@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""联机核对码（launcher.ps1 的 Get-CoopFingerprint 调，dev\\coop\\联机计划.md 1.5）：两人各自看一下，一样就说明游戏数据一样。
+"""联机核对码（dfl\coop.py 的 get_coop_fingerprint 调，dev\\coop\\联机计划.md 1.5）：两人各自看一下，一样就说明游戏数据一样。
   --rand <randomizer 文件夹>   敌人随机的结果：regulation 的指纹 - 地图个数 - 事件个数
   --reroll <out\\reroll>        这次启动生成的重随包：regulation 的指纹
 指纹 = 解密、解压后的 regulation 内容的 SHA-256 前 12 位（加密时的随机初始向量不影响）。几项之间用 / 隔开，一行输出。

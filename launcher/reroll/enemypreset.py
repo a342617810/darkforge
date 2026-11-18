@@ -454,7 +454,7 @@ def elite_force(a, S, base, rng, dlc_on):
         nat = parse_nat(a.nat)
     else:
         nat = natural_share(a.randomizer_dir, ents, npc, fams, band_of, set(forced_targets(base)))
-    print('NAT:' + nat_text(nat))                 # randomize.ps1 收走记进 .preset（不显示）
+    print('NAT:' + nat_text(nat))                 # dfl\randomizer.py 收走记进 .preset（不显示）
 
     def ok(src, tgt):
         stags, ttags = ents[src][2], ents[tgt][2]

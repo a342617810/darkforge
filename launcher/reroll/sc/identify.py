@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """赐福「一键鉴定」+ 发货事件（新装备系统阶段 1；重随的 rr/containers.py 建了容器才有，features.json 的 identify）。
 赐福「暗黑重铸」子菜单里的「一键鉴定」（sc/forge.py；以前在赐福主菜单）：先弹确认框，框里「背包里有几件未鉴定物品、容器还剩多少」是固定长度的占位
-「〔#I0 …〕」（英文用 [ ]），dll\\dark_core 进游戏后按背包现状改写（长度不变，空位补空格；没装 DLL 就显示占位里的提示）。
+「〔#I0 …〕」（英文用 [ ]），dll\\dark_core 按背包现状算好，游戏取这段文字时由它的取文字钩子换掉占位（没装 DLL 就显示占位里的提示）。
 选「是」点亮请求标记 identify_flag、弹一句提示；dark_core 看到标记（还要人物正坐在赐福点）就熄灭标记，逐件鉴定：
 选空容器、按词条库生成、改写参数行和文字，把这批容器写进发货表、点亮 deliver_flag。
 提示框关掉时请求标记还亮着 = DLL 没加载：熄灭标记、改弹「没有加载 dark_core」。
@@ -34,7 +34,7 @@ def on(cx):
     return bool(cx.feat.get('identify'))
 
 
-KIND_CH = '0123456789A'                            # 确认框占位的种类字（dark_core gear.rs 的 kind_char）
+KIND_CH = '0123456789A'                            # 确认框占位的种类字（dark_core msghook.rs 的 marker_at 认 0~9、A~G）
 KIND_TEXT = 80096003                               # +k：武器鉴定 / 防具鉴定 / 护符鉴定
 KIND_NONE = (DIR_NONE, 80096006, 80096007)         # 没鉴定的提示（武器沿用以前的编号）
 ENTRY_TEXT = (TYPE_TEXT, 80096200, 80096300)       # 各类的条目 +j：武器类型 / 部位 / 流派

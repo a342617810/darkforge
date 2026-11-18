@@ -1,4 +1,4 @@
-/* 和宿主（launcher\webui.ps1）的通信：页面 → 宿主 {action, ...}；宿主 → 页面 {type, ...}（state / changelog / toast）。
+/* 和宿主（launcher\dfl\gui\app.py）的通信：页面 → 宿主 {action, ...}；宿主 → 页面 {type, ...}（state / changelog / toast）。
    不在 WebView2 里（直接用浏览器打开预览）时，发出的消息只打到控制台，并且自己造一份演示状态，方便调样式。 */
 (function () {
   'use strict';

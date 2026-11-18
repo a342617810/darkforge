@@ -32,7 +32,7 @@ disable_arxan=0
 replace_save_filename=.rng
 ; 联机启动（Seamless Co-op 把扩展名换成 co2）：ER0000.co2 -> ER0000.rngcoop（和单机存档、法魂的联机存档都分开）。
 ; 换完的名字不能还以 .co2 结尾：以前是 .rng.co2，联机时有组件按真名再打开它，YAFSML 又当成联机存档改一次、复制一份，
-; 套出 ER0000.rng.rng.co2、.rng.rng.rng.co2……（2026-11-17 玩家诊断包）。旧的 ER0000.rng.co2 由启动器联机启动前复制过来（launcher\backup.ps1 Move-CoopSaveName）
+; 套出 ER0000.rng.rng.co2、.rng.rng.rng.co2……（2026-11-17 玩家诊断包）。旧的 ER0000.rng.co2 由启动器联机启动前复制过来（launcher\dfl\backup.py move_coop_save_name）
 replace_seamless_coop_save_filename=.rngcoop
 
 enable_ime=0

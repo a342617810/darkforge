@@ -206,15 +206,9 @@ pub unsafe extern "C" fn dr_ws_get(which: u32, buf: *mut u8, cap: usize) -> i64 
     })
 }
 
-/// 游戏语言：扫到的文字占位多数是哪种（0 中文 / 1 英文）
+/// 游戏语言：游戏取到的装备文字占位多数是哪种（0 中文 / 1 英文；msghook.rs 数的）
 fn ui_lang() -> usize {
-    let g = TXT.lock().unwrap_or_else(|e| e.into_inner());
-    let Some(t) = g.as_ref() else { return 0 };
-    let n = t.spots.values().flatten().take(400).fold([0usize; 2], |mut n, s| {
-        n[s.lang.min(1)] += 1;
-        n
-    });
-    (n[1] > n[0]) as usize
+    crate::msghook::ui_lang()
 }
 
 pub(super) fn tick(d: &Defs, st: &mut St, pgd: &mut PlayerGameData, who: &(i32, String)) {

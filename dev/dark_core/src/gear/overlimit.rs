@@ -61,10 +61,7 @@ pub(super) fn affix_apply(d: &Defs, st: &mut St, pgd: &mut PlayerGameData, who: 
         }
         return Err(e("扣不掉超限锻造石（防具），已改回原样", "could not use the Overlimit Smithing Stones (Armor); nothing changed"));
     }
-    {
-        let mut g = TXT.lock().unwrap_or_else(|e| e.into_inner());
-        write_texts(d, g.get_or_insert_with(Txt::default), &new);
-    }
+    write_texts(d, &new);
     let key = match &new.recipe {
         Recipe::P { sps, .. } => sps[i].1.clone(),
         _ => String::new(),
@@ -204,10 +201,7 @@ pub(super) fn apply(d: &Defs, st: &mut St, pgd: &mut PlayerGameData, who: &(i32,
             }
         }
     }
-    {
-        let mut g = TXT.lock().unwrap_or_else(|e| e.into_inner());
-        write_texts(d, g.get_or_insert_with(Txt::default), &new);
-    }
+    write_texts(d, &new);
     let ch = change(&d.lib, &old, &new);
     log(&format!("超限：{base} 用了 {used} 颗（{}）\n  旧 {}\n  新 {}", ch[0], rec_line(&old), rec_line(&new)));
     let names = [plain_name(d, &new, 0), plain_name(d, &new, 1)];

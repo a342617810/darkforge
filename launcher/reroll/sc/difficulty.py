@@ -23,7 +23,8 @@ dev\\item_system\\build_boss_graces.py 生成；头目复活列表本来就熄�
 熄的是两个标记（用户 2026-11-15）：传送标记（flag）和赐福自己的点亮标记（lit，9005810 的第 2 个参数，RegisterBonfire 用）。只熄传送标记的话，
 重新打败 Boss 后赐福出现时还算「已点亮」，摸了不会再点亮，传送标记也不会再亮。
 读档修复（GRACE_FIX_EVENT）：传送标记灭着、点亮标记却亮着的 Boss 房赐福，把点亮标记熄掉。修的是更新前进过「死亡」的角色，
-还有赐福菜单「头目复活」（它对其中 17 个只熄传送标记）。"""
+还有赐福菜单「头目复活」（它对其中 17 个只熄传送标记）。同一个事件接着熄掉复活后残留的 Boss 标记（revivefix.STALE_WHEN_ALIVE：
+艾尔登之兽打倒后看完过场才点亮的 19000804，亮着的话位置的结算事件一开始就结束，用户 2026-11-18）。"""
 import json
 import os
 
@@ -39,7 +40,7 @@ EVENT, REQ0 = 1040490710, 9960
 MAX = 10                                                     # 最多 10 档：当前 9950~9959、请求 9960~9969
 CUR0, CUR_TEXT = 9950, 80090140
 INIT_EVENT = 1040490712
-GRACE_FIX_EVENT = 1040490714                                  # 读档后修 Boss 房赐福：传送标记灭、点亮标记亮 → 熄点亮标记
+GRACE_FIX_EVENT = 1040490714                                  # 读档后修 Boss 房赐福：传送标记灭、点亮标记亮 → 熄点亮标记；再熄复活后残留的 Boss 标记
 MARK_IMG = "<img src='img://MENU_EquMark.png' height='32' width='32' vspace='-16'/>"
 # 高难度单程票：锁定标记（93000 块，dev\event_flags\说明.md）、文字编号
 LOCK = 93910
@@ -124,13 +125,29 @@ def sources(cx):
     return [REVIVE_ESD, BOSS_GRACES]
 
 
+def skip_flag(lines, on, f):
+    """标记是 on 就跳过后面 lines 条"""
+    return emevd.ins(1003, 1, ('u8', lines), ('u8', int(on)), ('u8', 0), ('u32', f))
+
+
+def flag_off(f):
+    return emevd.ins(2003, 66, ('u8', 0), ('u32', f), ('u8', 0))
+
+
 def grace_fix_event():
     """读档后跑一次：每个 Boss 房赐福，传送标记亮着就跳过，点亮标记灭着也跳过，否则熄灭点亮标记"""
-    skip_flag = lambda lines, on, f: emevd.ins(1003, 1, ('u8', lines), ('u8', int(on)), ('u8', 0), ('u32', f))     # 标记是 on 就跳过
     body = []
     for warp, lit in boss_graces():
         if lit != warp:
-            body += [skip_flag(2, True, warp), skip_flag(1, False, lit), emevd.ins(2003, 66, ('u8', 0), ('u32', lit), ('u8', 0))]
+            body += [skip_flag(2, True, warp), skip_flag(1, False, lit), flag_off(lit)]
+    return body
+
+
+def stale_fix():
+    """同一个读档事件里接着跑：复活过的 Boss（击败标记灭着）留下的「打倒后」标记熄掉（revivefix.STALE_WHEN_ALIVE，艾尔登之兽 19000804）"""
+    body = []
+    for defeat, stale in sorted(revivefix.STALE_WHEN_ALIVE.items()):
+        body += [skip_flag(len(stale), True, defeat)] + [flag_off(f) for f in stale]
     return body
 
 
@@ -344,8 +361,10 @@ def events(cx, e, ev0):
     e['events'].append({'id': INIT_EVENT, 'rest': 0, 'ins': init, 'params': []})
     ev0['ins'].append(emevd.ins(2000, 0, ('s32', 0), ('u32', EVENT), ('u32', 0)))
     ev0['ins'].append(emevd.ins(2000, 0, ('s32', 0), ('u32', INIT_EVENT), ('u32', 0)))
-    fix = grace_fix_event()
+    graces, stale = grace_fix_event(), stale_fix()
+    fix = graces + stale
     if fix:
         e['events'].append({'id': GRACE_FIX_EVENT, 'rest': 0, 'ins': fix, 'params': []})
         ev0['ins'].append(emevd.ins(2000, 0, ('s32', 0), ('u32', GRACE_FIX_EVENT), ('u32', 0)))
-    cx.notes.append('局内难度 %d 档（读档修 Boss 房赐福点亮标记 %d 个）' % (n, len(fix) // 3))
+    cx.notes.append('局内难度 %d 档（读档修 Boss 房赐福点亮标记 %d 个、复活后残留的 Boss 标记 %d 个）' % (
+        n, len(graces) // 3, len(revivefix.STALE_WHEN_ALIVE)))

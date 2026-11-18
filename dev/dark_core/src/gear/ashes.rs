@@ -439,9 +439,8 @@ struct AshSt {
     recs: HashMap<u32, AshRec>,
     /// 发了还没进背包的容器 → 什么时候发的
     pending: HashMap<u32, Instant>,
-    /// 文字要重写（进存档、换了容器）；上次写文字时占位扫了几遍
+    /// 文字要重交（进存档、换了容器）
     dirty: bool,
-    scans: u32,
     full_told: bool,
     /// 记录和容器分组对不上的（这次更新前拿到的）：稳定以后背包里的换回原版骨灰
     stale: Vec<AshRec>,
@@ -950,15 +949,13 @@ fn src_tick(def: &Def, a: &mut AshSt, now: &HashSet<u32>, rng: &mut Rng) -> bool
     got + freed + made > 0
 }
 
+/// 骨灰容器的文字交给取文字钩子（msghook.rs）：进存档、换了容器（dirty）时交一遍
 fn texts(d: &Defs, def: &Def, a: &mut AshSt) {
-    let mut g = TXT.lock().unwrap_or_else(|e| e.into_inner());
-    let Some(t) = g.as_mut() else { return };
-    if t.scanning || (t.scans == a.scans && !a.dirty) {
+    if !a.dirty {
         return;
     }
-    a.scans = t.scans;
     a.dirty = false;
-    let (mut n, mut bad) = (0, 0);
+    let mut n = 0;
     for rec in a.recs.values() {
         let Some(k) = def.kinds.iter().find(|k| k.base == rec.kind) else { continue };
         for lv in 0..k.levels {
@@ -968,14 +965,12 @@ fn texts(d: &Defs, def: &Def, a: &mut AshSt) {
             let base = def.goods0 + 100 * rec.idx;
             let fields: &[(usize, u32, usize)] = if lv == 0 { &[(0, id, 0), (1, base, 1), (2, base, 2), (0, base + def.info2_off, 3)] } else { &[(0, id, 0)] };
             for &(field, key, which) in fields {
-                let (x, y) = write_field(d, t, key, field, [&tx[0][which], &tx[1][which]]);
-                n += x;
-                bad += y;
+                n += write_field(d, key, field, [&tx[0][which], &tx[1][which]]);
             }
         }
     }
-    if n > 0 || bad > 0 {
-        log(&format!("骨灰：文字写了 {n} 处{}", if bad > 0 { format!("，{bad} 处核对不上没写") } else { String::new() }));
+    if n > 0 {
+        log(&format!("骨灰：文字交好了 {n} 条"));
     }
 }
 

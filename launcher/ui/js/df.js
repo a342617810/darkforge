@@ -1,4 +1,4 @@
-/* 暗黑重铸启动器网页界面：只管显示和把点击转给宿主；所有逻辑都在 gui.ps1 / launcher.ps1（webui.ps1 转发） */
+/* 暗黑重铸启动器网页界面：只管显示和把点击转给宿主；所有逻辑都在 launcher\dfl\gui\app.py（后台步骤交给 df.py） */
 (function () {
   'use strict';
   var $ = function (s) { return document.querySelector(s); };
@@ -292,9 +292,9 @@
     { key: 'game', name: '游戏', tools: ['游戏路径'] },
     { key: 'save', name: '存档', tools: ['备份存档', '恢复存档'] },
     { key: 'rand', name: '敌人随机', tools: ['敌人设置', '打开随机器', '重随设置'] },
-    { key: 'coop', name: '联机', tools: ['联机', '联机设置'] },     // Seamless Co-op（联机分支 coop，联机计划 13.3 C11；webui.ps1 的 WebCoopTools）
+    { key: 'coop', name: '联机', tools: ['联机', '联机设置'] },     // Seamless Co-op（联机分支 coop，联机计划 13.3 C11；dfl\gui\app.py 的 COOP_TOOLS）
     { key: 'update', name: '更新', tools: ['检查更新', '导入更新包', '更新日志'] },
-    { key: 'mods', name: '模组', tools: ['mods 文件夹', 'DLL 文件夹', '自定义配置'] },     // 玩家自己加 mod（用户 2026-11-16，launcher\usermods.ps1）
+    { key: 'mods', name: '模组', tools: ['mods 文件夹', 'DLL 文件夹', '自定义配置'] },     // 玩家自己加 mod（用户 2026-11-16，launcher\dfl\usermods.py）
     { key: 'help', name: '帮助与排查', tools: ['常见问题', '报告 / 日志', '导出诊断包'] },
     { key: 'ui', name: '界面', tools: [] },
     { key: 'about', name: '关于', tools: [] },
@@ -351,7 +351,7 @@
   $('#modalClose').addEventListener('click', closeModal);
   $('#mask').addEventListener('mousedown', function (e) { if (e.target === this) closeModal(); });
   function renderCats() {
-    // 联机一类只在测试开关开着时显示（webui.ps1 的 coop；launcher\coop_test.txt）
+    // 联机一类只在测试开关开着时显示（状态里的 coop；launcher\coop_test.txt）
     var cats = CATS.filter(function (x) { return x.key !== 'coop' || (S && S.coop); });
     if (!cats.some(function (x) { return x.key === curCat; })) curCat = cats[0].key;
     $('#cats').innerHTML = cats.map(function (c) {
@@ -378,9 +378,7 @@
           '<button class="pick-b' + (w === 'hard' ? ' on' : '') + '" data-bg="hard"' + (hard ? '' : ' disabled') + '>死亡以上</button></div>') +
         row('背景动画', '背景里飘动的烟雾。电脑比较卡时可以关掉。',
           '<div class="pick"><button class="pick-b' + (anim ? ' on' : '') + '" data-anim="on">开</button>' +
-          '<button class="pick-b' + (anim ? '' : ' on') + '" data-anim="off">关</button></div>') +
-        row('经典界面', '换回以前的启动器界面（功能完全一样）。下次打开启动器时生效，想换回来在经典界面里删掉 launcher\\classic_ui.txt 即可。',
-          '<button class="btn-ghost" data-act="classic">换回经典界面</button>');
+          '<button class="pick-b' + (anim ? '' : ' on') + '" data-anim="off">关</button></div>');
     } else {
       html = c.tools.map(function (n) {
         var d = (toolTips && toolTips[n]) || '';
@@ -404,8 +402,6 @@
     $$('#rows [data-url]').forEach(function (b) {       // 用系统浏览器打开（宿主只认写死的几个网址）
       b.addEventListener('click', function () { bridge.post('openurl', { url: b.getAttribute('data-url') }); });
     });
-    var cl = $('#rows [data-act="classic"]');
-    if (cl) cl.addEventListener('click', function () { bridge.post('classic'); });
     $$('#rows [data-bg]').forEach(function (b) {
       b.addEventListener('click', function () { store('bg', b.getAttribute('data-bg')); applyWorld(); renderCats(); });
     });
@@ -437,7 +433,7 @@
     return '<div class="row"><div class="txt"><div class="t">' + esc(t) + '</div><div class="d">' + esc(d) + '</div></div>' + btn + '</div>';
   }
 
-  /* ---------------- 弹窗（宿主的提示 / 确认框等，webui.ps1 的 Show-WebModal；用户 2026-11-11「把目前的弹窗都接入新的ui」） ----------------
+  /* ---------------- 弹窗（宿主的提示 / 确认框等，dfl\gui\app.py 的 modal；用户 2026-11-11「把目前的弹窗都接入新的ui」） ----------------
      宿主发 {type:'dialog', id, kind:'msg'|'pick'|'enemy', title, text, icon, buttons, def, cancel, ops, wide, items, sel, elite, boss, note}：
        buttons 从左到右，def 是金色的（回车），cancel 是 Esc / 右上角 × 算点了哪个（-1：Esc 不关，× 关掉算「没选」）；
        ops 是左下角点了不关窗口的按钮（回 {action:'dialogop', id, op}）。

@@ -26,7 +26,7 @@ hi、low 两套都做（原版两套的 SB_Status_00、SB_Icon_* 一模一样，
   封面有 dr_title_<封面>_anim.bin 就是动画版（dev\\title_menu\\make_anim.py 做的）：图换成 _base.dds，新定义拼在 Logo 精灵前面、新放置拼进精灵，
   _top / _ring / _sp 这些贴图叫 MENU_Title_DF_<后缀>，一起放进 02_title。删掉 anim.bin 就是静态版（dr_title_<封面>.dds）。
   和 hi、low 的 02_title.tpf.dcx（原版的开机 Logo 加上我们这张，同法魂的做法：单独一张贴图放 02_title，不动 100 MB 的 01_common，换封面不用重建）。
-  启动器按这次的难度挂其中一个（launcher.ps1 Get-MenuLine）。有自己的时间戳，失败了照常出菜单包，只是标题还是原版。
+  启动器按这次的难度挂其中一个（dfl\launch.py get_menu_line）。有自己的时间戳，失败了照常出菜单包，只是标题还是原版。
 写到 <--out>\\menu\\hi、low（DFLT 压缩，游戏能读）。游戏的 Data0（大小、修改时间）、我们的文件、本工具都没变就不重做
 （<--out>\\stamp.txt；不用解开 Data0，约 0.1 秒；边框图集大，按大小和修改时间算）。
 菜单图集（stamp.txt）、界面素材和字体（ui_stamp.txt）、两张标题封面（..\\title\\<封面>.stamp.txt）各算各的，代码指纹只算这部分用到的函数和常量（code_fp）。

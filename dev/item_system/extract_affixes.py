@@ -55,6 +55,9 @@ ONHIT_STATE = 303          # 命中触发：stateInfo 303~306 = 普通~传说（
 # 和 dark_core 写占位行要的：这一档效果链的行（四档共用的行照旧引用）、链内引用的字段偏移、和数成干净线性关系（1 ± 0.01N、±N、±10N、±0.1N）的字段偏移。
 # 其他按稀有度不同的字段（命中触发的 stateInfo 等）照这一档的
 VAL_OVERLAP = 0.2
+# 数值随机的范围上限（主数不超过这个）：咏唱加速的虚拟灵巧（用户 2026-11-18「虚拟灵巧的词条上限改到99」；传说原来 84~114，超过 99 的白给）。
+# 现在的数正好在上限上的那一档（传说 99）：μ 就是它、σ 照下端算（均值调不到它了），抽出来多数靠近上限
+VAL_CAP = {'adds_virtual_dex_toward_speed_casting': 99}
 # 二期（value_ranges_rules）：积木规则里能按位置取精确数的字段（每档一个数；dark_core rules.rs 的 set_num 要认得）、
 # 规则里按档 / 按层挂的效果编号的字段（rules.rs 的 set_id；行里的数由积木引擎写进占位行）、专用模块（runtime.rs）定义里数值的位置
 VAL_RULE_NUMS = ('stamina', 'fp', 'hp_pct', 'fp_pct', 'burst', 'burst_flat', 'chance', 'haste', 'take_pct', 'cooldown', 'hp_flat', 'foe_secs',
@@ -388,14 +391,15 @@ RULE_AFFIXES = [
          keystone=True, zh='使用魔法、祷告与战技时，不再消耗专注值，改为消耗血量（专注值消耗量的%s％）',
          en='Sorceries, incantations and skills no longer cost FP; they cost HP instead (%s%% of the FP cost)',
          logic=[dict(type='while', fp_to_hp=lambda v: v)]),
-    # 用户 2026-11-03：传说提升到 50％（以前 6 / 9 / 12 / 16），去掉战技那一份，只管魔法、祷告
+    # 用户 2026-11-03：传说提升到 50％（以前 6 / 9 / 12 / 16），去掉战技那一份，只管魔法、祷告；
+    # 2026-11-18「血涌的触发条件改到25%血以下」（以前血量低于一半）
     dict(key='dr_blood_surge', suffix=['Bloodsurge', '血涌'], slots=('head',), vals=(20, 30, 40, 50),
-         zh='血量低于一半时，能提升%s％魔法与祷告的攻击力',
-         en='While HP is below half, raises the attack of sorceries and incantations by %s%%',
+         zh='血量低于25％时，能提升%s％魔法与祷告的攻击力',
+         en='While HP is below 25%%, raises the attack of sorceries and incantations by %s%%',
          rows={k: (lambda src, icon: lambda v: dict(src=src, iconId=icon, vfxId=VFX_SURGE if icon > 0 else -1, effectEndurance=-1.0,
                                                     **{f: 1 + v / 100 for f in SPELL_RATES}))(src, icon)
                for k, src, icon in (('sorcery', 330010, 20006), ('incant', 330500, -1))},
-         logic=[dict(type='while', hp_below=50, effect=k) for k in ('sorcery', 'incant')]),
+         logic=[dict(type='while', hp_below=25, effect=k) for k in ('sorcery', 'incant')]),
     dict(key='dr_blood_drink', suffix=['Blood Drinker', '饮血'], slots=('arm', 'talisman'), icon=18640,
          vals=((2, 20), (3, 30), (4, 40), (6, 60)),
          zh='打倒敌人时，能恢复血量（最大血量的%s％＋%s点）', en='Defeating an enemy restores HP (%s%% of max HP + %s)',
@@ -2599,7 +2603,7 @@ class Extract:
                 b = m
         return round((a + b) / 2, 5), round(sig, 5)
 
-    def _vr_texts(self, f, rs, idx, seqs, prec, main):
+    def _vr_texts(self, f, rs, idx, seqs, prec, main, cap=None):
         """各档的范围、抽样参数、说明模板（变化的数换成 {j}）和词条百科的范围说明：{r: {lo, hi, c, mu, sigma, tpl, span}}；
         说明里找不到要换的数时返回 (None, '中文' / '英文')。
         中文按词条说明模板（f['zh'] 里的 #，第 j 个 # = vals[j]）找到数字的位置，英文按数找（顺序可能和中文不同、原包有的数写错了）；正负号照原文"""
@@ -2666,7 +2670,10 @@ class Extract:
         for ri, r in enumerate(rs):
             lo, hi = spans[ri]
             c = seqs[main][ri]
-            mu, sig = self._vr_solve_mu(c, lo, hi)
+            if cap is not None:                                        # VAL_CAP：上端截到上限
+                hi = min(hi, cap)
+                lo = min(lo, hi)
+            mu, sig = self._vr_solve_mu(c, lo, hi) if c < hi else (c, round(max(c - lo, 1e-6) / 2, 5))
             tok = {i: '{%d}' % i for i in idx}
             lo_d, hi_d = q(lo, main), q(hi, main)
             rng = {i: '%s~%s' % (fmt(abs(interp(i, lo_d) if i != main else lo_d)), fmt(abs(interp(i, hi_d) if i != main else hi_d))) for i in idx}
@@ -2766,7 +2773,7 @@ class Extract:
                 ints = [abs(ab[1]) for (pp, fld), (j, ab) in fits.items() if j == i and self.SP[fld][1] not in 'fd']
                 prec[i] = next(q for q in (0.1, 1.0, 10.0, 100.0) if all(abs(b * q - round(b * q)) < 1e-6 and round(b * q) != 0 for b in ints))
             main = max(idx, key=lambda i: ((max(seqs[i]) - min(seqs[i])) / prec[i], -idx.index(i)))
-            per, bad = self._vr_texts(f, rs, idx, seqs, prec, main)
+            per, bad = self._vr_texts(f, rs, idx, seqs, prec, main, VAL_CAP.get(key))
             if bad:
                 skipped.append('%s（%s说明里找不到要换的数）' % (name, bad))
                 continue

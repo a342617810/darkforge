@@ -72,6 +72,10 @@ def guards():
             bad.append('launcher/reroll/settings.json 的 arena.generator_test 还开着（生成器实验），改回 "" 再打包')
     except Exception as e:
         bad.append('读不了 settings.json：%s' % e)
+    # 启动器换成 Python 以后（v0.10.14）包里不能再有 PowerShell 脚本：杀毒软件把以前的 .ps1 当成后门（用户 2026-11-18，火绒报 Meterpreter）
+    ps = [rel for _, rel in files() if rel.lower().endswith(('.ps1', '.psm1', '.psd1'))]
+    if ps:
+        bad.append('包里还有 PowerShell 脚本（启动器已经换成 Python，不能再发 .ps1）：' + '、'.join(ps[:10]))
     return bad
 
 

@@ -96,7 +96,7 @@ def lantern_persist(ctx):
     """提灯传送、读图后不熄（lantern_persist）：效果 3245 的 saveCategory 从 -1 改成 0，和 ErdTools 的 persistent_lantern 改的是同一处。
     以前交给 ErdTools 做：它在游戏加载参数时自己去扫参数仓库找 SpEffectParam，有的电脑上仓库还没加载完，读到半成品的条目就崩
     （玩家崩溃诊断包 2026-11-18：敌人随机模式开游戏约 10 秒崩在 ErdTools.dll+0x13D43；用户「改」）。
-    现在在参数里改好，启动器每次启动把 erd_tools.ini 的 persistent_lantern 设成 0（launcher.ps1 Test-UserDllSafe）"""
+    现在在参数里改好，启动器每次启动把 erd_tools.ini 的 persistent_lantern 设成 0（dfl\launch.py test_user_dll_safe）"""
     if not ctx.S.get('lantern_persist', True):
         return
     import paramdef_min as pdm

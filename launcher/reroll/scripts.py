@@ -20,14 +20,14 @@ sys.path.insert(0, HERE)
 import emevd  # noqa: E402
 import erlib  # noqa: E402
 import esd  # noqa: E402
-from sc import arena, avatarfix, bells, bossarena, bossaward, bossmods, darkshop, difficulty, extragrace, forge, grace, gracelook, guide, hks, identify, inherit, lock, lostarena, runebank, sell, slot, story, sounds, start, training, twin, wish, wishstone, wspages, notes  # noqa: E402
+from sc import arena, avatarfix, bells, clergyfix, bossarena, bossaward, bossmods, darkshop, difficulty, extragrace, forge, grace, gracelook, guide, hks, identify, inherit, lock, lostarena, runebank, sell, slot, story, sounds, start, training, twin, wish, wishstone, wspages, notes  # noqa: E402
 from sc.common import LANGS, SETTINGS, TALK, Ctx, last_with, vanilla  # noqa: E402
 from sc.esdutil import ROOT, dup_picks, write_check  # noqa: E402
 
 VERSION = 'scripts-1'
 SIG_FILE = 'scripts_source.txt'
 # 赐福菜单里加选项的顺序就是这里的顺序（难度 → 一键鉴定 → 许愿 → 一键出售 → DR 说明 → 暗黑商店 → 双子老妪）
-FEATURES = (grace, difficulty, identify, wish, inherit, wspages, wishstone, runebank, notes, sounds, sell, guide, darkshop, forge, twin, lock, slot, start, hks, bells, training, extragrace, bossarena, avatarfix, bossaward, bossmods, arena, story, lostarena, gracelook)   # forge 要在登记进「暗黑重铸」的功能之后，gracelook 最后；lostarena 在改地图的那几个（extragrace、bossarena、avatarfix、arena、story）之后，接着它们改好的那份补
+FEATURES = (grace, difficulty, identify, wish, inherit, wspages, wishstone, runebank, notes, sounds, sell, guide, darkshop, forge, twin, lock, slot, start, hks, bells, training, extragrace, bossarena, avatarfix, clergyfix, bossaward, bossmods, arena, story, lostarena, gracelook)   # forge 要在登记进「暗黑重铸」的功能之后，gracelook 最后；lostarena 在改地图的那几个（extragrace、bossarena、avatarfix、arena、story）之后，接着它们改好的那份补
 
 
 NO_SYNC = {'bank': 2000, 'id': 2, 'args': b'\0\0\0\0', 'layer': None}     # Set Network Sync State(Disabled)

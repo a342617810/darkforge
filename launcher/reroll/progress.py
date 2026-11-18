@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 """给启动器画进度条（用户 2026-11-05「正在生成这一局的游戏数据……这一句后面加个简易进度条」）。
 
-启动器（launcher.ps1 的 Invoke-RerollGenerate）设环境变量 DR_PROGRESS=1 时才打印「§% <0~100>」这种行，图形界面（gui.ps1 的 Read-RunLog）
+启动器（dfl\launch.py 的 invoke_reroll_generate）设环境变量 DR_PROGRESS=1 时才打印「§% <0~100>」这种行，图形界面（dfl\gui\app.py 的 on_run_line）
 把它画成「正在生成这一局的游戏数据……」那一行后面的进度条；别人跑重随（测试、命令行）什么都不打印。
-重随这边只走到 TOP（92%），剩下的是启动器之后合并游戏脚本、菜单（launcher.ps1 的 Write-IniFile 接着打 97、100）。
+重随这边只走到 TOP（92%），剩下的是启动器之后合并游戏脚本、菜单（dfl\launch.py 的 write_ini_file 接着打 97、100）。
 
 怎么算：重随分三段（load / run_steps / write_and_check），每段里一句一句执行。后台线程每 0.1 秒看一眼主线程正在这段函数的哪一句
 （sys._current_frames，不拖慢主线程），按上次完整重随时每一句的用时加权（记在 cache\\progress.json，按那一句的代码认；

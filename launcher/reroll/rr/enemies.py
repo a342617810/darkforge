@@ -2,10 +2,24 @@
 """敌人：按区域难度分档、血量按地区（enemy_hp_band）、Boss 战随从不掉东西；开了敌人随机时按新位置修正（stage3）。
 分档的结果（ctx.enemy_bands = {档: [敌人参数]}）以后给怪物掉落用。"""
 from .common import *  # noqa: F401,F403
-from .stage3 import band_hp_plain, boss_npc_tiers, boss_rule_mults, boss_tiers, hostile_npcs, invader_hp_plain, invader_sp_rows, stage3_retier, vanilla_parts
+from .stage3 import band_hp_plain, boss_npc_tiers, boss_rule_mults, boss_tiers, enemy_positions, hostile_npcs, invader_hp_plain, invader_sp_rows, stage3_retier, vanilla_parts
 
 NPC_LOT, NPC_SCALE, NPC_HP = 48, 88, 36
 NPC_SPEFFECTS = tuple(range(76, 108, 4)) + tuple(range(376, 408, 4)) + tuple(range(488, 552, 4))
+# 野兽司祭（黑剑玛利喀斯的第一形态，c2110_9000）敌人参数自带的状态效果（stateInfo 420；玛利喀斯是 15291 / 421）
+CLERGY_SP = 15290
+
+
+def clergy_spots(P_npc, placed, positions, vanilla_npc):
+    """敌人随机时放了野兽司祭的位置 [[地图, 实体]]，给 sc/clergyfix.py 加「血量打空还没倒下就强制死亡」的保底事件。
+    原版里它血量剩 55% 就变身成玛利喀斯，从来打不到 0；这个模型血量打空后不会自己倒下（原版玛利喀斯的击败事件也是先强制死亡），
+    随机器的击败 / 转阶段事件却要等它「死了」才往下走，就一直卡着（玩家诊断包 2026-11-18：死亡以上的世界里艾尔登之兽的位置放了野兽司祭，
+    打空血以后没有击败、没有结局，重进还要再打；用户「修一下死亡难度以上艾尔登之兽位置的boss打了没正常结算的问题」）。
+    原版就是这个模型的位置不算（vanilla_npc：实体 → 原版敌人参数）：野兽司祭自己的位置有原版的变身事件，兽人祭坛的古兰格是 NPC，不能被强制杀死"""
+    rows = {n for n, row in P_npc.rows.items()
+            if any(struct.unpack_from('<i', row, o)[0] == CLERGY_SP for o in NPC_SPEFFECTS if o + 4 <= len(row))}
+    return sorted([positions[e][0], e] for e, n in placed.items()
+                  if n in rows and e in positions and vanilla_npc.get(e) is not None and vanilla_npc[e] not in rows)
 
 
 def classify(ctx, P_npc, P_sp):
@@ -226,6 +240,12 @@ def hp(ctx):
                              helpers=helper_ents, hp_align=hp_align, P_sp=P_sp, placed=ctx.ent_npc_final)
         if hp_align and hp_align.get('avatar_maps'):
             ctx.features['avatar_maps'] = sorted(set(hp_align['avatar_maps']))    # sc/avatarfix.py 改这些图的事件
+        spots = clergy_spots(P_npc, ctx.ent_npc_final, enemy_positions(a.randomizer_dir),
+                             {e: n for plist in vanilla_parts(rd, cache).values() for e, n in plist})
+        ctx.features['clergy_spots'] = spots                                        # sc/clergyfix.py 改这些图的事件
+        if spots:
+            st3.append('野兽司祭放在 %d 个位置（%s）：血量打空还没倒下就强制死亡，免得击败结算卡住' % (
+                len(spots), '、'.join('%s %d' % (m, e) for m, e in spots)))
         # 随机器没写出来的地图（高难度世界里固定了的 Boss 那张图上没有别的敌人要换，例如碎星拉塔恩的大地块 m60_13_09_02）：
         # 上面是原版的 Boss，stage3 只看随机器写出来的图，看不到它们，高难度血量补正和随从就都漏了（用户 2026-11-09）。
         # 按原版地图补进去；现在血量到 rr/hpunify.py 里按参数算

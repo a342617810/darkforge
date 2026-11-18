@@ -1,7 +1,7 @@
 {
  "_说明": "词条库（阶段 1：迁移原包的词条）。由 dev\\item_system\\extract_affixes.py 从 RNG Lands 原包提取，不要手改；规则见 dev\\item_system\\词条一览.md、设计文档.md 第 8 节。权重 / 分布里的数字都是原包里的件数。",
  "source": "packs\\Ruby\\recommended increased difficulty",
- "time": "2026-11-16 11:46:56",
+ "time": "2026-11-18 11:45:20",
  "rarities": [
   "Common",
   "Rare",
@@ -11363,7 +11363,7 @@
      },
      "Legendary": {
       "lo": 84.0,
-      "hi": 114.0,
+      "hi": 99,
       "c": 99.0,
       "mu": 99.0,
       "sigma": 7.5,
@@ -11372,8 +11372,8 @@
        "Adds virtual dex toward speed casting: {0}"
       ],
       "span": [
-       "计算咏唱速度时灵巧额外＋84~114（缩短魔法、祷告的咏唱时间）",
-       "Adds virtual dex toward speed casting: 84~114"
+       "计算咏唱速度时灵巧额外＋84~99（缩短魔法、祷告的咏唱时间）",
+       "Adds virtual dex toward speed casting: 84~99"
       ],
       "rows": [
        7002310
@@ -26010,8 +26010,8 @@
    }
   },
   "dr_blood_surge": {
-   "zh": "血量低于一半时，能提升#％魔法与祷告的攻击力\n同名词条只有稀有度最高的生效",
-   "en": "While HP is below half, raises the attack of sorceries and incantations by #%\nOnly the highest rarity of this effect applies",
+   "zh": "血量低于25％时，能提升#％魔法与祷告的攻击力\n同名词条只有稀有度最高的生效",
+   "en": "While HP is below 25%, raises the attack of sorceries and incantations by #%\nOnly the highest rarity of this effect applies",
    "suffix": [
     "Bloodsurge",
     "血涌"
@@ -26025,34 +26025,38 @@
    },
    "vals": {
     "Common": [
+     "25",
      "20"
     ],
     "Rare": [
+     "25",
      "30"
     ],
     "Epic": [
+     "25",
      "40"
     ],
     "Legendary": [
+     "25",
      "50"
     ]
    },
    "text": {
     "Common": {
-     "zh": "血量低于一半时，能提升20％魔法与祷告的攻击力\n同名词条只有稀有度最高的生效",
-     "en": "While HP is below half, raises the attack of sorceries and incantations by 20%\nOnly the highest rarity of this effect applies"
+     "zh": "血量低于25％时，能提升20％魔法与祷告的攻击力\n同名词条只有稀有度最高的生效",
+     "en": "While HP is below 25%, raises the attack of sorceries and incantations by 20%\nOnly the highest rarity of this effect applies"
     },
     "Rare": {
-     "zh": "血量低于一半时，能提升30％魔法与祷告的攻击力\n同名词条只有稀有度最高的生效",
-     "en": "While HP is below half, raises the attack of sorceries and incantations by 30%\nOnly the highest rarity of this effect applies"
+     "zh": "血量低于25％时，能提升30％魔法与祷告的攻击力\n同名词条只有稀有度最高的生效",
+     "en": "While HP is below 25%, raises the attack of sorceries and incantations by 30%\nOnly the highest rarity of this effect applies"
     },
     "Epic": {
-     "zh": "血量低于一半时，能提升40％魔法与祷告的攻击力\n同名词条只有稀有度最高的生效",
-     "en": "While HP is below half, raises the attack of sorceries and incantations by 40%\nOnly the highest rarity of this effect applies"
+     "zh": "血量低于25％时，能提升40％魔法与祷告的攻击力\n同名词条只有稀有度最高的生效",
+     "en": "While HP is below 25%, raises the attack of sorceries and incantations by 40%\nOnly the highest rarity of this effect applies"
     },
     "Legendary": {
-     "zh": "血量低于一半时，能提升50％魔法与祷告的攻击力\n同名词条只有稀有度最高的生效",
-     "en": "While HP is below half, raises the attack of sorceries and incantations by 50%\nOnly the highest rarity of this effect applies"
+     "zh": "血量低于25％时，能提升50％魔法与祷告的攻击力\n同名词条只有稀有度最高的生效",
+     "en": "While HP is below 25%, raises the attack of sorceries and incantations by 50%\nOnly the highest rarity of this effect applies"
     }
    },
    "tal": {},
@@ -26066,7 +26070,7 @@
     "rules": [
      {
       "type": "while",
-      "hp_below": 50,
+      "hp_below": 25,
       "effect": [
        7210455,
        7210458,
@@ -26076,7 +26080,7 @@
      },
      {
       "type": "while",
-      "hp_below": 50,
+      "hp_below": 25,
       "effect": [
        7210457,
        7210459,
@@ -26113,9 +26117,9 @@
    },
    "vrand": {
     "kind": "rule",
-    "main": 0,
+    "main": 1,
     "nums": {
-     "0": {
+     "1": {
       "prec": 0.1,
       "c": {
        "Common": 20.0,
@@ -26133,12 +26137,12 @@
       "mu": 20.0,
       "sigma": 3.125,
       "tpl": [
-       "血量低于一半时，能提升{0}％魔法与祷告的攻击力\n同名词条只有稀有度最高的生效",
-       "While HP is below half, raises the attack of sorceries and incantations by {0}%\nOnly the highest rarity of this effect applies"
+       "血量低于25％时，能提升{1}％魔法与祷告的攻击力\n同名词条只有稀有度最高的生效",
+       "While HP is below 25%, raises the attack of sorceries and incantations by {1}%\nOnly the highest rarity of this effect applies"
       ],
       "span": [
-       "血量低于一半时，能提升13.8~26.2％魔法与祷告的攻击力\n同名词条只有稀有度最高的生效",
-       "While HP is below half, raises the attack of sorceries and incantations by 13.8~26.2%\nOnly the highest rarity of this effect applies"
+       "血量低于25％时，能提升13.8~26.2％魔法与祷告的攻击力\n同名词条只有稀有度最高的生效",
+       "While HP is below 25%, raises the attack of sorceries and incantations by 13.8~26.2%\nOnly the highest rarity of this effect applies"
       ],
       "slots": [
        [
@@ -26152,35 +26156,35 @@
           "f",
           1.0,
           0.01,
-          0
+          1
          ],
          [
           60,
           "f",
           1.0,
           0.01,
-          0
+          1
          ],
          [
           64,
           "f",
           1.0,
           0.01,
-          0
+          1
          ],
          [
           68,
           "f",
           1.0,
           0.01,
-          0
+          1
          ],
          [
           476,
           "f",
           1.0,
           0.01,
-          0
+          1
          ]
         ]
        ],
@@ -26195,35 +26199,35 @@
           "f",
           1.0,
           0.01,
-          0
+          1
          ],
          [
           60,
           "f",
           1.0,
           0.01,
-          0
+          1
          ],
          [
           64,
           "f",
           1.0,
           0.01,
-          0
+          1
          ],
          [
           68,
           "f",
           1.0,
           0.01,
-          0
+          1
          ],
          [
           476,
           "f",
           1.0,
           0.01,
-          0
+          1
          ]
         ]
        ]
@@ -26236,12 +26240,12 @@
       "mu": 30.0,
       "sigma": 3.125,
       "tpl": [
-       "血量低于一半时，能提升{0}％魔法与祷告的攻击力\n同名词条只有稀有度最高的生效",
-       "While HP is below half, raises the attack of sorceries and incantations by {0}%\nOnly the highest rarity of this effect applies"
+       "血量低于25％时，能提升{1}％魔法与祷告的攻击力\n同名词条只有稀有度最高的生效",
+       "While HP is below 25%, raises the attack of sorceries and incantations by {1}%\nOnly the highest rarity of this effect applies"
       ],
       "span": [
-       "血量低于一半时，能提升23.8~36.2％魔法与祷告的攻击力\n同名词条只有稀有度最高的生效",
-       "While HP is below half, raises the attack of sorceries and incantations by 23.8~36.2%\nOnly the highest rarity of this effect applies"
+       "血量低于25％时，能提升23.8~36.2％魔法与祷告的攻击力\n同名词条只有稀有度最高的生效",
+       "While HP is below 25%, raises the attack of sorceries and incantations by 23.8~36.2%\nOnly the highest rarity of this effect applies"
       ],
       "slots": [
        [
@@ -26255,35 +26259,35 @@
           "f",
           1.0,
           0.01,
-          0
+          1
          ],
          [
           60,
           "f",
           1.0,
           0.01,
-          0
+          1
          ],
          [
           64,
           "f",
           1.0,
           0.01,
-          0
+          1
          ],
          [
           68,
           "f",
           1.0,
           0.01,
-          0
+          1
          ],
          [
           476,
           "f",
           1.0,
           0.01,
-          0
+          1
          ]
         ]
        ],
@@ -26298,35 +26302,35 @@
           "f",
           1.0,
           0.01,
-          0
+          1
          ],
          [
           60,
           "f",
           1.0,
           0.01,
-          0
+          1
          ],
          [
           64,
           "f",
           1.0,
           0.01,
-          0
+          1
          ],
          [
           68,
           "f",
           1.0,
           0.01,
-          0
+          1
          ],
          [
           476,
           "f",
           1.0,
           0.01,
-          0
+          1
          ]
         ]
        ]
@@ -26339,12 +26343,12 @@
       "mu": 40.0,
       "sigma": 3.125,
       "tpl": [
-       "血量低于一半时，能提升{0}％魔法与祷告的攻击力\n同名词条只有稀有度最高的生效",
-       "While HP is below half, raises the attack of sorceries and incantations by {0}%\nOnly the highest rarity of this effect applies"
+       "血量低于25％时，能提升{1}％魔法与祷告的攻击力\n同名词条只有稀有度最高的生效",
+       "While HP is below 25%, raises the attack of sorceries and incantations by {1}%\nOnly the highest rarity of this effect applies"
       ],
       "span": [
-       "血量低于一半时，能提升33.8~46.2％魔法与祷告的攻击力\n同名词条只有稀有度最高的生效",
-       "While HP is below half, raises the attack of sorceries and incantations by 33.8~46.2%\nOnly the highest rarity of this effect applies"
+       "血量低于25％时，能提升33.8~46.2％魔法与祷告的攻击力\n同名词条只有稀有度最高的生效",
+       "While HP is below 25%, raises the attack of sorceries and incantations by 33.8~46.2%\nOnly the highest rarity of this effect applies"
       ],
       "slots": [
        [
@@ -26358,35 +26362,35 @@
           "f",
           1.0,
           0.01,
-          0
+          1
          ],
          [
           60,
           "f",
           1.0,
           0.01,
-          0
+          1
          ],
          [
           64,
           "f",
           1.0,
           0.01,
-          0
+          1
          ],
          [
           68,
           "f",
           1.0,
           0.01,
-          0
+          1
          ],
          [
           476,
           "f",
           1.0,
           0.01,
-          0
+          1
          ]
         ]
        ],
@@ -26401,35 +26405,35 @@
           "f",
           1.0,
           0.01,
-          0
+          1
          ],
          [
           60,
           "f",
           1.0,
           0.01,
-          0
+          1
          ],
          [
           64,
           "f",
           1.0,
           0.01,
-          0
+          1
          ],
          [
           68,
           "f",
           1.0,
           0.01,
-          0
+          1
          ],
          [
           476,
           "f",
           1.0,
           0.01,
-          0
+          1
          ]
         ]
        ]
@@ -26442,12 +26446,12 @@
       "mu": 50.0,
       "sigma": 3.125,
       "tpl": [
-       "血量低于一半时，能提升{0}％魔法与祷告的攻击力\n同名词条只有稀有度最高的生效",
-       "While HP is below half, raises the attack of sorceries and incantations by {0}%\nOnly the highest rarity of this effect applies"
+       "血量低于25％时，能提升{1}％魔法与祷告的攻击力\n同名词条只有稀有度最高的生效",
+       "While HP is below 25%, raises the attack of sorceries and incantations by {1}%\nOnly the highest rarity of this effect applies"
       ],
       "span": [
-       "血量低于一半时，能提升43.8~56.2％魔法与祷告的攻击力\n同名词条只有稀有度最高的生效",
-       "While HP is below half, raises the attack of sorceries and incantations by 43.8~56.2%\nOnly the highest rarity of this effect applies"
+       "血量低于25％时，能提升43.8~56.2％魔法与祷告的攻击力\n同名词条只有稀有度最高的生效",
+       "While HP is below 25%, raises the attack of sorceries and incantations by 43.8~56.2%\nOnly the highest rarity of this effect applies"
       ],
       "slots": [
        [
@@ -26461,35 +26465,35 @@
           "f",
           1.0,
           0.01,
-          0
+          1
          ],
          [
           60,
           "f",
           1.0,
           0.01,
-          0
+          1
          ],
          [
           64,
           "f",
           1.0,
           0.01,
-          0
+          1
          ],
          [
           68,
           "f",
           1.0,
           0.01,
-          0
+          1
          ],
          [
           476,
           "f",
           1.0,
           0.01,
-          0
+          1
          ]
         ]
        ],
@@ -26504,35 +26508,35 @@
           "f",
           1.0,
           0.01,
-          0
+          1
          ],
          [
           60,
           "f",
           1.0,
           0.01,
-          0
+          1
          ],
          [
           64,
           "f",
           1.0,
           0.01,
-          0
+          1
          ],
          [
           68,
           "f",
           1.0,
           0.01,
-          0
+          1
          ],
          [
           476,
           "f",
           1.0,
           0.01,
-          0
+          1
          ]
         ]
        ]

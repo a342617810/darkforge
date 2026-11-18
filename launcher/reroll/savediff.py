@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """恢复存档前算差别（用户 2026-11-06：玩家点「恢复存档」丢了一整次启动的进度，确认框只写「进度会丢失」，看不出丢多少）：
-只读，比较现在的存档和一份备份里每个角色的等级、游戏时间。图形界面的恢复确认框调用（launcher\\gui.ps1 Get-RestoreDiffLines）。
+只读，比较现在的存档和一份备份里每个角色的等级、游戏时间。图形界面的恢复确认框调用（launcher\\dfl\\gui\\app.py 的 restore_diff_lines）。
 用法：python savediff.py <备份目录> <存档根目录>；输出一行 JSON（字符串数组，ASCII 转义，PowerShell 不用管编码）；读不了退出码 1、不输出。
 没变化的角色不列；一个角色都没变时输出一句「都一样」。"""
 import json

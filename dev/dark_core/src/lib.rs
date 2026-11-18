@@ -66,7 +66,7 @@ mod skillmult;
 mod slotdiag;
 mod sound;
 mod spellbase;
-mod transmogicon;
+mod msghook;
 
 use std::fs;
 use std::panic::{AssertUnwindSafe, catch_unwind};
@@ -228,7 +228,7 @@ pub unsafe extern "system" fn DllMain(hmodule: u64, reason: u32, _reserved: *mut
             log("能施法的近战武器显示魔法加成：出错，没改");
         }
         let combat = runtime::init();
-        transmogicon::start();
+        msghook::start(); // 取文字挂钩：装备文字、确认框、幻化菜单图标
         // 加载器注入得很早：任务调度器可能还没建好，每秒重试（最多 10 分钟）
         let mut task = None;
         for _ in 0..600 {

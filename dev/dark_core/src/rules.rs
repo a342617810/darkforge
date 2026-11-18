@@ -97,14 +97,15 @@ const FOE_RANGE: f32 = 40.0;
 /// 远处被箭 / 法术打中的敌人看不到，猎印、回收、巨人杀手这些都不触发）。FOE_RANGE 只剩规则没写 range 时的默认
 const FOE_SCAN: f32 = 1000.0;
 /// 见切（mikiri_reason）：近战的够得着距离（再加敌人体型半径）、玩家体型半径（子弹用）、出招进度、面朝的夹角（度）；敌人的攻击动作编号范围
-const MIKIRI_REACH: f32 = 4.0;
+/// （够得着用户 2026-11-18「现在范围太大了最大为敌人体型+2m」「或者3」→ 普通 +2 米、Boss +3 米；以前普通 4、Boss 7）
+const MIKIRI_REACH: f32 = 2.0;
 const MIKIRI_BODY: f32 = 0.6;
 const MIKIRI_PROGRESS: (f32, f32) = (0.2, 0.75);
 const MIKIRI_ARC: f32 = 60.0;
 const ATTACK_ANIMS: std::ops::Range<i32> = 3000..4000;
 /// Boss 的武器长、横扫和转身出招多（用户 2026-11-16「见切对于米塔恩 原版梅瑟莫二阶段…不生效」：日志里梅瑟莫二阶段的出招判定在，
 /// 被够得着 4.5 米、夹角 60° 挡掉的占多数）：Boss 够得着再加这么多米、夹角放宽到这么多度
-const MIKIRI_BOSS_REACH: f32 = 3.0;
+const MIKIRI_BOSS_REACH: f32 = 1.0;
 const MIKIRI_BOSS_ARC: f32 = 110.0;
 /// 人形敌人第一次出现时的诊断日志最多写几个（见切）
 const HUMANOID_DIAG_MAX: usize = 12;
@@ -4509,14 +4510,14 @@ mod tests {
         assert!(d.skipped.is_empty() && d.mikiri, "{:?}", d.skipped);
         let mut s = Sim::new();
         let w = worn(&[("dr_mikiri", 3), ("dr_zanshin", 0)]);
-        let mut a = foe(1, 3.0, vec![], false);
+        let mut a = foe(1, 2.0, vec![], false);
         a.anim = Some(3010);
         s.foes = vec![a, foe(2, 7.0, vec![], false), foe(3, 12.0, vec![], false)];
         assert!(s.step(&d, &w, &[], None, 0).is_empty(), "不在翻滚");
-        // 翻滚中 3 米内的敌人在出招：8 米内的两个敌人减速 60%，残心挂上
+        // 翻滚中 2 米内的敌人在出招：8 米内的两个敌人减速 60%，残心挂上
         let m: f32 = 1.0 - 60.0 / 100.0;
         assert_eq!(s.step(&d, &w, &["roll"], None, 100),
-                   vec![Act::Log("见切：近战（NPC 0 动作 3010 模型 c0000 不在判定表里，按进度 50% 估 距离 3.0 体型 0.5 夹角 0°）".into()),
+                   vec![Act::Log("见切：近战（NPC 0 动作 3010 模型 c0000 不在判定表里，按进度 50% 估 距离 2.0 体型 0.5 夹角 0°）".into()),
                         Act::Log("dr_mikiri：周围 2 个敌人动作 ×0.40（2 秒）".into()), Act::FoeSpeed(1, m), Act::FoeSpeed(2, m), Act::Apply(520)]);
         assert_eq!(s.step(&d, &w, &["roll"], None, 200), vec![Act::FoeSpeed(1, m), Act::FoeSpeed(2, m)], "一次翻滚只算一次");
         assert_eq!(s.step(&d, &w, &[], None, 2200), vec![Act::FoeSpeed(1, 1.0), Act::FoeSpeed(2, 1.0)], "2 秒到期改回");
@@ -4524,7 +4525,7 @@ mod tests {
         // 影步：减速变成停住 1 秒；翻滚 0.2 秒后清无敌位
         let mut s = Sim::new();
         let w = worn(&[("dr_mikiri", 3), ("dr_shadow", 3)]);
-        let mut a = foe(1, 3.0, vec![], false);
+        let mut a = foe(1, 2.0, vec![], false);
         a.anim = Some(3010);
         s.foes = vec![a];
         s.step(&d, &w, &[], None, 0);
@@ -4540,7 +4541,7 @@ mod tests {
         let d = parse(DODGE);
         let mut s = Sim::new();
         let w = worn(&[("dr_mikiri", 3)]);
-        let mut a = foe(1, 3.0, vec![], false);
+        let mut a = foe(1, 2.0, vec![], false);
         a.anim = Some(3010);
         s.foes = vec![a];
         s.step(&d, &w, &[], None, 0);
@@ -4580,7 +4581,7 @@ mod tests {
             aff\tdr_execute\t510,511,512,513\nrule\tdr_execute\ton\tevent=crit\twhen=end\teffect=520,521,522,523\thaste=20\thaste_secs=10\n");
         assert!(d.skipped.is_empty() && d.mikiri, "{:?}", d.skipped);
         let attacker = || {
-            let mut a = foe(1, 3.0, vec![], false);
+            let mut a = foe(1, 2.0, vec![], false);
             a.anim = Some(3010);
             vec![a]
         };
@@ -4636,20 +4637,25 @@ mod tests {
         };
         // 不在无敌帧（比如碾压清掉了）不算
         let mut s = Sim::new();
-        s.foes = vec![attacker(3.0)];
+        s.foes = vec![attacker(2.0)];
         s.iframe = false;
         assert_eq!(hit(&mut s, 0), None);
         // 出招刚起手 / 快收招、背对着、太远：都不算
         for f in [|f: &mut Foe| f.progress = 0.1, |f: &mut Foe| f.progress = 0.9, |f: &mut Foe| f.fwd = [1.0, 0.0], |f: &mut Foe| f.pos = [6.0, 0.0, 0.0]] {
             let mut s = Sim::new();
-            let mut a = attacker(3.0);
+            let mut a = attacker(2.0);
             f(&mut a);
             s.foes = vec![a];
             assert_eq!(hit(&mut s, 0), None);
         }
-        // 大体型：5.5 米外也够得着（4 + 2）
+        // 大体型：3.5 米外也够得着（2 + 2），4.5 米够不着
         let mut s = Sim::new();
-        let mut a = attacker(5.5);
+        let mut far = Sim::new();
+        let mut a = attacker(4.5);
+        a.radius = 2.0;
+        far.foes = vec![a];
+        assert_eq!(hit(&mut far, 0), None);
+        let mut a = attacker(3.5);
         a.radius = 2.0;
         s.foes = vec![a];
         assert!(hit(&mut s, 0).is_some_and(|m| m.starts_with("近战")));
@@ -4665,14 +4671,14 @@ mod tests {
         assert_eq!(hit(&mut s, 1000), Some("子弹（命中半径 0.8，距离 1.1）".into()));
         // 没成立的翻滚写一行调参日志（背对着：夹角 180°，反过来算 0°）
         let mut s = Sim::new();
-        let mut a = attacker(3.0);
+        let mut a = attacker(2.0);
         a.fwd = [1.0, 0.0];
         s.foes = vec![a];
         s.step(&d, &w, &[], None, 0);
         assert!(s.step(&d, &w, &["roll"], None, 50).is_empty());
         assert_eq!(s.step(&d, &w, &[], None, 100),
-                   vec![Act::Log("见切没成立（翻滚 1 帧，其中无敌 1 帧）：最近出招的角色 NPC 0 阵营 6 动作 3010 模型 c0000 不在判定表里，按进度 50% 估 距离 3.0（够得着 4.5）夹角 180°（上限 60°，反过来算 0°）；\
-                                  最近的角色 NPC 0 阵营 6 动作 Some(3010) 距离 3.0；最近的敌方子弹 无".into())]);
+                   vec![Act::Log("见切没成立（翻滚 1 帧，其中无敌 1 帧）：最近出招的角色 NPC 0 阵营 6 动作 3010 模型 c0000 不在判定表里，按进度 50% 估 距离 2.0（够得着 2.5）夹角 180°（上限 60°，反过来算 0°）；\
+                                  最近的角色 NPC 0 阵营 6 动作 Some(3010) 距离 2.0；最近的敌方子弹 无".into())]);
         // 后撤步也算
         let mut s = Sim::new();
         s.foes = vec![attacker(2.0)];
@@ -4689,14 +4695,14 @@ mod tests {
         let w = worn(&[("dr_mikiri", 3)]);
         let hit = |model: u32, anim: i32, play: f32| {
             let mut s = Sim::new();
-            let mut f = foe(1, 3.0, vec![], false);
+            let mut f = foe(1, 2.0, vec![], false);
             (f.model, f.anim, f.play) = (model, Some(anim), play);
             s.foes = vec![f];
             s.step(&d, &w, &[], None, 0);
             let a = s.step(&d, &w, &["roll"], None, 50);
             a.first().and_then(|x| if let Act::Log(m) = x { m.strip_prefix("见切：").map(String::from) } else { None })
         };
-        assert_eq!(hit(4300, 3000, 2.6), Some("近战（NPC 0 动作 3000 第 2.60 秒（判定 2.57–2.73） 距离 3.0 体型 0.5 夹角 0°）".into()));
+        assert_eq!(hit(4300, 3000, 2.6), Some("近战（NPC 0 动作 3000 第 2.60 秒（判定 2.57–2.73） 距离 2.0 体型 0.5 夹角 0°）".into()));
         assert_eq!(hit(4300, 3000, 2.53), None, "判定前 0.04 秒（前后不留余量）");
         assert_eq!(hit(4300, 3000, 2.76), None, "判定后 0.03 秒");
         assert!(hit(4300, 3000, 2.567).is_some(), "判定开始那一刻");
@@ -4737,7 +4743,7 @@ mod tests {
         let w = worn(&[("dr_mikiri", 3)]);
         let hit = |layers: Vec<(i32, f32)>| {
             let mut s = Sim::new();
-            let mut f = foe(1, 3.0, vec![], false);
+            let mut f = foe(1, 2.0, vec![], false);
             (f.model, f.anim, f.play, f.layers) = (5130, Some(43000), 5.0, layers);
             s.foes = vec![f];
             s.step(&d, &w, &[], None, 0);
@@ -4745,7 +4751,7 @@ mod tests {
             a.first().and_then(|x| if let Act::Log(m) = x { m.strip_prefix("见切：").map(String::from) } else { None })
         };
         assert_eq!(hit(vec![]), None, "只有 43000（没有出招数据）");
-        assert_eq!(hit(vec![(3010, 0.5)]), Some("近战（NPC 0 动作 3010（叠着播的） 第 0.50 秒（判定 0.40–0.60） 距离 3.0 体型 0.5 夹角 0°）".into()));
+        assert_eq!(hit(vec![(3010, 0.5)]), Some("近战（NPC 0 动作 3010（叠着播的） 第 0.50 秒（判定 0.40–0.60） 距离 2.0 体型 0.5 夹角 0°）".into()));
         assert_eq!(hit(vec![(3010, 0.9)]), None, "叠着的出招判定已经过了");
     }
 
@@ -4768,9 +4774,10 @@ mod tests {
         };
         assert!(hit(true, 2.0, 83.0).is_some_and(|m| m.contains("（Boss）")), "Boss 夹角 83°：算");
         assert_eq!(hit(false, 2.0, 83.0), None, "不是 Boss：照旧 60°");
-        assert!(hit(true, 7.0, 10.0).is_some(), "Boss 7 米：4 + 3 + 体型 0.5 够得着");
-        assert_eq!(hit(false, 7.0, 10.0), None, "不是 Boss：4.5 米");
-        assert_eq!(hit(true, 8.0, 10.0), None, "Boss 8 米：太远");
+        assert!(hit(true, 3.4, 10.0).is_some(), "Boss 3.4 米：2 + 1 + 体型 0.5 够得着");
+        assert_eq!(hit(false, 3.4, 10.0), None, "不是 Boss：2.5 米");
+        assert!(hit(false, 2.4, 10.0).is_some(), "不是 Boss 2.4 米：2 + 体型 0.5 够得着");
+        assert_eq!(hit(true, 3.6, 10.0), None, "Boss 3.6 米：太远");
         assert_eq!(hit(true, 2.0, 120.0), None, "Boss 背对着（120°）不算");
     }
 
@@ -4804,7 +4811,7 @@ mod tests {
         let d = parse(DODGE);
         let sound = |w: HashMap<String, usize>| {
             let mut s = Sim::new();
-            let mut a = foe(1, 3.0, vec![], false);
+            let mut a = foe(1, 2.0, vec![], false);
             a.anim = Some(3010);
             s.foes = vec![a];
             s.step(&d, &w, &[], None, 0);
@@ -4822,7 +4829,7 @@ mod tests {
         assert!(d.skipped.is_empty(), "{:?}", d.skipped);
         let w = worn(&[("dr_mikiri", 3)]);
         let mut s = Sim::new();
-        let mut a = foe(1, 3.0, vec![], false);
+        let mut a = foe(1, 2.0, vec![], false);
         a.anim = Some(3010);
         s.foes = vec![a];
         let roll = |s: &mut Sim, t: u64, anim: i32| {
