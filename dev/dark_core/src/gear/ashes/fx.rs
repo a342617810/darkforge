@@ -504,6 +504,31 @@ pub(super) fn tick(def: &Def, a: &AshSt) {
         }
     }
 
+    // 局内难度（用户 2026-11-17「让骨灰也会被难度减伤」）：玩家身上是哪一档的难度效果，活着的召唤物就挂那一档的造成伤害效果
+    // （×1/敌人血量；玩家自己的伤害就是这么降的，召唤物以前不吃）。换了档摘掉别的档；没选过难度 / 普通档就都不挂
+    if !def.diff_ash.is_empty() {
+        let want = wcm.main_player.as_ref().and_then(|p| {
+            p.chr_ins.special_effect.entries().find_map(|e| def.diff_ash.iter().find(|x| x.0 == e.param_id).map(|x| x.1))
+        });
+        let mut put: Vec<(i32, i32)> = Vec::new();
+        for c in wcm.summon_buddy_chr_set.characters() {
+            if TORRENT.contains(&c.npc_param_id) || c.modules.data.hp <= 0 {
+                continue;
+            }
+            let has: Vec<i32> = c.special_effect.entries().map(|e| e.param_id).filter(|id| def.diff_ash.iter().any(|x| x.1 == *id)).collect();
+            for &id in has.iter().filter(|&&id| Some(id) != want) {
+                c.remove_speffect(id);
+            }
+            if let Some(w) = want.filter(|w| !has.contains(w)) {
+                c.apply_speffect(w, false);
+                put.push((c.npc_param_id, w));
+            }
+        }
+        for (npc, w) in put {
+            say(fx, format!("难度：召唤物（敌人参数 {npc}）挂上这一档的造成伤害效果 {w}"));
+        }
+    }
+
     // 召唤物：补挂强化加成、补满血、激昂开关、战意回血
     if fury_set.is_empty() && kills.is_empty() && dop_fix.is_empty() && topups.is_empty() {
         return;

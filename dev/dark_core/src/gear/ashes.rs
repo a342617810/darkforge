@@ -165,6 +165,8 @@ struct Def {
     by_id: HashMap<u32, (usize, u32)>,
     /// 原版骨灰的获取格（src 行）
     srcs: Vec<AshSrc>,
+    /// 局内难度：(玩家身上那一档的效果, 召唤物挂的造成伤害效果)（diffash 行，rr/difficulty.py；fx.rs 照玩家的档给召唤物挂）
+    diff_ash: Vec<(i32, i32)>,
 }
 
 /// 获取格在哪张表
@@ -260,6 +262,13 @@ fn parse(text: &str) -> Option<Def> {
                 }
             }
             ("dop1", 2..) => d.dop1 = f[1].parse().unwrap_or(0),
+            ("diffash", 3..) => {
+                if let (Ok(a), Ok(b)) = (f[1].parse::<i32>(), f[2].parse::<i32>()) {
+                    if a > 0 && b > 0 {
+                        d.diff_ash.push((a, b));
+                    }
+                }
+            }
             ("src", 6..) => {
                 let at = match f[1] {
                     "m" => SrcAt::Map,
@@ -1242,6 +1251,7 @@ mod tests {
             "aff\thp\thp\t10,15,20,30\t召唤物的血量上限＋#％\tSummon max HP +#%\n",
             "aff\tatk\tatk\t8,12,16,24\t召唤物的攻击力＋#％\tSummon attack +#%\n",
             "aff\tregen\tregen\t0.5,0.8,1.2,1.5\t召唤物每秒恢复 #％ 的血量\tSummons restore #% HP per second\n",
+            "diffash\t369005\t369455\ndiffash\t369007\t369457\ndiffash\t0\t369450\n",
             "bonus\t召唤物的血量上限、攻击力＋#％（稀有度）\tSummon max HP and attack +#% (rarity)\n",
             "rally\t集结\tRallying\t召唤数量＋1\tSummons one more spirit\n",
             "lvl\t0\t\t\nlvl\t3\t＋３\t +3\n",
@@ -1262,6 +1272,7 @@ mod tests {
         assert_eq!((d.goods0, d.n, d.dop0, d.neutral, d.buddy0, d.per, d.info2_off), (150000000, 120, 7320000, 7319999, 39900000, 6, 10000000));
         assert_eq!(d.rar[3], Rar { weight: 10, mult: 1.2, suffixes: 2, rally: true, pre: 100.0 });
         assert_eq!(d.rar[1].pre, 30.0);
+        assert_eq!(d.diff_ash, vec![(369005, 369455), (369007, 369457)], "编号 0 的不要");
         assert_eq!(d.pres.iter().map(|p| p.key.as_str()).collect::<Vec<_>>(), vec!["blast", "zeal"], "激昂没有效果编号：不要");
         assert_eq!((d.pres[0].ids[3], d.pres[1].arg, d.pres[1].kind), (94900003, 20.0, PreKind::Zeal));
         assert_eq!(d.affs.len(), 3);

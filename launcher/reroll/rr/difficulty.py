@@ -25,6 +25,10 @@ SP_CATEGORY = 9100                                       # 原版没用过的类
 SAVE_CATEGORY = -1
 # 卢恩 / 发现力加成的单独效果：编号偏移、状态图标（原版金色圣甲虫 311100 / 银色圣甲虫 311000 的）、类别（原版没用过的）
 RUNE_OFF, DROP_OFF = 300, 350              # 3691xx 有训练木桩、坠落，3692xx 是庆典油脂的档位
+# 召唤物（骨灰）造成伤害的效果（用户 2026-11-17「让骨灰也会被难度减伤」）：编号 base_id + ASH_OFF + 档位序号（3694xx 前几个是唤声船）。
+# 只有攻击方倍率（×1/敌人血量，魔法 / 祷告 / 咒术也算），没有受到伤害、削韧、卢恩这些；dll\dark_core 的骨灰模块看玩家身上是哪一档的效果，给召唤物挂对应这一行
+ASH_OFF = 450
+SP_CAT_ASH = 9103
 RUNE_ICON, DROP_ICON = 20228, 20227
 SP_CAT_RUNE, SP_CAT_DROP = 9101, 9102
 SPELL_FLAGS = ('magParamChange', 'miracleParamChange', 'shamanParamChange')   # 攻击方倍率对魔法 / 祷告 / 咒术也生效（防御方不看这些开关）
@@ -70,6 +74,7 @@ def build(ctx):
         row[601] |= 1 << 2                               # dontDeleteOnDead = 1
         return row
     extra = {}
+    ash = []                                       # (玩家身上的档位效果, 召唤物挂的造成伤害效果)
     for k, t in enumerate(ts):
         rid = base + k
         row = blank(rid, SP_CATEGORY, -1)
@@ -94,15 +99,24 @@ def build(ctx):
             P.add_row(base + DROP_OFF + k, r)
             ids.append(base + DROP_OFF + k)
         extra[str(k)] = ids
+        if h != 1.0:
+            ar = blank(base + ASH_OFF + k, SP_CAT_ASH, -1)
+            for o in ATK:
+                struct.pack_into('<f', ar, o, 1.0 / h)
+            for o, bit in spell_bits:
+                ar[o] |= 1 << bit
+            P.add_row(base + ASH_OFF + k, ar)
+            ash.append((rid, base + ASH_OFF + k))
         if 'poise_dealt' in t:
             o, fc = sa_off
             struct.pack_into('<' + fc, row, o, float(t['poise_dealt']))
         P.add_row(rid, row)
     ctx.bnd.put('SpEffectParam.param', P.serialize())
     ctx.features['difficulty'] = True
+    ctx.features['difficulty_ash'] = ash           # 骨灰模块（ashes.txt 的 diffash 行，rr/ashcont.py 写）
     ctx.features['difficulty_extra'] = extra       # 档位 → 卢恩 / 发现力加成的效果编号（sc/difficulty.py 切换、补挂时一起挂、一起清）
-    ctx.report.append('局内难度：%d 档（%s），赐福「更多选项」→「难度调整」里选，没选过就是原版' % (
+    ctx.report.append('局内难度：%d 档（%s），赐福「更多选项」→「难度调整」里选，没选过就是原版；召唤物（骨灰）造成的伤害跟着同一档（%d 档有效果行）' % (
         len(ts), '、'.join('%s 造成伤害×%g 受到伤害×%g%s%s' % (t['name'], round(1.0 / float(t.get('enemy_hp', 1)), 2), t.get('enemy_damage', 1),
                                                    ' 造成削韧×%g' % t['poise_dealt'] if 'poise_dealt' in t else '',
                                                    ' 卢恩%+d%% 发现力%+d' % (t.get('rune_bonus', 0) * 100, t.get('discovery_bonus', 0) * 100)
-                                                   if t.get('rune_bonus') or t.get('discovery_bonus') else '') for t in ts)))
+                                                   if t.get('rune_bonus') or t.get('discovery_bonus') else '') for t in ts), len(ash)))

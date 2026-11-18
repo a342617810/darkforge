@@ -343,6 +343,10 @@ def def_lines(ctx):
         out.append('pool\t3\t%d\t%d\t%d' % (n_gen + mp[0], mp[1], MIMIC_KIND))
         out.append('mimic\t%d\t%d' % (BUDDY0 + PER * n_gen, BUDDY0 + PER * (n_gen + sum(mp))))
         out.append('dop1\t%d' % DOP1)
+    ash = (ctx.features or {}).get('difficulty_ash') or []
+    if ash:
+        out.append('# diffash <玩家身上的难度效果> <召唤物挂的造成伤害效果>：局内难度那一档的造成伤害倍率，召唤物也挂（rr/difficulty.py；用户 2026-11-17「让骨灰也会被难度减伤」）')
+        out += ['diffash	%d	%d' % x for x in ash]
     out.append('# rar <稀有度 0~3> <权重> <血量 / 攻击倍率> <数值词条几条> <带不带集结> <带机制前缀的几率 %>')
     out += ['rar\t%d\t%d\t%g\t%d\t%d\t%g' % (r, int(c['weights'][r]), float(c['mult'][r]), int(c['suffixes'][r]), 1 if c['rally'] and r == 3 else 0,
                                           float(c['prefix_chance'][r])) for r in range(4)]
