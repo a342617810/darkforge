@@ -171,6 +171,101 @@ def skill_flat_damage(ctx):
         m, len(flat) - len(shared), '；和法术 / 道具 / 普通攻击共用的 %d 行没动' % len(shared) if shared else ''))
 
 
+# 分元素的招式（用户 2026-11-17「按照原版倍率和基础面板计算随机后的倍率」「战技也按同样思路修改」）：
+# 蕾拉娜的对剑原版两把剑各打一半元素——左手的魔力动作值是 0、右手的火是 0（面板 物 103 / 魔 66 / 火 66，每刀只吃到 169）；
+# 专属战技里也有只吃一种元素的判定（夜与火之剑的魔力光束、火焰横扫，黄金律法大剑的圣光等）。生成武器的属性重新分配以后，
+# 属性对不上的就打不出伤害（异常照常积累），对得上的又吃满整个面板（纯魔的夜与火光束比原版高三倍多）。
+# 这种判定的五项动作值统一成 Σ(原武器的原版面板 × 原版动作值) ÷ 面板总和：原武器原版属性时每下伤害不变，
+# 换了属性、或者战灰装到别的武器上，都照同一个比例吃面板。固定攻击力（atkPhys 这些）不乘动作值，不动。
+# 只看抽属性的武器（weapon_element.skip_types 以外）自己的普通攻击（行为 1VVVJJJ）和专属战技（3VVVJJJ），顺着子弹找；
+# 通用战灰（共享层，变体 0）没有原武器的面板，不动；被别的武器的行为也用到的攻击行不动；
+# 原版这一下的武器攻击力部分本来就是 0 的（Σ = 0，只靠固定攻击力，像冰霜风暴）不动
+ELEM_CORR = ('atkPhysCorrection', 'atkMagCorrection', 'atkFireCorrection', 'atkThunCorrection', 'atkDarkCorrection')
+ELEM_BASE = ('attackBasePhysics', 'attackBaseMagic', 'attackBaseFire', 'attackBaseThunder', 'attackBaseDark')
+ELEM_LAYERS = ((1, '普通攻击'), (3, '专属战技'))
+
+
+def split_element_moves(ctx):
+    we = ctx.S.get('weapon_element') or {}
+    if not we.get('enabled', True):
+        return
+    skip = set(int(t) for t in we.get('skip_types', ()))
+    lay = lambda n: {f: (o, fc) for f, fc, o, bp, bits, d in pdm.layout(pdm.load(os.path.join(ctx.data_dir, n + '.xml')))[0] if not bits}
+    wl, bl, ul, al = lay('EquipParamWeapon'), lay('BehaviorParam'), lay('BulletParam'), lay('AtkParam')
+    get = lambda o, row, n: struct.unpack_from('<' + o[n][1], row, o[n][0])[0]
+    W, BP, BU, AT = (erlib.Param(ctx.bnd.get(n + '.param')) for n in ('EquipParamWeapon', 'BehaviorParam_PC', 'Bullet', 'AtkParam_Pc'))
+
+    def atks(row):
+        rt, ref = get(bl, row, 'refType'), get(bl, row, 'refId')
+        out, seen, todo = set(), set(), []
+        if rt == 0:
+            out.add(ref)
+        elif rt == 1:
+            todo.append(ref)
+        while todo:
+            b = todo.pop()
+            if b <= 0 or b in seen or b not in BU.rows:
+                continue
+            seen.add(b)
+            out.add(get(ul, BU.rows[b], 'atkId_Bullet'))
+            todo += [get(ul, BU.rows[b], 'HitBulletID'), get(ul, BU.rows[b], 'intervalCreateBulletId')]
+        return {a for a in out if a > 0 and a in AT.rows}
+    users = defaultdict(set)                    # 攻击行 → 用到它的行为
+    for rid, row in BP.rows.items():
+        for a in atks(row):
+            users[a].add(rid)
+    panels = defaultdict(dict)                  # 行为变体 → {本体: 原版面板}（抽属性的类型）
+    all_vars = set()                            # 所有本体（含不抽属性的类型）的变体
+    for wid, row in W.rows.items():
+        if wid % 10000:
+            continue
+        var = get(wl, row, 'behaviorVariationId')
+        all_vars.add(var)
+        if var > 0 and get(wl, row, 'wepType') not in skip:
+            panels[var][wid] = tuple(get(wl, row, f) for f in ELEM_BASE)
+    vof = lambda b: (b // 1000) % 100000
+    done, shared, mixed = defaultdict(list), 0, []
+    for var, ws in sorted(panels.items()):
+        own = {b for k, _ in ELEM_LAYERS for b in range(k * 100000000 + var * 1000, k * 100000000 + var * 1000 + 1000) if b in BP.rows}
+        hits = {}                               # 攻击行 → 第一次在哪一层见到
+        for k, _ in ELEM_LAYERS:
+            for b in sorted(x for x in own if x // 100000000 == k):
+                for a in atks(BP.rows[b]):
+                    c = [get(al, AT.rows[a], f) for f in ELEM_CORR]
+                    if max(c) > 0 and min(c) == 0:
+                        hits.setdefault(a, k)
+        if not hits:
+            continue
+        wid = min(w for w, p in ws.items() if sum(p) > 0) if any(sum(p) > 0 for p in ws.values()) else None
+        if wid is None:
+            continue
+        if len(set(ws.values())) > 1:
+            mixed.append(wid)                   # 几把面板不同的本体共用一个变体：照编号最小的那把算
+        base = ws[wid]
+        tot = sum(base)
+        n = Counter()
+        for a, k in sorted(hits.items()):
+            # 别的行为也用到：只有没有本体的变体（原版的空变体）不算别人
+            if any(b not in own and vof(b) in all_vars for b in users[a]):
+                shared += 1
+                continue
+            c = [get(al, AT.rows[a], f) for f in ELEM_CORR]
+            v = int(round(sum(p * x for p, x in zip(base, c)) / tot))
+            if v <= 0:
+                continue
+            for f in ELEM_CORR:
+                struct.pack_into('<' + al[f][1], AT.rows[a], al[f][0], v)
+            n[k] += 1
+        for k, zh in ELEM_LAYERS:
+            if n[k]:
+                done[zh].append('%d（%d 行）' % (wid, n[k]))
+    ctx.bnd.put('AtkParam_Pc.param', AT.serialize())
+    ctx.report.append('分元素的招式（动作值按原武器的原版面板统一成一个）：%s%s%s' % (
+        '；'.join('%s %s' % (zh, '、'.join(done[zh])) for _, zh in ELEM_LAYERS if done[zh]) or '没有',
+        '；和别的武器共用的 %d 行没动' % shared if shared else '',
+        '；几把面板不同的本体共用一个变体（照编号最小的算）：%s' % mixed if mixed else ''))
+
+
 # 道具补正（item_scaling_mult，用户 2026-11-05「修改所有道具的补正到现在的2.5倍」）：道具的能力补正在它的虚拟武器上
 # （EquipParamGoods.refVirtualWepId → EquipParamWeapon，wepType 0，玩家拿不到），伤害 = 道具的固定攻击力 × (100 + Σ 补正值 × 曲线) ÷ 100，菜单上的补正也读它。
 # 几个道具共用一行的只乘一次

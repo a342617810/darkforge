@@ -22,8 +22,8 @@ BLOCKED = ('launcher/python/',)
 #   Souls Vision、Transmogrify Armor、ELDEN VINS、Modular Wall Jump 2026-11-12 拿到了作者授权，从这两张表里放行了
 PUBLIC_DENY = ['randomizer/*']
 # PUBLIC_ASK 用了别人的东西、还没拿到许可：默认也拦，确定可以公开后发布时加 --allow-third-party
-#   Boss 模组数据、照黄金时代重写的第 5 护符栏
-PUBLIC_ASK = ['launcher/reroll/data/bossmods/*', 'dll/dark_slot/*']
+#   Boss 模组数据（第 5 护符栏 dll\dark_slot 是我们自己写的代码，用户 2026-11-17 说明后移出）
+PUBLIC_ASK = ['launcher/reroll/data/bossmods/*']
 
 
 def public_check(paths):

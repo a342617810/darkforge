@@ -130,6 +130,7 @@ def run_steps(ctx):
     tweaks.official_fixes(ctx)                # 官方新版 regulation 的修正（底子是 1.17.1；1.17.3 只差兽骨诱惑箭残留区域的攻击行）
     tweaks.twin_rune_arc(ctx)                 # 双子老妪不限量卖卢恩弯弧
     tweaks.skill_flat_damage(ctx)             # 战技的固定伤害 × skill_flat_damage_mult
+    tweaks.split_element_moves(ctx)           # 只吃一种元素的普通攻击 / 专属战技判定（蕾拉娜的对剑、夜与火之剑光束等）：动作值按原武器的原版面板统一（在范围放大、专属战技战灰之前）
     aoe.aoe_radius(ctx)                       # 范围战灰的判定半径等比放大到 8 米、子弹特效换放大的副本（复制的行要带上面改过的伤害；在词条库之前）
     tweaks.item_damage(ctx)                   # 道具伤害统一：壶 / 调香 / 飞刀 / 大壶 / 石头等道具的攻击都加子类别 108（词条「道具伤害」只认它）
     tweaks.item_scaling(ctx)                  # 道具补正：道具的虚拟武器的补正值 × item_scaling_mult
