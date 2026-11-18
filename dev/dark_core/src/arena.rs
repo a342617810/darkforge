@@ -2055,13 +2055,12 @@ fn gen_req(d: &Def, st: &mut St, wcm: &WorldChrMan, cmd: &str, now: Instant) {
     st.genw.next = None;
     if k.is_none() {
         let mut lines = Vec::new();
-        for s in wcm.chr_sets.iter().flatten() {
-            for ch in s.characters() {
-                if ch.npc_param_id == g.npc || ch.event_entity_id == g.gen_ent || ch.event_entity_id == g.tmpl {
-                    let p = &ch.modules.physics.position;
-                    lines.push(format!("地址 {:x} 实体 {} 敌人参数 {} 血 {}/{} 位置 ({:.1}, {:.1}, {:.1})", &*ch as *const _ as usize, ch.event_entity_id,
-                                       ch.npc_param_id, ch.modules.data.hp, ch.modules.data.max_hp, p.0, p.1, p.2));
-                }
+        for a in crate::chrs::collect(&wcm.player_chr_set, [&wcm.ghost_chr_set, &wcm.summon_buddy_chr_set, &wcm.debug_chr_set, &wcm.open_field_chr_set.base], &wcm.chr_sets) {
+            let ch = unsafe { &*(a as *const eldenring::cs::ChrIns) };
+            if ch.npc_param_id == g.npc || ch.event_entity_id == g.gen_ent || ch.event_entity_id == g.tmpl {
+                let p = &ch.modules.physics.position;
+                lines.push(format!("地址 {a:x} 实体 {} 敌人参数 {} 血 {}/{} 位置 ({:.1}, {:.1}, {:.1})", ch.event_entity_id,
+                                   ch.npc_param_id, ch.modules.data.hp, ch.modules.data.max_hp, p.0, p.1, p.2));
             }
         }
         log(&format!("生成器实验：记录：{} 个（出现过 {}、倒下过 {}、又活过 {}）{}", lines.len(), st.genw.born, st.genw.died, st.genw.revived,
@@ -2077,18 +2076,20 @@ fn gen_tick(d: &Def, st: &mut St, wcm: &WorldChrMan, now: Instant) {
         return;
     }
     w.next = Some(now + GEN_SCAN);
+    // 全部角色集合（地图块、开放地图、召唤、灵体……，chrs.rs 的 live!）：生成器生出来的不一定放在地图块的 ChrSet 里
+    let in_blocks: HashSet<usize> = wcm.chr_sets.iter().flatten().flat_map(|s| s.characters().map(|c| &*c as *const _ as usize)).collect();
     let mut cur: HashMap<usize, (u32, i32, i32, [f32; 3])> = HashMap::new();
-    for s in wcm.chr_sets.iter().flatten() {
-        for ch in s.characters() {
-            if ch.npc_param_id == g.npc {
-                let p = &ch.modules.physics.position;
-                cur.insert(&*ch as *const _ as usize, (ch.event_entity_id, ch.modules.data.hp, ch.modules.data.max_hp, [p.0, p.1, p.2]));
-            }
+    for a in crate::chrs::collect(&wcm.player_chr_set, [&wcm.ghost_chr_set, &wcm.summon_buddy_chr_set, &wcm.debug_chr_set, &wcm.open_field_chr_set.base], &wcm.chr_sets) {
+        let ch = unsafe { &*(a as *const eldenring::cs::ChrIns) };
+        if ch.npc_param_id == g.npc {
+            let p = &ch.modules.physics.position;
+            cur.insert(a, (ch.event_entity_id, ch.modules.data.hp, ch.modules.data.max_hp, [p.0, p.1, p.2]));
         }
     }
     let mut lines = Vec::new();
     for (&a, &(ent, hp, max, pos)) in &cur {
-        let what = if ent == g.tmpl { "（模板）" } else if ent == 0 { "（没有实体编号）" } else { "" };
+        let what = format!("{}{}", if ent == g.tmpl { "（模板）" } else if ent == 0 { "（没有实体编号）" } else { "" },
+                           if in_blocks.contains(&a) { "" } else { "（不在地图块的角色集合里）" });
         match w.seen.get(&a) {
             None => {
                 w.born += 1;

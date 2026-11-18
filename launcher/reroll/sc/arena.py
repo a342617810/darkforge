@@ -319,12 +319,12 @@ def map_events(raw, co, f):
             wait_flag(F + f['run'] + s['v'])] + died + [
             emevd.ins(2003, 23, ('u32', s['resp']))]})
     if g:
-        # 生成器实验：读图时关掉生成器、藏起模板；之后听 dark_core 点亮的 5 个标记（开 / 刷一只 / 关 / 显示模板 / 隐藏模板），
+        # 生成器实验：听 dark_core 点亮的 5 个标记（开 / 刷一只 / 关 / 显示模板 / 隐藏模板）。读图时不关生成器、不藏模板
+        # （第三轮，照原版地下墓地 m30_01：一个生成器管一个模板，模板就是图上那只敌人；前两轮读图就关掉 + 藏起来，开了也没生过一只），
         # 指令照原版 EMEDF：2003[3] 开关生成器（学院 14003978 用它关），2003[54] 让生成器马上生
         G, T, f0 = g['gen_ent'], g['tmpl_ent'], g['flag0']
         state = lambda on: emevd.ins(2003, 3, ('u32', G), ('u8', on))
         tmpl = lambda on: emevd.ins(2004, 5, ('u32', T), ('u8', on))
-        new.append({'id': g['ev0'], 'rest': 0, 'params': [], 'ins': [state(0), tmpl(0)]})
         for k, act in enumerate([state(1), emevd.ins(2003, 54, ('u32', G)), state(0), tmpl(1), tmpl(0)]):
             new.append({'id': g['ev0'] + 1 + k, 'rest': 0, 'params': [], 'ins': [wait_flag(f0 + k), set_flag(f0 + k, 0), act, RESTART]})
     for ev in new:
