@@ -89,6 +89,33 @@ def lantern_light(ctx):
     ctx.report.append('提灯更亮：光效行 %d 的光源换成 %d（衰减照 Golden Age）' % (LANTERN_VFX, LANTERN_SFX))
 
 
+LANTERN_SP = 3245
+
+
+def lantern_persist(ctx):
+    """提灯传送、读图后不熄（lantern_persist）：效果 3245 的 saveCategory 从 -1 改成 0，和 ErdTools 的 persistent_lantern 改的是同一处。
+    以前交给 ErdTools 做：它在游戏加载参数时自己去扫参数仓库找 SpEffectParam，有的电脑上仓库还没加载完，读到半成品的条目就崩
+    （玩家崩溃诊断包 2026-11-18：敌人随机模式开游戏约 10 秒崩在 ErdTools.dll+0x13D43；用户「改」）。
+    现在在参数里改好，启动器每次启动把 erd_tools.ini 的 persistent_lantern 设成 0（launcher.ps1 Test-UserDllSafe）"""
+    if not ctx.S.get('lantern_persist', True):
+        return
+    import paramdef_min as pdm
+    ls, _ = pdm.layout(pdm.load(os.path.join(ctx.data_dir, 'SpEffect.xml')))
+    off = next(o for nm, fc, o, bp, bits, d in ls if nm == 'saveCategory')
+    S = erlib.Param(ctx.bnd.get('SpEffectParam.param'))
+    row = S.rows.get(LANTERN_SP)
+    if row is None:
+        ctx.report.append('提灯传送后保留：没有效果 %d，没改' % LANTERN_SP)
+        return
+    old = struct.unpack_from('<b', row, off)[0]
+    if old == 0:
+        ctx.report.append('提灯传送后保留：效果 %d 本来就会保留' % LANTERN_SP)
+        return
+    struct.pack_into('<b', row, off, 0)
+    ctx.bnd.put('SpEffectParam.param', S.serialize())
+    ctx.report.append('提灯传送后保留：效果 %d 的 saveCategory %d → 0（代替 ErdTools 的 persistent_lantern）' % (LANTERN_SP, old))
+
+
 TWIN_SHOP = (101800, 101897)        # 双子老妪「购买」打开的商店段（赐福「双子老妪」→「购买」、圆桌厅堂都是这一段）
 
 

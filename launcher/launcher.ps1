@@ -563,7 +563,9 @@ function Get-UserDllLines {
 
 # 会改存档文件名的 DLL：不处理的话会读写原版（.sl2）或法魂（.cnv）的存档
 #   Erd Tools：把 ini 里的 save_extension 写进游戏内存（缺省 sl2；没有 ini 时扩展名会变成空的）→ 保证同目录有 ini，
-#             单机为 rng、联机为 co2（$script:ErdSaveExt；和 Seamless Co-op 一致，YAFSML 再换成 .rngcoop，免得联机读写单机存档）
+#             单机为 rng、联机为 co2（$script:ErdSaveExt；和 Seamless Co-op 一致，YAFSML 再换成 .rngcoop，免得联机读写单机存档）；
+#             persistent_lantern 一律设成 0：它在游戏加载参数时自己扫参数仓库找 SpEffectParam，有的电脑上仓库还没加载完就崩
+#             （玩家崩溃诊断包 2026-11-18，ErdTools.dll+0x13D43）；提灯传送后保留改由重随写进参数（rr/tweaks.py lantern_persist）
 #   独立存档类 dll（alt_saves）：存档已由 YAFSML 的 replace_save_filename 隔离，再叠一个会改成别的文件 → 不加载
 function Test-UserDllSafe($File) {
     $n = $File.Name.ToLowerInvariant()
@@ -577,25 +579,50 @@ function Test-UserDllSafe($File) {
         $ext = $script:ErdSaveExt
         try {
             if (-not (Test-Path -LiteralPath $ini)) {
-                [System.IO.File]::WriteAllText($ini, "[SAVE]`r`n; Dark Reforged：单机 rng、联机 co2，启动器每次启动按启动方式改（和 YAFSML 的 replace_save_filename 一致）`r`nsave_extension = $ext`r`n", (New-Object System.Text.UTF8Encoding($true)))
+                [System.IO.File]::WriteAllText($ini, "[SAVE]`r`n; Dark Reforged：单机 rng、联机 co2，启动器每次启动按启动方式改（和 YAFSML 的 replace_save_filename 一致）`r`nsave_extension = $ext`r`n`r`n[PARAM]`r`n; Dark Reforged：提灯传送后保留由整合包自己做，这一项一直是 0`r`npersistent_lantern = 0`r`n", (New-Object System.Text.UTF8Encoding($true)))
                 Write-Warn ('Erd Tools 缺少 erd_tools.ini，已新建一个（只设了存档扩展名 ' + $ext + '，其他用默认）：' + $ini)
                 return $true
             }
             $txt = [System.IO.File]::ReadAllText($ini)
+            $orig = $txt
             $m = [regex]::Match($txt, '(?im)^[ \t]*save_extension[ \t]*=[ \t]*([^\r\n;]*)')
             $cur = if ($m.Success) { $m.Groups[1].Value.Trim() } else { '' }
-            if ($cur -ieq $ext) { return $true }
-            if ($DryRun) { Write-Host ('  [-DryRun] Erd Tools 的存档扩展名现在是「' + $cur + '」，真的启动时会改成 ' + $ext); return $true }
-            $flip = $cur -in @('rng', 'co2')    # 单机 / 联机之间切换：平常事，不备份
-            if (-not $flip) { Copy-Item -LiteralPath $ini -Destination ($ini + '.bak_' + (Get-Date -Format 'yyyyMMdd_HHmmss')) -Force }
-            if ($m.Success) {
-                $txt = $txt.Substring(0, $m.Groups[1].Index) + $ext + $txt.Substring($m.Groups[1].Index + $m.Groups[1].Length)
-            } else {
-                $txt = $txt.TrimEnd() + "`r`n`r`n[SAVE]`r`nsave_extension = $ext`r`n"
+            $extChange = -not ($cur -ieq $ext)
+            if ($extChange) {
+                if ($m.Success) {
+                    $txt = $txt.Substring(0, $m.Groups[1].Index) + $ext + $txt.Substring($m.Groups[1].Index + $m.Groups[1].Length)
+                } else {
+                    $txt = $txt.TrimEnd() + "`r`n`r`n[SAVE]`r`nsave_extension = $ext`r`n"
+                }
             }
+            # 提灯传送后保留：ErdTools 那一项关掉（见函数上面的说明），有 [PARAM] 段没这一项的加进去，没有 [PARAM] 段的补一段
+            $lm = [regex]::Match($txt, '(?im)^[ \t]*persistent_lantern[ \t]*=[ \t]*([^\r\n;]*)')
+            $lanternFix = $false
+            if ($lm.Success) {
+                if ($lm.Groups[1].Value.Trim() -ne '0') {
+                    $txt = $txt.Substring(0, $lm.Groups[1].Index) + '0' + $txt.Substring($lm.Groups[1].Index + $lm.Groups[1].Length)
+                    $lanternFix = $true
+                }
+            } else {
+                $pm = [regex]::Match($txt, '(?im)^[ \t]*\[PARAM\][ \t]*\r?\n')
+                if ($pm.Success) { $txt = $txt.Substring(0, $pm.Index + $pm.Length) + "persistent_lantern = 0`r`n" + $txt.Substring($pm.Index + $pm.Length) }
+                else { $txt = $txt.TrimEnd() + "`r`n`r`n[PARAM]`r`npersistent_lantern = 0`r`n" }
+                $lanternFix = $true
+            }
+            if ($txt -ceq $orig) { return $true }
+            if ($DryRun) {
+                if ($extChange) { Write-Host ('  [-DryRun] Erd Tools 的存档扩展名现在是「' + $cur + '」，真的启动时会改成 ' + $ext) }
+                if ($lanternFix) { Write-Host '  [-DryRun] 真的启动时会把 Erd Tools 的 persistent_lantern 设成 0' }
+                return $true
+            }
+            $flip = $cur -in @('rng', 'co2')    # 单机 / 联机之间切换：平常事，不备份
+            if ($extChange -and -not $flip) { Copy-Item -LiteralPath $ini -Destination ($ini + '.bak_' + (Get-Date -Format 'yyyyMMdd_HHmmss')) -Force }
             [System.IO.File]::WriteAllText($ini, $txt, (New-Object System.Text.UTF8Encoding($true)))
-            if ($flip) { Write-Host ('  Erd Tools 的存档扩展名换成 ' + $ext + $(if ($ext -eq 'co2') { '（联机）' } else { '（单机）' })) }
-            else { Write-Warn ('Erd Tools 的存档扩展名不是 ' + $ext + '（会读写别的存档），已改成 ' + $ext + '（原 ini 已备份）：' + $ini) }
+            if ($extChange) {
+                if ($flip) { Write-Host ('  Erd Tools 的存档扩展名换成 ' + $ext + $(if ($ext -eq 'co2') { '（联机）' } else { '（单机）' })) }
+                else { Write-Warn ('Erd Tools 的存档扩展名不是 ' + $ext + '（会读写别的存档），已改成 ' + $ext + '（原 ini 已备份）：' + $ini) }
+            }
+            if ($lanternFix) { Write-Host '  Erd Tools 的 persistent_lantern 设成 0（提灯传送后保留改由整合包自己做）' }
             return $true
         } catch {
             Write-Err ('检查 Erd Tools 配置失败，这次不加载它：' + $_.Exception.Message)

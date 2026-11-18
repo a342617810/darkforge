@@ -138,6 +138,7 @@ def run_steps(ctx):
     tweaks.lightning_ram(ctx)                 # 雷电羊球按住一直滚：只有第一下消耗专注值
     tweaks.memory_of_grace(ctx)               # 赐福记忆传回去不丢卢恩
     tweaks.lantern_light(ctx)                 # 提灯照得更亮（光源换成 sfxbnd_c0000 里只改了衰减的 990060）
+    tweaks.lantern_persist(ctx)               # 提灯传送后不熄（效果 3245 saveCategory → 0；以前靠 ErdTools 的 persistent_lantern，它在加载时扫参数仓库会崩）
     tweaks.shard_cap(ctx)                     # 星光碎片随身上限 10 → starlight_shard_max（默认 99）
     tweaks.scaling_numbers(ctx)               # 武器补正显示数值：删掉补正 → 字母的那组表（数字由 dll\dark_core 印）
     difficulty.build(ctx)                     # 局内难度：每档一个玩家特殊效果（赐福菜单里选，见 sc/difficulty.py）
