@@ -64,6 +64,14 @@ def guards():
     bi = os.path.join(SRC, 'dll', 'dark_core', 'boat.ini')
     if os.path.exists(bi) and re.search(r'(?m)^\s*debug\s*=\s*(1|true|yes|on)\b', open(bi, encoding='utf-8-sig').read(), re.I):
         bad.append('dll/dark_core/boat.ini 里 debug 还开着（测试用），改回 0 再打包')
+    # 无尽模式的生成器实验（开发用，rr/arena.py 的 GEN_*）：开着会在竞技场里多一个生成器和模板敌人
+    try:
+        import json
+        st = json.load(open(os.path.join(SRC, 'launcher', 'reroll', 'settings.json'), encoding='utf-8'))
+        if str((st.get('arena') or {}).get('generator_test') or '').strip():
+            bad.append('launcher/reroll/settings.json 的 arena.generator_test 还开着（生成器实验），改回 "" 再打包')
+    except Exception as e:
+        bad.append('读不了 settings.json：%s' % e)
     return bad
 
 

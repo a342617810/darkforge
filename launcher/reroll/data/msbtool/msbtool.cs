@@ -25,6 +25,9 @@
 //             从别的地图照抄一个玩家部件（这张图没有玩家部件时用，比如野外小格子），模型条目没有就一起抄
 //         region <来源msb|-> <来源区域实体ID> <新区域名> <实体ID> <x> <y> <z> <朝向>
 //             照抄一个区域（- = 本图；比如 SpawnPoint 当复活点），部件名引用清空
+//         generator <来源msb> <来源生成器实体ID> <新名字> <实体ID> <同时最多几只> <总数上限|-1> <一次最少> <一次最多> <最短间隔秒> <最长间隔秒> <开场生几只> <出生点区域名,…> <模板部件名,…>
+//             照抄别的地图里的一个敌人生成器（Event.Generator，原版学院 m14 用来刷蕾娜菈的学生），换名字、实体 ID、参数、出生点和模板（都要是本图已有的），
+//             事件序号接在本图最后（无尽模式的生成器实验，2026-11-17）
 //       实体 ID 已经被本图的部件 / 区域用了就失败（不重复加）
 // 需要 .NET 8；SoulsFormats.dll / oo2core 放在本程序旁边，并在本程序目录下运行（SoulsFormats 按工作目录找 oo2core）。
 // 成功最后一行输出 ok。
@@ -205,6 +208,7 @@ class MsbTool {
         if (ent == 0) return false;
         foreach (var p in m.Parts.GetEntries()) if (p.EntityID == ent) return true;
         foreach (var r in m.Regions.GetEntries()) if (r.EntityID == ent) return true;
+        foreach (var e in m.Events.GetEntries()) if (e.EntityID == ent) return true;
         return false;
     }
 
@@ -224,7 +228,45 @@ class MsbTool {
             else if (f[0] == "clone" && f.Length >= 8) want = uint.Parse(f[3]);
             else if (f[0] == "player" && f.Length >= 9) want = uint.Parse(f[4]);
             else if (f[0] == "region" && f.Length >= 9) want = uint.Parse(f[4]);
+            else if (f[0] == "generator" && f.Length >= 14) want = uint.Parse(f[4]);
             if (EntityUsed(m, want)) { Console.WriteLine("line " + no + ": entity used " + want); return 1; }
+            if (f[0] == "generator" && f.Length >= 14) {
+                MSBE src;
+                if (!srcs.TryGetValue(f[1], out src)) { src = MSBE.Read(f[1]); srcs[f[1]] = src; }
+                uint from = uint.Parse(f[2]);
+                var found = src.Events.Generators.Find(x => x.EntityID == from);
+                if (found == null) { Console.WriteLine("line " + no + ": no generator with entity " + from + " in " + f[1]); return 1; }
+                foreach (var ev in m.Events.GetEntries()) if (ev.Name == f[3]) { Console.WriteLine("line " + no + ": event exists " + f[3]); return 1; }
+                var g = (MSBE.Event.Generator)found.DeepCopy();
+                g.Name = f[3];
+                g.EntityID = want;
+                g.MaxNum = byte.Parse(f[5]);
+                g.LimitNum = short.Parse(f[6]);
+                g.MinGenNum = short.Parse(f[7]);
+                g.MaxGenNum = short.Parse(f[8]);
+                g.MinInterval = F(f[9]);
+                g.MaxInterval = F(f[10]);
+                g.InitialSpawnCount = byte.Parse(f[11]);
+                ClearPartRefs(g);                       // 先清掉照抄来的部件引用（学院图的名字），下面再填本图的
+                var regs = f[12].Split(',');
+                var parts = f[13].Split(',');
+                if (regs.Length > g.SpawnRegionNames.Length || parts.Length > g.SpawnPartNames.Length) { Console.WriteLine("line " + no + ": too many regions / parts"); return 1; }
+                for (int i = 0; i < g.SpawnRegionNames.Length; i++) {
+                    g.SpawnRegionNames[i] = i < regs.Length ? regs[i] : null;
+                    if (i < regs.Length && m.Regions.GetEntries().Find(x => x.Name == regs[i]) == null) { Console.WriteLine("line " + no + ": no region " + regs[i]); return 1; }
+                }
+                for (int i = 0; i < g.SpawnPartNames.Length; i++) {
+                    g.SpawnPartNames[i] = i < parts.Length ? parts[i] : null;
+                    if (i < parts.Length && m.Parts.GetEntries().Find(x => x.Name == parts[i]) == null) { Console.WriteLine("line " + no + ": no part " + parts[i]); return 1; }
+                }
+                // 事件序号：本图事件里最大的 + 1（照抄来的是学院图里的序号）
+                int maxId = -1;
+                foreach (var ev in m.Events.GetEntries()) if (ev.EventID > maxId) maxId = ev.EventID;
+                g.EventID = maxId + 1;
+                m.Events.Generators.Add(g);
+                Console.WriteLine("line " + no + ": generator entity " + want + " event id " + g.EventID);
+                continue;
+            }
             if (f[0] == "region" && f.Length >= 9) {
                 MSBE src = m;
                 if (f[1] != "-" && !srcs.TryGetValue(f[1], out src)) { src = MSBE.Read(f[1]); srcs[f[1]] = src; }
@@ -351,6 +393,7 @@ class MsbTool {
     }
 
     static int Main(string[] a) {
+        Console.OutputEncoding = new System.Text.UTF8Encoding(false);      // 调用方（Python -X utf8）按 UTF-8 读
         int r;
         if (a.Length == 4 && a[0] == "batch") r = Batch(a);
         else if (a.Length == 3 && a[0] == "resave") { MSBE.Read(a[1]).Write(a[2]); r = 0; }

@@ -1091,6 +1091,29 @@ impl App {
             self.send_arena("状态");
         }
         ui.text_wrapped("正常流程：三个竞技场门口的雕像对话里选「斗技场试炼」。结果看 dark_core.log 里「竞技场：」开头的行。");
+        // 无尽模式的生成器实验（settings 的 arena.generator_test 写了竞技场名字、重随过才有 gentest 行）
+        let gen_line = fs::read_to_string(core_dir().join("arena.txt")).ok().and_then(|t| t.lines().find(|l| l.starts_with("gentest\t")).map(str::to_string));
+        if let Some(line) = gen_line {
+            let x = line.split('\t').nth(1).unwrap_or("?").to_string();
+            let name = match x.as_str() { "0" => "王城", "1" => "盖利德", "2" => "宁姆格福", _ => "?" };
+            ui.separator();
+            ui.text_wrapped(format!("生成器实验（{name}竞技场；人要在那个竞技场里，可以先用上面的按钮直接进）："));
+            for (label, cmd) in [("开（自动补到 3 只）", "开"), ("刷一只", "刷"), ("关", "关")] {
+                if ui.button(format!("{label}##gen{cmd}")) {
+                    self.send_arena(&format!("生成器 {cmd}"));
+                }
+                ui.same_line();
+            }
+            ui.new_line();
+            for (label, cmd) in [("显示模板", "模板显示"), ("隐藏模板", "模板隐藏"), ("记录周围这种敌人", "记录")] {
+                if ui.button(format!("{label}##gen{cmd}")) {
+                    self.send_arena(&format!("生成器 {cmd}"));
+                }
+                ui.same_line();
+            }
+            ui.new_line();
+            ui.text_wrapped("结果看 dark_core.log 里「生成器实验：」开头的行（每只生出来的敌人出现 / 倒下 / 消失、实体编号、地址）。");
+        }
         ui.separator();
     }
 

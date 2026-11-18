@@ -156,6 +156,35 @@ struct Def {
     hpwave: Option<(usize, i32, usize)>,
     /// 按波次挂的效果包
     wfx: Vec<WaveFx>,
+    /// 无尽模式的生成器实验（arena.txt 的 gentest 行，settings 的 generator_test 写了才有）
+    gentest: Option<GenTest>,
+}
+
+/// 生成器实验（rr/arena.py 的 GEN_*）：哪个竞技场、第一个标记（+0 开 / +1 刷一只 / +2 关 / +3 显示模板 / +4 隐藏模板，竞技场的事件听）、
+/// 模板的敌人参数（生出来的敌人看它认）、生成器实体、模板实体
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct GenTest {
+    x: u32,
+    flag0: u32,
+    npc: i32,
+    gen_ent: u32,
+    tmpl: u32,
+}
+
+/// 生成器实验：点过按钮以后这么久里一直记生出来的敌人
+const GEN_WATCH: Duration = Duration::from_secs(600);
+const GEN_SCAN: Duration = Duration::from_millis(500);
+const GEN_LOGS: u32 = 400;
+
+/// 生成器实验的记录：看到过的同参数敌人（地址 → (实体编号, 血量)）
+#[derive(Debug, Default)]
+struct GenWatch {
+    until: Option<Instant>,
+    next: Option<Instant>,
+    seen: HashMap<usize, (u32, i32)>,
+    logs: u32,
+    born: u32,
+    died: u32,
 }
 
 /// 按波次挂的效果（arena.txt 的 wfx 行，rr/arena.py wave_fx_lines）：wfx 竞技场 场次的总波数 哪种敌人 第几波 几率% 效果包（- = 不限）
@@ -270,6 +299,7 @@ fn parse(text: &str) -> Option<Def> {
                 d.dmult[k] = f4(&f[2..])?;
             }
             "hpwave" => d.hpwave = Some(((n(1)? as usize).max(1), n(2)? as i32, n(3)? as usize)),
+            "gentest" => d.gentest = Some(GenTest { x: n(1)?, flag0: n(2)?, npc: n(3)? as i32, gen_ent: n(4)?, tmpl: n(5)? }),
             // 写错的一条不要（不影响整个试炼）
             "wfx" => match WaveFx::parse(&f) {
                 Some(w) => d.wfx.push(w),
@@ -617,6 +647,8 @@ struct St {
     done: Vec<Done>,
     /// 联机：房主结束以后接着发的「结束」：(进度, 发给谁, 到什么时候, 上次发的时间)
     end_resend: Option<(Packet, Vec<u64>, Instant, Instant)>,
+    /// 生成器实验的记录
+    genw: GenWatch,
 }
 
 static ST: Mutex<Option<St>> = Mutex::new(None);
@@ -677,6 +709,7 @@ impl St {
             offer: None,
             done: Vec::new(),
             end_resend: None,
+            genw: GenWatch::default(),
         }
     }
 }
@@ -1956,6 +1989,7 @@ fn dev_req(d: &Def, st: &mut St, wcm: &mut WorldChrMan, now: Instant) {
                     run_over(d, st, r, now);
                 }
             }
+            ["生成器", cmd] => gen_req(d, st, wcm, cmd, now),
             ["碎片", n] => {
                 let n = n.parse::<u32>().unwrap_or(3);
                 log(&format!("竞技场：开发工具：发 {n} 个星光碎片{}", if gift_n(1, d.shard as i32, n) { "" } else { "（没有发货表，没发）" }));
@@ -1983,6 +2017,100 @@ fn dev_req(d: &Def, st: &mut St, wcm: &mut WorldChrMan, now: Instant) {
             },
             _ => log(&format!("竞技场：开发工具：看不懂「{line}」")),
         }
+    }
+}
+
+/// 生成器实验（开发工具「生成器 开 / 刷 / 关 / 模板显示 / 模板隐藏 / 记录」）：点亮竞技场事件听的标记（只在那个竞技场里有用），
+/// 之后 GEN_WATCH 里一直记模板这个敌人参数的敌人
+fn gen_req(d: &Def, st: &mut St, wcm: &WorldChrMan, cmd: &str, now: Instant) {
+    let Some(g) = d.gentest else {
+        log("生成器实验：arena.txt 里没有 gentest 行（settings 的 arena.generator_test 没写竞技场名字，或者还没重随）");
+        return;
+    };
+    let here = wcm.main_player.as_ref().map(|p| {
+        let b = p.current_block_id;
+        (b.area(), b.block())
+    });
+    if here != Some((45, g.x as u8)) {
+        log(&format!("生成器实验：现在不在竞技场 {}（m45_0{}）里，标记点了也没人听（人在 {:?}）", g.x, g.x, here));
+    }
+    let k = match cmd {
+        "开" => Some(0),
+        "刷" => Some(1),
+        "关" => Some(2),
+        "模板显示" => Some(3),
+        "模板隐藏" => Some(4),
+        "记录" => None,
+        _ => {
+            log(&format!("生成器实验：看不懂「{cmd}」"));
+            return;
+        }
+    };
+    if let Some(k) = k {
+        flag_set(g.flag0 + k, true);
+        log(&format!("生成器实验：{cmd}（点亮 {}；生成器实体 {}，模板实体 {}，敌人参数 {}）", g.flag0 + k, g.gen_ent, g.tmpl, g.npc));
+    }
+    st.genw.until = Some(now + GEN_WATCH);
+    st.genw.next = None;
+    if k.is_none() {
+        let mut lines = Vec::new();
+        for s in wcm.chr_sets.iter().flatten() {
+            for ch in s.characters() {
+                if ch.npc_param_id == g.npc || ch.event_entity_id == g.gen_ent || ch.event_entity_id == g.tmpl {
+                    let p = &ch.modules.physics.position;
+                    lines.push(format!("地址 {:x} 实体 {} 敌人参数 {} 血 {}/{} 位置 ({:.1}, {:.1}, {:.1})", &*ch as *const _ as usize, ch.event_entity_id,
+                                       ch.npc_param_id, ch.modules.data.hp, ch.modules.data.max_hp, p.0, p.1, p.2));
+                }
+            }
+        }
+        log(&format!("生成器实验：记录：{} 个（出现过 {}、倒下过 {}）{}", lines.len(), st.genw.born, st.genw.died,
+                     if lines.is_empty() { String::new() } else { format!("：{}", lines.join("；")) }));
+    }
+}
+
+/// 生成器实验：点过按钮以后每 GEN_SCAN 看一眼模板这个敌人参数的敌人，出现 / 倒下 / 消失各记一行
+fn gen_tick(d: &Def, st: &mut St, wcm: &WorldChrMan, now: Instant) {
+    let Some(g) = d.gentest else { return };
+    let w = &mut st.genw;
+    if w.until.is_none_or(|t| now > t) || w.next.is_some_and(|t| now < t) {
+        return;
+    }
+    w.next = Some(now + GEN_SCAN);
+    let mut cur: HashMap<usize, (u32, i32, i32, [f32; 3])> = HashMap::new();
+    for s in wcm.chr_sets.iter().flatten() {
+        for ch in s.characters() {
+            if ch.npc_param_id == g.npc {
+                let p = &ch.modules.physics.position;
+                cur.insert(&*ch as *const _ as usize, (ch.event_entity_id, ch.modules.data.hp, ch.modules.data.max_hp, [p.0, p.1, p.2]));
+            }
+        }
+    }
+    let mut lines = Vec::new();
+    for (&a, &(ent, hp, max, pos)) in &cur {
+        let what = if ent == g.tmpl { "（模板）" } else if ent == 0 { "（没有实体编号）" } else { "" };
+        match w.seen.get(&a) {
+            None => {
+                w.born += 1;
+                lines.push(format!("出现 地址 {a:x} 实体 {ent}{what} 血 {hp}/{max} 位置 ({:.1}, {:.1}, {:.1})", pos[0], pos[1], pos[2]));
+            }
+            Some(&(_, h0)) if h0 > 0 && hp <= 0 => {
+                w.died += 1;
+                lines.push(format!("倒下 地址 {a:x} 实体 {ent}{what}"));
+            }
+            Some(&(e0, _)) if e0 != ent => lines.push(format!("实体编号变了 地址 {a:x}：{e0} → {ent}")),
+            _ => {}
+        }
+    }
+    for (&a, &(ent, hp)) in &w.seen {
+        if !cur.contains_key(&a) {
+            lines.push(format!("消失 地址 {a:x} 实体 {ent}（消失前血 {hp}）"));
+        }
+    }
+    w.seen = cur.iter().map(|(&a, &(e, h, _, _))| (a, (e, h))).collect();
+    if !lines.is_empty() && w.logs < GEN_LOGS {
+        w.logs += 1;
+        let alive = cur.values().filter(|x| x.1 > 0).count();
+        log(&format!("生成器实验：{}；现在 {} 只、活着 {} 只（出现过 {}、倒下过 {}）", lines.join("；"), cur.len(), alive, w.born, w.died));
     }
 }
 
@@ -2052,6 +2180,7 @@ fn body(d: &Def, st: &mut St, now: Instant) -> bool {
         }
     }
     dev_req(d, st, wcm, now);
+    gen_tick(d, st, wcm, now);
     let mut inside = false;
     match st.run.take() {
         Some(mut r) => {
@@ -2107,7 +2236,8 @@ part\t1\t2\te\t45013002\t99300102\t0\tc3010_9006\npart\t1\t3\te\t45013003\t99300
 part\t1\t4\te\t45013004\t99300104\t0\tc3010_9006\npart\t1\t5\te\t45013005\t99300105\t1\tc4602_9004\n\
 part\t1\t6\te\t45013006\t99300106\t1\tc4602_9004\npart\t1\t7\te\t45013007\t99300107\t2\tc3970_9050\npart\t1\t8\te\t45013008\t99300108\t2\tc3970_9050\n\
 note\twave 2 1\t1\nnote\twave 2 2\t2\nnote\tclear\t15\n\
-wfx\t-\t4,8\tb\t3-6,8+\t100\t狂暴,铁壁\nwfx\t1\t-\te,s\t2\t50\tarena_rule2\nwfx\t-\t-\tb\t0\t100\tx\nwfx\t-\t-\tb\t1\t100\t\n";
+wfx\t-\t4,8\tb\t3-6,8+\t100\t狂暴,铁壁\nwfx\t1\t-\te,s\t2\t50\tarena_rule2\nwfx\t-\t-\tb\t0\t100\tx\nwfx\t-\t-\tb\t1\t100\t\n\
+gentest\t2\t45022750\t99300203\t45023900\t45023910\n";
 
     /// 按波次挂效果的几率：同样的试炼编号 / 波次 / 实体 / 规则两台电脑一样，换一样就变；50% 大约一半
     #[test]
@@ -2165,6 +2295,7 @@ wfx\t-\t4,8\tb\t3-6,8+\t100\t狂暴,铁壁\nwfx\t1\t-\te,s\t2\t50\tarena_rule2\n
         assert_eq!(d.dmult[1], [1.0; 4]);
         assert_eq!(d.two, vec![0.0, 0.0, 10.0]);
         assert_eq!(d.hpwave, Some((2, 7319970, 4)));
+        assert_eq!(d.gentest, Some(GenTest { x: 2, flag0: 45022750, npc: 99300203, gen_ent: 45023900, tmpl: 45023910 }));
         assert!(parse("req\t1\t2\t3\t4\n").is_none());
     }
 

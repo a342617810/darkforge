@@ -261,6 +261,8 @@
     "hp_every": 2, "hp_step": 0.1,
     "_wave_fx": "按波次给敌人挂效果（用户 2026-11-17；效果包见 enemy_fx，执行在 dll\\dark_core 的 foefx.rs）。每条规则：waves 第几波「3」「3-6」「5+」逗号分开（默认 1+）；who boss / elite / scarab / all（默认 boss,elite）；colos [王城 / 盖利德 / 宁姆格福]（默认全部）；runs 场次的总波数 [2, 4, 8]（默认全部）；chance 每个敌人挂上的几率 %（默认 100）；packs [enemy_fx.packs 里的包名]；fx 直接写一包（格式同 enemy_fx.packs 的一项）；enabled false = 先不用。几条都命中就都挂。例：{\"waves\": \"5+\", \"who\": \"boss\", \"runs\": [8], \"fx\": {\"rows\": [{\"physicsAttackRate\": 1.2, \"magicAttackRate\": 1.2, \"fireAttackRate\": 1.2, \"thunderAttackRate\": 1.2, \"darkAttackRate\": 1.2}], \"speed\": 1.1}} = 8 波场次第 5 波起 Boss 造成的伤害 ×1.2、动作快 10%",
     "wave_fx": [],
+    "_generator_test": "无尽模式的生成器实验（用户 2026-11-17，开发用）：写竞技场名字（王城 / 盖利德 / 宁姆格福）就在那个竞技场加一个原版式的敌人生成器（照抄一个精英当模板，同时最多 3 只、补一只等 3~5 秒），开发工具 F9「斗技场试炼测试」里开 / 刷一只 / 关 / 显示或隐藏模板，dark_core.log 里「生成器实验：」开头的行记下生出来的每只敌人。空着 = 不做",
+    "generator_test": "",
     "_elite_two": "魇化精英带两条词条的几率 %，按局内难度档（轻松 … 不可能）；死亡 / 不可能里精英死了照常夺魇火",
     "elite_two": [0, 0, 10, 15, 20, 30, 40, 50],
     "_ash_weights": "骨灰稀有度（普通 / 稀有 / 史诗 / 传说）的权重，按竞技场（王城、盖利德、宁姆格福）；普通难度下就是百分比（用户 2026-11-10：宁姆格福传说 5 史诗 10 稀有 35，盖利德翻倍，王城传说 30 史诗 40 保底稀有），别的难度再乘 difficulty_mult（权重是 0 的乘了还是 0）",

@@ -151,6 +151,19 @@ def arena_spec(co):
                       p['npc'], -1, FLOOR, 0))
     if F + 3000 + len(co['parts']) > co['warp']:
         raise RuntimeError('部件实体和传送落点撞号')
+    g = co.get('gen')
+    if g:
+        # 无尽模式的生成器实验（rr/arena.py 的 GEN_*）：照抄一个精英当模板，从原版学院照抄出生点区域和生成器
+        src = vanilla(rel_map(g['src_map']))
+        if not src:
+            raise RuntimeError('找不到生成器实验的来源地图 %s' % g['src_map'])
+        L.append(line('clone', g['src_part'], g['tmpl'], g['tmpl_ent'], float(g['tmpl_at'][0]), Y, float(g['tmpl_at'][1]), ENEMY_YAW))
+        names = []
+        for i, (ent, (x, z)) in enumerate(zip(g['regs'], g['at'])):
+            names.append('DR 生成器实验 出生点 %d' % (i + 1))
+            L.append(line('region', src, g['src_region'], names[-1], ent, float(x), Y, float(z), ENEMY_YAW))
+        L.append(line('generator', src, g['src_gen'], 'DR 生成器实验', g['gen_ent'], g['max_num'], g['limit'], g['min_gen'], g['max_gen'],
+                      float(g['min_iv']), float(g['max_iv']), g['initial'], ','.join(names), g['tmpl']))
     return '\n'.join(L) + '\n'
 
 
@@ -224,6 +237,9 @@ def map_events(raw, co, f):
         raise RuntimeError('%s 的部件超过 %d 个' % (co['map'], MAX_PARTS))
     ids = {F + x for x in (EV_ASK, EV_NOTE, EV_BANNER)} | {F + EV_LEAVE0 + s['v'] for s in co['statues']} | \
           {F + EV_RESPAWN0 + s['v'] for s in co['statues']} | {F + b + p['k'] for p in co['parts'] for b in (EV_PART0, EV_READY0, EV_ENGAGE0)}
+    g = co.get('gen')
+    if g:
+        ids |= {g['ev0'] + k for k in range(6)}
     clash = sorted(ev['id'] for ev in e['events'] if ev['id'] in ids)
     if clash:
         raise RuntimeError('%s 的事件脚本里已经有 %s' % (co['map'], clash[:5]))
@@ -297,6 +313,15 @@ def map_events(raw, co, f):
         new.append({'id': F + EV_RESPAWN0 + s['v'], 'rest': 0, 'params': [], 'ins': [
             wait_flag(F + f['run'] + s['v'])] + died + [
             emevd.ins(2003, 23, ('u32', s['resp']))]})
+    if g:
+        # 生成器实验：读图时关掉生成器、藏起模板；之后听 dark_core 点亮的 5 个标记（开 / 刷一只 / 关 / 显示模板 / 隐藏模板），
+        # 指令照原版 EMEDF：2003[3] 开关生成器（学院 14003978 用它关），2003[54] 让生成器马上生
+        G, T, f0 = g['gen_ent'], g['tmpl_ent'], g['flag0']
+        state = lambda on: emevd.ins(2003, 3, ('u32', G), ('u8', on))
+        tmpl = lambda on: emevd.ins(2004, 5, ('u32', T), ('u8', on))
+        new.append({'id': g['ev0'], 'rest': 0, 'params': [], 'ins': [state(0), tmpl(0)]})
+        for k, act in enumerate([state(1), emevd.ins(2003, 54, ('u32', G)), state(0), tmpl(1), tmpl(0)]):
+            new.append({'id': g['ev0'] + 1 + k, 'rest': 0, 'params': [], 'ins': [wait_flag(f0 + k), set_flag(f0 + k, 0), act, RESTART]})
     for ev in new:
         ev['ins'].insert(0, dict(NO_SYNC))
     e['events'] += new

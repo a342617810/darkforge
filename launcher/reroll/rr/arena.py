@@ -63,10 +63,21 @@ RUN = 2620                            # 竞技场里的标记：F + 2620 + 雕�
 # 联机（联机计划 13.13）：F + 2605 开打（dark_core 等各台电脑都就绪了点亮，事件打开 AI、关掉无敌）、F + 2606 本机死了（dark_core 点亮，
 # 复活点照设，不靠事件里的 10000）、F + 2640 + k 部件 k 读进来了（事件点亮，dark_core 看）
 ENGAGE, MYDEAD, READY = 2605, 2606, 2640
+# 无尽模式的生成器实验（用户 2026-11-17「开始之前无尽模式的生成器实验吧」；settings 的 generator_test 写竞技场名字才做，默认不做）：
+# 在那个竞技场照抄一个精英部件当模板（F + 3910，读图时藏起来），从原版学院 m14 照抄 3 个出生点区域（F + 3901~3903，学院的
+# 「レナラの子供たち_ジェネレートポイントA01」14002900）和一个生成器（F + 3900，照学院 14003814：刷蕾娜菈的学生那个），
+# 竞技场的事件听 F + 2750~2754（开 / 刷一只 / 关 / 显示模板 / 隐藏模板，开发工具 F9 按钮经 dark_core 点亮），事件 F + 2760~2765。
+# dark_core 的 arena.rs 记下这个敌人参数的每只敌人出现 / 倒下 / 消失（实体编号、地址），看生出来的敌人能不能接进波次判定
+GEN_SRC_MAP, GEN_SRC_GEN, GEN_SRC_REGION = 'm14_00_00_00', 14003814, 14002900
+GEN_ENT, GEN_REG0, GEN_TMPL, GEN_FLAG0, GEN_EV0 = 3900, 3901, 3910, 2750, 2760
+GEN_AT = [(-6.0, -12.0), (6.0, -12.0), (0.0, -14.0)]      # 出生点（同 sc/arena.py 的坐标系：竞技场中心、玩家出生点朝 −z）
+GEN_TMPL_AT = (0.0, -18.0)
+# 同时最多 3 只、总数不限、一次 1 只、补一只等 3~5 秒、开场先生 1 只（学院的是 6 / -1 / 1 / 1 / 0~2 秒 / 5）
+GEN_PARAMS = dict(max_num=3, limit=-1, min_gen=1, max_gen=1, min_iv=3.0, max_iv=5.0, initial=1)
 DEFAULT = dict(enabled=True, tiers=[31, 13, 8], bosses=8, elite_kinds=4, elite_copies=4, elite_per_wave=2, scarab_pct=20, scarab_copies=4,
                cost=[1, 2, 3], waves=[2, 4, 8],
                items_elite=2, items_boss=1, ash_boss=1, clear_bonus=[1, 2, 4], refund=[0, 1, 2], elite_two=[0, 0, 10, 15, 20, 30, 40, 50],
-               reward_tiers=[[4, 4], [3, 4], [2, 3]], reward_scale=[2, 1, 1], hp_every=2, hp_step=0.1, wave_fx=[],
+               reward_tiers=[[4, 4], [3, 4], [2, 3]], reward_scale=[2, 1, 1], hp_every=2, hp_step=0.1, wave_fx=[], generator_test='',
                ash_weights=[[0, 30, 40, 30], [0, 70, 20, 10], [50, 35, 10, 5]],
                difficulty_mult=[[1.6, 1.2, 0.7, 0.4], [1.3, 1.1, 0.85, 0.6], [1, 1, 1, 1], [0.85, 1, 1.15, 1.3],
                                 [0.7, 0.95, 1.3, 1.7], [0.55, 0.9, 1.45, 2.2], [0.4, 0.8, 1.6, 2.8], [0.3, 0.7, 1.7, 3.5]])
@@ -307,8 +318,9 @@ def build(ctx):
         S_sp.add_row(rid, bytes(row))
     ctx.bnd.put('SpEffectParam.param', S_sp.serialize())
     band = lambda t: next((i for i, b in enumerate(ctx.S.get('tier_bands') or []) if t <= b.get('max_tier', 99)), len(ctx.S.get('tier_bands') or []) - 1)
-    ctx.arena = dict(cfg=c, colos=colos, band=[band(co['tier']) for co in colos])
-    ctx.features['arena'] = dict(colos=[dict(x=co['x'], map=co['map'], flag=co['flag'], warp=co['warp'],
+    gen = gen_test(ctx, c, colos)
+    ctx.arena = dict(cfg=c, colos=colos, band=[band(co['tier']) for co in colos], gen=gen)
+    ctx.features['arena'] = dict(colos=[dict(x=co['x'], map=co['map'], flag=co['flag'], warp=co['warp'], gen=gen if gen and gen['x'] == co['x'] else None,
                                              parts=[{k: p[k] for k in ('k', 'kind', 'src_map', 'part', 'model', 'ent', 'npc', 'name', 'spot')} for p in co['parts']],
                                              statues=[dict(v=v, map=s[0], block=list(s[1]), ent=s[2], esd=s[3], src=list(s[4]), pos=list(s[5]), statue=list(s[6]),
                                                            resp=s[7], rsrc=list(s[8]))
@@ -329,6 +341,26 @@ def build(ctx):
                                                                    for p in co['parts'] if not ((p['kind'], p['src']) in seen or seen.add((p['kind'], p['src']))))))
     ctx.report.append('  血量：' + hp_msg)
     inline_packs(ctx, c)
+
+
+def gen_test(ctx, c, colos):
+    """生成器实验（GEN_*）：generator_test 写了竞技场名字（王城 / 盖利德 / 宁姆格福，或 0~2）才做；返回 sc/arena.py 和 arena.txt 要的"""
+    v = str(c.get('generator_test') or '').strip()
+    if not v:
+        return None
+    x = COLO_KEYS.get(v, int(v) if v.isdigit() else None)
+    co = next((co for co in colos if co['x'] == x), None)
+    p = next((p for p in (co['parts'] if co else []) if p['kind'] == 'e'), None)
+    if not p:
+        ctx.report.append('生成器实验：generator_test「%s」不对（写 王城 / 盖利德 / 宁姆格福），或者那个竞技场没有精英，跳过' % v)
+        return None
+    F = co['flag']
+    g = dict(x=x, src_part='%s_%d' % (p['model'], 9500 + p['k']), tmpl='%s_9590' % p['model'], tmpl_ent=F + GEN_TMPL, gen_ent=F + GEN_ENT,
+             regs=[F + GEN_REG0 + i for i in range(len(GEN_AT))], at=[list(a) for a in GEN_AT], tmpl_at=list(GEN_TMPL_AT),
+             flag0=F + GEN_FLAG0, ev0=F + GEN_EV0, npc=p['npc'], src_map=GEN_SRC_MAP, src_gen=GEN_SRC_GEN, src_region=GEN_SRC_REGION, **GEN_PARAMS)
+    ctx.report.append('生成器实验：%s，模板照抄 %s（敌人参数 %d）→ %s（实体 %d），生成器实体 %d，F9「斗技场试炼测试」里开 / 刷 / 关' % (
+        COLO_ZH[x], g['src_part'], p['npc'], g['tmpl'], g['tmpl_ent'], g['gen_ent']))
+    return g
 
 
 def inline_packs(ctx, c):
@@ -545,6 +577,10 @@ def def_lines(ctx):
     if float(c['hp_step']) > 0:
         out.append('hpwave\t%d\t%d\t%d' % (max(1, int(c['hp_every'])), HPW_SP0, HPW_N))
     out += wave_fx_lines(ctx, c)
+    g = a.get('gen')
+    if g:
+        # gentest <竞技场> <第一个标记：开 / 刷一只 / 关 / 显示模板 / 隐藏模板> <模板的敌人参数> <生成器实体> <模板实体>
+        out.append('gentest\t%d\t%d\t%d\t%d\t%d' % (g['x'], g['flag0'], g['npc'], g['gen_ent'], g['tmpl_ent']))
     for i, (w, cost) in enumerate(zip(c['waves'], c['cost'])):
         # run <场次> <波数> <碎片> <全部打完多给几件> <全部打完退还几个碎片>
         back = int(c['refund'][i]) if i < len(c.get('refund') or []) else 0
