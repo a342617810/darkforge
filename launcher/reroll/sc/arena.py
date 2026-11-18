@@ -252,9 +252,14 @@ def map_events(raw, co, f):
         if engage:
             body += [emevd.ins(2004, 1, ('u32', ent), ('u8', 0)),       # AI 关、无敌：等开打
                      emevd.ins(2004, 15, ('u32', ent), ('u8', 1))]
-        body += [emevd.ins(2004, 5, ('u32', ent), ('u8', 0)),            # 读图时禁用、去掉预读
+        # 预读（backread，2004[29] / 2004[35]）只在联机会话里改（会话标记 COOP_SESSION 亮着）：单机照合并前不碰。
+        # 2026-11-17 用户「为什么魇化精英的紫色描边掉了」：单机也去掉 / 恢复预读以后，出场的敌人不在游戏的距离列表里
+        # （dark_core 日志：列表只有 2 项，积木引擎一直按物理位置补），靠这张列表的魇化、咒痕、超限锻造石掉落都看不到斗技场的敌人
+        body += [emevd.ins(2004, 5, ('u32', ent), ('u8', 0)),            # 读图时禁用；联机时再去掉预读
+                 skip_if(1, 0, COOP_SESSION),
                  emevd.ins(2004, 29, ('u32', ent), ('u8', 1)),
                  wait_flag(F + f['spawn'] + k),                           # 等 dark_core 点亮出场
+                 skip_if(2, 0, COOP_SESSION),
                  emevd.ins(2004, 35, ('u32', ent), ('u8', 1)),
                  emevd.ins(2004, 29, ('u32', ent), ('u8', 0)),
                  emevd.ins(2004, 5, ('u32', ent), ('u8', 1))]

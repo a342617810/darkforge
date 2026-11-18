@@ -185,6 +185,7 @@ struct GenWatch {
     logs: u32,
     born: u32,
     died: u32,
+    revived: u32,
 }
 
 /// 按波次挂的效果（arena.txt 的 wfx 行，rr/arena.py wave_fx_lines）：wfx 竞技场 场次的总波数 哪种敌人 第几波 几率% 效果包（- = 不限）
@@ -2063,7 +2064,7 @@ fn gen_req(d: &Def, st: &mut St, wcm: &WorldChrMan, cmd: &str, now: Instant) {
                 }
             }
         }
-        log(&format!("生成器实验：记录：{} 个（出现过 {}、倒下过 {}）{}", lines.len(), st.genw.born, st.genw.died,
+        log(&format!("生成器实验：记录：{} 个（出现过 {}、倒下过 {}、又活过 {}）{}", lines.len(), st.genw.born, st.genw.died, st.genw.revived,
                      if lines.is_empty() { String::new() } else { format!("：{}", lines.join("；")) }));
     }
 }
@@ -2095,7 +2096,12 @@ fn gen_tick(d: &Def, st: &mut St, wcm: &WorldChrMan, now: Instant) {
             }
             Some(&(_, h0)) if h0 > 0 && hp <= 0 => {
                 w.died += 1;
-                lines.push(format!("倒下 地址 {a:x} 实体 {ent}{what}"));
+                lines.push(format!("倒下 地址 {a:x} 实体 {ent}{what} 位置 ({:.1}, {:.1}, {:.1})", pos[0], pos[1], pos[2]));
+            }
+            // 同一个角色血量从 0 回来（生成器把管的部件在出生点重新放出来？出生点 (-6, -12) / (6, -12) / (0, -14)，模板原位 (0, -18)）
+            Some(&(_, h0)) if h0 <= 0 && hp > 0 => {
+                w.revived += 1;
+                lines.push(format!("又活了 地址 {a:x} 实体 {ent}{what} 血 {hp}/{max} 位置 ({:.1}, {:.1}, {:.1})", pos[0], pos[1], pos[2]));
             }
             Some(&(e0, _)) if e0 != ent => lines.push(format!("实体编号变了 地址 {a:x}：{e0} → {ent}")),
             _ => {}
@@ -2110,7 +2116,7 @@ fn gen_tick(d: &Def, st: &mut St, wcm: &WorldChrMan, now: Instant) {
     if !lines.is_empty() && w.logs < GEN_LOGS {
         w.logs += 1;
         let alive = cur.values().filter(|x| x.1 > 0).count();
-        log(&format!("生成器实验：{}；现在 {} 只、活着 {} 只（出现过 {}、倒下过 {}）", lines.join("；"), cur.len(), alive, w.born, w.died));
+        log(&format!("生成器实验：{}；现在 {} 只、活着 {} 只（出现过 {}、倒下过 {}、又活过 {}）", lines.join("；"), cur.len(), alive, w.born, w.died, w.revived));
     }
 }
 
