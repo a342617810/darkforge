@@ -7,6 +7,8 @@
 //!    不是「死亡」以上却是改版世界）时：
 //!    - 闪烁提示重启（notes 的「boss on」「boss off」）：一直对不上就一条接一条不停地提示（用户 2026-11-05「闪烁提示不要停」）；
 //!    - 不是联机时在人物周围围上屏障、禁止传送（barrier.rs；联机的世界由房主定，只提示）。
+//!    - 联机加入（bossmods.txt 的 role guest）：房主的世界是死亡以上、本机角色不是，算对得上，不提示
+//!      （死亡以上的房间只要求房主是死亡以上，用户 2026-11-18「联机也加存档检测 没有死亡以上角色不让开死亡难度房间 … 只是要求房主必须是死亡以上就行了」）。
 //! 3. 对上了、又是「死亡」以上的改版世界：第一次（这个角色的标记 POWER_SEEN 没亮）提示「部分追忆Boss已经取回真正的力量」（notes 的
 //!    「boss power」），之后不再提示（用户 2026-11-05「boss取回力量只在第一次时提示」）。
 //! 「死亡」以上 = fusion.txt 的 lock 标记（「死亡」「不可能」的当前档）有一个亮着，和融锻之心掉落同一个判断。
@@ -40,6 +42,8 @@ struct Def {
     loaded: bool,
     keys: Vec<String>,
     lock: Vec<u32>,
+    /// 这次是联机加入（role guest）
+    guest: bool,
 }
 
 fn parse(launch: &str, fusion: &str) -> Option<Def> {
@@ -51,6 +55,7 @@ fn parse(launch: &str, fusion: &str) -> Option<Def> {
         match it.next() {
             Some("auto") => d.auto = it.next() == Some("1"),
             Some("loaded") => d.loaded = it.next() == Some("1"),
+            Some("role") => d.guest = it.next() == Some("guest"),
             Some("keys") => {
                 d.keys = it.map(String::from).collect();
                 seen = true;
@@ -114,10 +119,15 @@ fn slots_text(old: &str, slot: i32, name: &str, high: bool, unix: u64) -> String
 
 /// 这次启动加载的和这个角色对不上时该提示哪一条
 fn mismatch(d: &Def, high: bool) -> Option<&'static str> {
-    if !d.auto || high == d.loaded {
+    if !d.auto || high == d.loaded || guest_ok(d, high) {
         return None;
     }
     Some(if high { "boss on" } else { "boss off" })
+}
+
+/// 联机加入、房主的世界是死亡以上、本机角色不是：可以（只要求房主是死亡以上）
+fn guest_ok(d: &Def, high: bool) -> bool {
+    d.guest && d.loaded && !high
 }
 
 #[derive(Default)]
@@ -128,6 +138,8 @@ struct St {
     written: Option<(i32, String, bool)>,
     /// 对不上、已经记过日志的角色（提示本身不停）
     told: Option<((i32, String, bool), Instant)>,
+    /// 联机加入、用普通角色进死亡以上的世界，已经记过日志的角色
+    guest_told: Option<(i32, String, bool)>,
 }
 
 static ST: Mutex<Option<St>> = Mutex::new(None);
@@ -206,6 +218,10 @@ pub fn tick() {
             barrier::set_wanted(false);
             st.told = None;
             crate::notes::forget(&RESTART_NOTES);
+            if guest_ok(d, high) && st.guest_told.as_ref() != Some(&key) {
+                log(&format!("高难度 Boss 改版：联机加入，房主的世界是「死亡」以上，本机角色「{name}」不是，照常玩（只要求房主是「死亡」以上）"));
+                st.guest_told = Some(key.clone());
+            }
             if high {
                 crate::curses::opening();
             }
@@ -224,7 +240,9 @@ mod tests {
     #[test]
     fn parse_launch_and_lock() {
         let d = parse("# x\nauto 1\nloaded 0\nkeys godfrey messmer\n", "goods 9241\nlock 9956 9957\n").unwrap();
-        assert_eq!(d, Def { auto: true, loaded: false, keys: vec!["godfrey".into(), "messmer".into()], lock: vec![9956, 9957] });
+        assert_eq!(d, Def { auto: true, loaded: false, keys: vec!["godfrey".into(), "messmer".into()], lock: vec![9956, 9957], guest: false });
+        assert!(parse("auto 1\nloaded 1\nkeys godfrey\nrole guest\n", "lock 9956\n").unwrap().guest);
+        assert!(!parse("auto 1\nloaded 1\nkeys godfrey\nrole host\n", "lock 9956\n").unwrap().guest);
         // 没有开着的模组、没有档标记：不工作
         assert!(parse("auto 1\nloaded 0\nkeys\n", "lock 9956\n").is_none());
         assert!(parse("auto 1\nloaded 0\nkeys godfrey\n", "goods 1\n").is_none());
@@ -233,7 +251,7 @@ mod tests {
 
     #[test]
     fn mismatch_only_in_auto() {
-        let mut d = Def { auto: true, loaded: false, keys: vec!["godfrey".into()], lock: vec![9956] };
+        let mut d = Def { auto: true, loaded: false, keys: vec!["godfrey".into()], lock: vec![9956], guest: false };
         assert_eq!(mismatch(&d, true), Some("boss on"));
         assert_eq!(mismatch(&d, false), None);
         d.loaded = true;
@@ -241,6 +259,19 @@ mod tests {
         assert_eq!(mismatch(&d, true), None);
         d.auto = false;
         assert_eq!(mismatch(&d, false), None);
+    }
+
+    /// 联机加入：死亡以上的世界里用普通角色可以；普通世界里用死亡以上的角色照旧提示；房主照旧要对上
+    #[test]
+    fn guest_may_join_high_world() {
+        let mut d = Def { auto: true, loaded: true, keys: vec!["godfrey".into()], lock: vec![9956], guest: true };
+        assert_eq!(mismatch(&d, false), None);
+        assert_eq!(mismatch(&d, true), None);
+        d.loaded = false;
+        assert_eq!(mismatch(&d, true), Some("boss on"));
+        d.guest = false;
+        d.loaded = true;
+        assert_eq!(mismatch(&d, false), Some("boss off"));
     }
 
     #[test]

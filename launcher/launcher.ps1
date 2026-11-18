@@ -1054,6 +1054,9 @@ function Get-NewGameSeed([bool]$Rand) {
 #   敌人设置、世界和启动方式。联机核对码（reroll\coopfp.py）写进兼容档案，进会话后联机通道自动比对。
 $CoopVanillaSeed = 20261102
 $script:CoopDll = ''          # 联机启动时 [dll] 最前面加的 ersc.dll（YAFSML.ini 里的写法；Join-DllLines）
+# 这次联机是开房（host）还是加入（guest）：写进 dll\dark_core\bossmods.txt 的 role 行。死亡以上的世界只要求房主是死亡以上的角色，
+# 队友用普通角色也行，dark_core 的 bossmode.rs 对 guest 不提示重启（用户 2026-11-18「联机也加存档检测 没有死亡以上角色不让开死亡难度房间 … 只是要求房主必须是死亡以上就行了」）
+$script:CoopRole = ''
 $script:ErdSaveExt = 'rng'    # Erd Tools 的存档扩展名：单机 rng，联机 co2（Test-UserDllSafe）
 
 # 找 Seamless Co-op 的 ersc.dll：整合包 dll\ 和下一层文件夹（_ 开头的不算），再看游戏目录 Game\SeamlessCoop\；没有返回 $null
@@ -1625,6 +1628,7 @@ function Invoke-CoopCodeAction {
 # 联机开房：没密码就生成、联机码复制到剪贴板、联机启动
 function Invoke-CoopHost([bool]$Rand) {
     Write-Head ('联机开房 · ' + $(if ($Rand) { '敌人随机' } else { '无敌人随机' }))
+    $script:CoopRole = 'host'
     $ersc = Find-Ersc
     if (-not $ersc) { Write-Err ('没找到 Seamless Co-op。把它压缩包里的 SeamlessCoop 文件夹整个放进 ' + $UserDllDir + '（变成 dll\SeamlessCoop\ersc.dll；整合包不带 Seamless Co-op，要自己下载）。'); return $false }
     if ($Rand) { $rs = Get-RandomizerStatus; if (-not $rs.Ok) { Write-Err $rs.Msg; return $false } }
@@ -1651,6 +1655,7 @@ function Invoke-CoopHost([bool]$Rand) {
 # 加入队友：找联机码（给的 / 剪贴板 → 联机时联机通道存下的房主的码、上次加入用的码，新的先），照着改好再联机启动
 function Invoke-CoopJoin([string]$Text) {
     Write-Head '加入队友的联机'
+    $script:CoopRole = 'guest'
     $ersc = Find-Ersc
     if (-not $ersc) { Write-Err ('没找到 Seamless Co-op。把它压缩包里的 SeamlessCoop 文件夹整个放进 ' + $UserDllDir + '（变成 dll\SeamlessCoop\ersc.dll；整合包不带 Seamless Co-op，要自己下载）。'); return $false }
     $cands = @()
@@ -1772,9 +1777,10 @@ function Get-BossModName([string]$Key) {
 
 function Write-BossModeDef($Bm) {
     if ($Bm.Mode -eq 'off' -or -not @($Bm.Want).Count) { Remove-Item -LiteralPath $BossModeDef -Force -ErrorAction SilentlyContinue; return }
-    $t = '# 启动器每次启动写（dark_core 的 bossmode.rs 读）：auto = 按角色难度自动加载；loaded = 这次加载了没有；keys = 设置里开着的' + "`n" +
+    $t = '# 启动器每次启动写（dark_core 的 bossmode.rs 读）：auto = 按角色难度自动加载；loaded = 这次加载了没有；keys = 设置里开着的；' +
+         'role = 联机开房 host / 加入 guest（guest 在死亡以上的世界里用普通角色也不提示重启）' + "`n" +
          'auto ' + $(if ($Bm.Mode -eq 'auto') { '1' } else { '0' }) + "`n" + 'loaded ' + $(if (@($Bm.Keys).Count) { '1' } else { '0' }) + "`n" +
-         'keys ' + (@($Bm.Want) -join ' ') + "`n"
+         'keys ' + (@($Bm.Want) -join ' ') + "`n" + $(if ($script:CoopRole) { 'role ' + $script:CoopRole + "`n" } else { '' })
     try { [System.IO.File]::WriteAllText($BossModeDef, $t, (New-Object System.Text.UTF8Encoding($false))) } catch { Write-Warn ('写不了 ' + $BossModeDef + '：' + $_.Exception.Message) }
 }
 

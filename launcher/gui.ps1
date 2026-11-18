@@ -715,9 +715,9 @@ function Test-BossAuto {
     return $false
 }
 
-# 存档 ER0000.rng（最近改过的那份）里各格的角色名：@{格子 = 名字}；读不了返回 $null（不核对）
-function Get-SaveSlotNames {
-    $save = @(Get-RngSaveFiles | Where-Object { $_.Name -eq 'ER0000.rng' } | Sort-Object LastWriteTime -Descending | Select-Object -First 1)
+# 存档（单机 ER0000.rng / 联机 $RngCoopSave，最近改过的那份）里各格的角色名：@{格子 = 名字}；读不了返回 $null（不核对）
+function Get-SaveSlotNames([string]$File = 'ER0000.rng') {
+    $save = @(Get-RngSaveFiles | Where-Object { $_.Name -eq $File } | Sort-Object LastWriteTime -Descending | Select-Object -First 1)
     if (-not $save.Count) { return @{} }
     $py = Join-Path $LauncherDir 'python\python.exe'
     if (-not (Test-Path -LiteralPath $py)) { return $null }
@@ -731,10 +731,12 @@ function Get-SaveSlotNames {
     } catch { return $null }
 }
 
-function Get-HighChars {
+# 死亡以上的角色：@(@{ Slot; Name })。$Coop = 联机存档的（角色记录\联机\ 里的记录，对联机存档里的角色名）
+function Get-HighChars([bool]$Coop = $false) {
     $rows = @()
-    $slots = Join-Path $RngRecordDir 'boss_slots.txt'
-    $rec = Join-Path $RngRecordDir 'boss_mode.txt'
+    $dir = if ($Coop) { Join-Path $RngRecordDir '联机' } else { $RngRecordDir }
+    $slots = Join-Path $dir 'boss_slots.txt'
+    $rec = Join-Path $dir 'boss_mode.txt'
     try {
         if (Test-Path -LiteralPath $slots) {
             foreach ($l in [System.IO.File]::ReadAllLines($slots, [Text.Encoding]::UTF8)) {
@@ -747,7 +749,7 @@ function Get-HighChars {
             if ($kv['high'] -eq '1' -and $kv['name']) { $rows += [pscustomobject]@{ Slot = [int]$kv['slot']; Name = $kv['name'] } }
         }
     } catch { return @() }
-    $names = Get-SaveSlotNames
+    $names = Get-SaveSlotNames $(if ($Coop) { $RngCoopSave } else { 'ER0000.rng' })
     if ($null -eq $names) { return $rows }
     $out = @()
     foreach ($r in $rows) {
@@ -780,16 +782,27 @@ function Ask-BossWorld {
 function Get-BossArg($Bw) { if ($Bw) { return ' -BossWorld ' + $Bw } else { return '' } }
 
 # 联机开房选世界（用户 2026-11-17「为什么开始联机没有难度选项」→「需要加难度选项」）：Boss 改版开着时问这次联机用哪种难度的世界，
-# 写进联机码（w=），队友点「加入」时照它；默认选房主上次玩的联机角色的难度。返回 '' = 功能没开（不传）、'high' / 'low'、$null = 取消
+# 写进联机码（w=），队友点「加入」时照它；默认选房主上次玩的联机角色的难度。返回 '' = 功能没开（不传）、'high' / 'low'、$null = 取消。
+# 联机存档里没有死亡以上的角色就不给选死亡以上（用户 2026-11-18「联机也加存档检测 没有死亡以上角色不让开死亡难度房间 … 只是要求房主必须是死亡以上就行了」）：
+# 死亡以上的房间只要求房主是死亡以上，队友用普通角色也能加入（dark_core 的 bossmode.rs 对加入的不提示重启）
 function Ask-CoopWorld {
     if (-not (Test-BossAuto)) { return '' }
+    $hi = @(Get-HighChars $true)
+    if (-not $hi.Count) {
+        $msg = "联机存档里还没有死亡以上难度的角色，这次只能以普通难度开房。`r`n`r`n" +
+               "要开死亡以上难度的房间，房主要先有一个死亡以上难度的联机角色（队友不需要）。"
+        $r = Show-DrDialog $msg '暗黑重铸 · 联机难度' @('普通难度开房', '取消') 0 1 'info' $form
+        if ($r -eq 0) { return 'low' }
+        return $null
+    }
     $high = $false
     try {
         $rec = Join-Path (Join-Path $RngRecordDir '联机') 'boss_mode.txt'
         if (Test-Path -LiteralPath $rec) { $high = @([System.IO.File]::ReadAllLines($rec, [Text.Encoding]::UTF8) | Where-Object { $_ -match '^high\t1' }).Count -gt 0 }
     } catch { }
+    $who = (@($hi | ForEach-Object { '「' + $_.Name + '」（第 ' + ($_.Slot + 1) + ' 格）' }) -join '、')
     $msg = "这次联机用哪种难度的世界？`r`n`r`n" +
-           "· 死亡以上难度：加载 Boss 改版。进游戏后房主请读取死亡以上难度的联机角色。`r`n" +
+           "· 死亡以上难度：加载 Boss 改版。进游戏后房主请读取死亡以上难度的联机角色：" + $who + "。队友用什么角色都可以。`r`n" +
            "· 普通难度：原版 Boss。`r`n`r`n" +
            "选的世界写进联机码，队友点「加入」时自动用同一个。"
     $r = Show-DrDialog $msg '暗黑重铸 · 联机难度' @('死亡以上难度', '普通难度', '取消') $(if ($high) { 0 } else { 1 }) 2 'question' $form
