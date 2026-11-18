@@ -154,14 +154,14 @@ def arena_spec(co):
     g = co.get('gen')
     if g:
         # 无尽模式的生成器实验（rr/arena.py 的 GEN_*）：照抄一个精英当模板，从原版学院照抄出生点区域和生成器
-        src = vanilla(rel_map(g['src_map']))
-        if not src:
-            raise RuntimeError('找不到生成器实验的来源地图 %s' % g['src_map'])
+        src, rsrc = vanilla(rel_map(g['src_map'])), vanilla(rel_map(g.get('region_map') or g['src_map']))
+        if not src or not rsrc:
+            raise RuntimeError('找不到生成器实验的来源地图 %s / %s' % (g['src_map'], g.get('region_map')))
         L.append(line('clone', g['src_part'], g['tmpl'], g['tmpl_ent'], float(g['tmpl_at'][0]), Y, float(g['tmpl_at'][1]), ENEMY_YAW))
         names = []
         for i, (ent, (x, z)) in enumerate(zip(g['regs'], g['at'])):
             names.append('DR 生成器实验 出生点 %d' % (i + 1))
-            L.append(line('region', src, g['src_region'], names[-1], ent, float(x), Y, float(z), ENEMY_YAW))
+            L.append(line('region', rsrc, g['src_region'], names[-1], ent, float(x), Y, float(z), ENEMY_YAW))
         L.append(line('generator', src, g['src_gen'], 'DR 生成器实验', g['gen_ent'], g['max_num'], g['limit'], g['min_gen'], g['max_gen'],
                       float(g['min_iv']), float(g['max_iv']), g['initial'], ','.join(names), g['tmpl']))
     return '\n'.join(L) + '\n'

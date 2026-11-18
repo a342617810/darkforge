@@ -68,14 +68,17 @@ ENGAGE, MYDEAD, READY = 2605, 2606, 2640
 # 「レナラの子供たち_ジェネレートポイントA01」14002900）和一个生成器（F + 3900，照学院 14003814：刷蕾娜菈的学生那个），
 # 竞技场的事件听 F + 2750~2754（开 / 刷一只 / 关 / 显示模板 / 隐藏模板，开发工具 F9 按钮经 dark_core 点亮），事件 F + 2760~2765。
 # dark_core 的 arena.rs 记下这个敌人参数的每只敌人出现 / 倒下 / 消失（实体编号、地址），看生出来的敌人能不能接进波次判定
-GEN_SRC_MAP, GEN_SRC_GEN, GEN_SRC_REGION = 'm14_00_00_00', 14003814, 14002900
+# 出生点区域照抄学院 m14 的；生成器第五轮起照抄湖底 m12_08 的 12083260（类型 3：间隔 0、开场不生，原版靠事件 2003[54] 叫，
+# 湖底 m12_01、地下墓地 m30_03 都这样用，m30_03 关着的也叫）。前四轮照抄学院 14003814（类型 1：只会死后按间隔复活，2003[54] 叫不动）
+GEN_SRC_MAP, GEN_SRC_GEN, GEN_SRC_REGION = 'm12_08_00_00', 12083260, 14002900
+GEN_REGION_MAP = 'm14_00_00_00'
 GEN_ENT, GEN_REG0, GEN_TMPL, GEN_FLAG0, GEN_EV0 = 3900, 3901, 3910, 2750, 2760
 GEN_AT = [(-6.0, -12.0), (6.0, -12.0), (0.0, -14.0)]      # 出生点（同 sc/arena.py 的坐标系：竞技场中心、玩家出生点朝 −z）
 GEN_TMPL_AT = (0.0, -18.0)
-# 同时最多 3 只、总数不限、一次 1 只、开场先生 1 只（学院的是 6 / -1 / 1 / 1 / 0~2 秒 / 5）。
-# 第三轮（间隔 3~5 秒）实测：生成器不复制，而是模板死了以后把它本身在出生点复活（地址、实体编号不变，满血）。
-# 第四轮：间隔 600 秒（死了不自己回来），看「刷一只」（2003[54]）能不能按需马上复活、关着的生成器还能不能刷
-GEN_PARAMS = dict(max_num=3, limit=-1, min_gen=1, max_gen=1, min_iv=600.0, max_iv=600.0, initial=1)
+# 第三轮（类型 1，间隔 3~5 秒）实测：生成器不复制，而是模板死了以后把它本身在出生点复活（地址、实体编号不变，满血）。
+# 第四轮（类型 1，间隔 600 秒）：死了 27 秒后点「刷一只」不复活，类型 1 叫不动。
+# 第五轮：类型 3，同时 1 只、总数不限、一次 1 只、间隔 0、开场不生（照湖底 m12_08 的），看「刷一只」能不能按需复活、关着能不能叫
+GEN_PARAMS = dict(max_num=1, limit=-1, min_gen=1, max_gen=1, min_iv=0.0, max_iv=0.0, initial=0)
 DEFAULT = dict(enabled=True, tiers=[31, 13, 8], bosses=8, elite_kinds=4, elite_copies=4, elite_per_wave=2, scarab_pct=20, scarab_copies=4,
                cost=[1, 2, 3], waves=[2, 4, 8],
                items_elite=2, items_boss=1, ash_boss=1, clear_bonus=[1, 2, 4], refund=[0, 1, 2], elite_two=[0, 0, 10, 15, 20, 30, 40, 50],
@@ -359,7 +362,7 @@ def gen_test(ctx, c, colos):
     F = co['flag']
     g = dict(x=x, src_part='%s_%d' % (p['model'], 9500 + p['k']), tmpl='%s_9590' % p['model'], tmpl_ent=F + GEN_TMPL, gen_ent=F + GEN_ENT,
              regs=[F + GEN_REG0 + i for i in range(len(GEN_AT))], at=[list(a) for a in GEN_AT], tmpl_at=list(GEN_TMPL_AT),
-             flag0=F + GEN_FLAG0, ev0=F + GEN_EV0, npc=p['npc'], src_map=GEN_SRC_MAP, src_gen=GEN_SRC_GEN, src_region=GEN_SRC_REGION, **GEN_PARAMS)
+             flag0=F + GEN_FLAG0, ev0=F + GEN_EV0, npc=p['npc'], src_map=GEN_SRC_MAP, src_gen=GEN_SRC_GEN, region_map=GEN_REGION_MAP, src_region=GEN_SRC_REGION, **GEN_PARAMS)
     ctx.report.append('生成器实验：%s，模板照抄 %s（敌人参数 %d）→ %s（实体 %d），生成器实体 %d，F9「斗技场试炼测试」里开 / 刷 / 关' % (
         COLO_ZH[x], g['src_part'], p['npc'], g['tmpl'], g['tmpl_ent'], g['gen_ent']))
     return g
