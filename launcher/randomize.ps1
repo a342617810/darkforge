@@ -85,21 +85,55 @@ function Get-RandomizerUntestedMsg {
     return ('这个版本的随机器整合包没测过（测过的是 v0.12.2），可能有问题：比如敌人预设、按位置修正对不上。出问题时换回 v0.12.2（' + $RandomizerUrl + ' 的 Old files）。')
 }
 
-# 这份随机器对应的设置文件；还没有（从没打开过这份随机器）返回 $null
+# 这份随机器对应的设置文件；还没有（从没打开过这份随机器）或认不准是哪一份时返回 $null（要用时 Resolve-RandSettingsFile 打开一次随机器来认）。
+# 记录（launcher\randomizer_settings_path.txt）两行：设置文件、它属于的随机器 exe。exe 对不上就不用：整合包文件夹被挪走 / 复制过，
+# 或者 dev\tools\sync_worktree.py 以前把主文件夹的记录复制进了联机文件夹，用了会把游戏路径、选项写进别的随机器的设置，
+# 这份随机器打开时读不到（用户 2026-11-17「联机的时候随机器没有默认加载保存的游戏路径」）。
+# 只有一行的旧记录认不准：设置里写着这份随机器的 dll 目录才算数，否则记作 $script:RandSettingsGuess（实在认不出来时才退回去用它）
+$script:RandSettingsGuess = $null
+function Get-RandExePath { return [System.IO.Path]::GetFullPath((Join-Path $RandomDir 'EldenRingRandomizer.exe')) }
+function Save-RandSettingsMap([string]$File) {
+    [System.IO.File]::WriteAllText($RandSettingsMap, ($File + "`r`n" + (Get-RandExePath) + "`r`n"), (New-Object System.Text.UTF8Encoding($false)))
+}
 function Find-RandSettingsFile {
-    if (Test-Path -LiteralPath $RandSettingsMap) {
-        $p = ([string](Get-Content -LiteralPath $RandSettingsMap -TotalCount 1 -Encoding UTF8)).Trim()
-        if ($p -and (Test-Path -LiteralPath $p)) { return $p }
-    }
+    $script:RandSettingsGuess = $null
     $dllDir = (Join-Path $RandomDir 'dll').ToLowerInvariant()
+    if (Test-Path -LiteralPath $RandSettingsMap) {
+        $lines = @(Get-Content -LiteralPath $RandSettingsMap -TotalCount 2 -Encoding UTF8)
+        $p = if ($lines.Count -ge 1) { ([string]$lines[0]).Trim() } else { '' }
+        $who = if ($lines.Count -ge 2) { ([string]$lines[1]).Trim() } else { '' }
+        if ($p -and (Test-Path -LiteralPath $p)) {
+            if ($who) {
+                if ([string]::Equals($who, (Get-RandExePath), [System.StringComparison]::OrdinalIgnoreCase)) { return $p }
+            } elseif ([System.IO.File]::ReadAllText($p).ToLowerInvariant().Contains($dllDir)) {
+                Save-RandSettingsMap $p
+                return $p
+            } else {
+                $script:RandSettingsGuess = $p
+            }
+        }
+    }
     foreach ($f in (Get-ChildItem -LiteralPath $RandSettingsRoot -Recurse -Filter 'user.config' -File -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending)) {
         # 随机器开了崩溃修复时，额外 DLL 里是它自己 dll 目录的完整路径：能认出是哪一份
         if ([System.IO.File]::ReadAllText($f.FullName).ToLowerInvariant().Contains($dllDir)) {
-            [System.IO.File]::WriteAllText($RandSettingsMap, $f.FullName, (New-Object System.Text.UTF8Encoding($false)))
+            Save-RandSettingsMap $f.FullName
             return $f.FullName
         }
     }
     return $null
+}
+
+# 一定要拿到这份随机器的设置文件时用：认不出来就打开一次随机器（它关掉时写自己的设置文件，按修改时间认出来）；
+# 打开了还认不出来，有只有一行的旧记录就照旧用它。$Exe = 随机器 exe；返回设置文件或 $null
+function Resolve-RandSettingsFile([string]$Exe) {
+    $f = Find-RandSettingsFile
+    if ($f) { return $f }
+    $guess = $script:RandSettingsGuess
+    if ($guess) { Write-Host '  先打开一次随机器，认一下这份随机器用的是哪个设置文件（会自动关掉，不要点它）...' }
+    else { Write-Host '  第一次用这份随机器：先打开一次让它生成设置文件（会自动关掉，不要点它）...' }
+    try { $f = New-RandSettingsFile $Exe } catch { $f = $null }
+    if ($f) { return $f }
+    return $guess
 }
 
 function Get-RandSetting([string]$File, [string]$Name) {
@@ -112,7 +146,9 @@ function Get-RandSetting([string]$File, [string]$Name) {
 
 # 这次要用的选项：@{ Options = 不含种子的选项; From = 说明; HasItem = 是否开着物品随机 }
 function Get-RandomizeOptions {
-    $opt = Get-RandSetting (Find-RandSettingsFile) 'Options'
+    $sf = Find-RandSettingsFile
+    if (-not $sf) { $sf = $script:RandSettingsGuess }      # 认不准的旧记录：先照它（真正随机化前 Resolve-RandSettingsFile 会认准）
+    $opt = Get-RandSetting $sf 'Options'
     $from = '上一次在随机器里用的设置'
     if (-not $opt -or $opt -notmatch '\bv\d+\b') {
         # 这个文件夹的随机器还没用过（多半是刚更新到新版本）：沿用旧版本随机器里的设置（见文件末尾「更新后沿用」）
@@ -163,7 +199,7 @@ function Reset-RandMod([string]$GameExe) {
     if (-not $file) {
         $exe = Join-Path $RandomDir 'EldenRingRandomizer.exe'
         if (-not (Test-Path -LiteralPath $exe)) { return '' }
-        try { Initialize-Uia; $file = New-RandSettingsFile $exe } catch { $file = $null }
+        try { Initialize-Uia; $file = Resolve-RandSettingsFile $exe } catch { $file = $null }
         if (-not $file) { return '' }
     }
     $v = @{ Mod = '' }
@@ -292,7 +328,7 @@ function New-RandSettingsFile([string]$Exe) {
     $f = Get-ChildItem -LiteralPath $RandSettingsRoot -Recurse -Filter 'user.config' -File -ErrorAction SilentlyContinue |
         Where-Object { $_.LastWriteTime -ge $t0.AddSeconds(-2) } | Sort-Object LastWriteTime -Descending | Select-Object -First 1
     if (-not $f) { return $null }
-    [System.IO.File]::WriteAllText($RandSettingsMap, $f.FullName, (New-Object System.Text.UTF8Encoding($false)))
+    Save-RandSettingsMap $f.FullName
     return $f.FullName
 }
 
@@ -344,17 +380,14 @@ function Invoke-RandomizeEnemies([string]$GameExe, $Fixed = $null) {
     if (Get-Process -Name 'EldenRingRandomizer' -ErrorAction SilentlyContinue) { return @{ Ok = $false; Msg = '随机器已经开着，先把它关掉再点一键重随敌人。' } }
     if (-not (Test-DotNet8)) { return @{ Ok = $false; Msg = (Get-DotNet8Msg) } }
     Initialize-Uia
+    # 先认准这份随机器的设置文件（认不出来就打开一次随机器），选项才是从这份随机器上次的设置里读的
+    $file = Resolve-RandSettingsFile $exe
+    if (-not $file) { return @{ Ok = $false; Msg = '随机器没有生成设置文件（窗口没有正常打开？）。请先手动打开随机器一次再试。' } }
     if ($Fixed) {
         $tok = @(($Fixed.Options -split '\s+') | Where-Object { $_ })
         $o = @{ Options = ($tok -join ' '); From = $(if ($Fixed.From) { $Fixed.From } else { '联机随机码' }); HasItem = ($tok -contains 'item') }
     } else {
         $o = Get-RandomizeOptions
-    }
-    $file = Find-RandSettingsFile
-    if (-not $file) {
-        Write-Host '  第一次用这份随机器：先打开一次让它生成设置文件（会自动关掉，不要点它）...'
-        $file = New-RandSettingsFile $exe
-        if (-not $file) { return @{ Ok = $false; Msg = '随机器没有生成设置文件（窗口没有正常打开？）。请先手动打开随机器一次再试。' } }
     }
     $seed = if ($Fixed) { [int]$Fixed.PresetSeed } else { Get-Random -Minimum 1 -Maximum 2147483647 }
     $nat = ''

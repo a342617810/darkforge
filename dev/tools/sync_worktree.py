@@ -12,8 +12,10 @@ import sys
 ALWAYS = ['launcher/python', 'launcher/dotnet', 'launcher/webview2', 'randomizer', 'randomizer_hi',
           'launcher/reroll/data/menu', 'launcher/reroll/data/bossmods']
 # 只在工作目录还没有时复制一次（之后那边自己写）
+# launcher/randomizer_settings_path.txt 不复制：它记的是主文件夹那份随机器的设置文件，复制过去以后工作目录的启动器把游戏路径、
+# 选项写进了主文件夹随机器的设置，工作目录的随机器打开时读不到（用户 2026-11-17「联机的时候随机器没有默认加载保存的游戏路径」）
 ONCE = ['dll', 'yafsml', 'launcher/reroll/cache', 'launcher/reroll/state',
-        'launcher/game_path.txt', 'launcher/randomizer_settings_path.txt']
+        'launcher/game_path.txt']
 SKIP_PARTS = {'__pycache__', '.git'}
 
 
