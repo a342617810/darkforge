@@ -969,14 +969,14 @@ static WARD_HORSE: std::sync::atomic::AtomicU8 = std::sync::atomic::AtomicU8::ne
 /// ChrIns_PrePhysicsSafe（动作更新完、物理和伤害判定之前）每帧调：
 ///   - 碾压：玩家在翻滚、戴着碾压，就清掉动作事件设的无敌位（清之前记进 CRUSH_TAE，冲击波等它变回灭）；
 ///   - 飞鸿：玩家身上有起跳计时标记，就设翻滚同款的无敌位 dodging（TAE ChrActionFlag 8 FLAG_AS_DODGING），放在碾压后面：起跳无敌优先
-///   - 见切：成立后 0.3 秒里也设这个无敌位（rules::mikiri_ward；在碾压 / 影步清无敌位之后，见切的无敌优先）
+///   - 见切：成立后 1 秒里也设这个无敌位（rules::mikiri_ward；在碾压 / 影步清无敌位之后，见切的无敌优先）
 pub fn pre_physics() {
     let crush = CRUSH_ROLLING.load(std::sync::atomic::Ordering::Relaxed);
     let leap = leap_sp(def());
     let ward = crate::rules::iframes();
     // 影步：积木引擎说翻滚已经过了一半无敌时间，清掉（和碾压一样）
     let cut = crate::rules::CUT_IFRAMES.load(std::sync::atomic::Ordering::Relaxed);
-    // 见切成立后的 0.3 秒无敌（rules::mikiri_ward）
+    // 见切成立后的 1 秒无敌（rules::mikiri_ward）
     let mikiri = crate::rules::mikiri_ward();
     let Ok(wcm) = (unsafe { WorldChrMan::instance_mut() }) else { return };
     let Some(p) = wcm.main_player.as_mut() else { return };

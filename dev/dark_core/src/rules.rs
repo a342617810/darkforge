@@ -131,8 +131,8 @@ fn is_attack(a: i32) -> bool {
 pub static IFRAMES: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 /// 影步：tick 照引擎的 CutIFrames 设，runtime::pre_physics 看到就清玩家的无敌位
 pub static CUT_IFRAMES: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
-/// 见切成立后给的无敌时间（用户 2026-11-17「给见切触发时加0.3s的无敌 不用写到说明里」）
-const MIKIRI_WARD: std::time::Duration = std::time::Duration::from_millis(300);
+/// 见切成立后给的无敌时间（用户 2026-11-17「给见切触发时加0.3s的无敌 不用写到说明里」，2026-11-18「把见切无敌改成1s吧」）
+const MIKIRI_WARD: std::time::Duration = std::time::Duration::from_millis(1000);
 /// 见切的无敌到什么时候：tick 在见切成立那一帧设，runtime::pre_physics 到点前每帧设翻滚同款的无敌位（在碾压 / 影步清无敌位之后）
 static MIKIRI_WARD_UNTIL: Mutex<Option<Instant>> = Mutex::new(None);
 
