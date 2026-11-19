@@ -185,8 +185,10 @@ struct GenSeen {
     hp: i32,
     max: i32,
     pos: [f32; 3],
-    /// 画面上显示着（ChrIns 的 enable_render；禁用的敌人是关着的）
-    shown: bool,
+    /// ChrIns 的几个状态字（第六轮 enable_render 32 只全是开着的，分不出禁用 / 生成器没放出来的，这轮记原始值找规律）：
+    /// [load_state, chr_activation_flags, debug_flags]；chr_flags1c4~1ca 的 7 个字节（里面有每帧变的位，只写进记录、不比变化）
+    st: [u32; 3],
+    fl: [u8; 7],
     /// 活着时最后一次看到的身上的效果、血量上限
     sps: Vec<i32>,
     alive_max: i32,
@@ -2107,7 +2109,7 @@ fn gen_req(d: &Def, st: &mut St, wcm: &WorldChrMan, cmd: &str, now: Instant) {
                 return;
             };
             let before = of(p.ent).map_or("现在不在角色列表里".to_string(), |(a, s)| format!("叫之前 地址 {a:x} 血 {}/{} 位置 {}，{}", s.hp, s.max,
-                                                                                         fmt_pos(s.pos), if s.shown { "显示着" } else { "没显示" }));
+                                                                                         fmt_pos(s.pos), fmt_state(s)));
             flag_set(g.req0 + p.k, true);
             st.genw.called.insert(p.k);
             log(&format!("生成器实验：{cmd}：叫没出场的 {}（生成器 {}{}）；{before}", gen_name(p), g.gen0 + p.k,
@@ -2117,17 +2119,14 @@ fn gen_req(d: &Def, st: &mut St, wcm: &WorldChrMan, cmd: &str, now: Instant) {
             let wave: HashSet<usize> = run.and_then(|r| r.spawned.map(|w| r.lineup[w].iter().copied().collect())).unwrap_or_default();
             let mut v: Vec<(&usize, &(usize, GenSeen))> = look.iter().collect();
             v.sort_by_key(|(_, (i, _))| *i);
-            let (mut lines, mut others) = (Vec::new(), 0);
+            let mut lines = Vec::new();
             for (&a, (i, s)) in v {
                 let p = &c.parts[*i];
-                if !(s.shown || st.genw.called.contains(&p.k) || wave.contains(i)) {
-                    others += 1;
-                    continue;
-                }
-                lines.push(format!("{} 地址 {a:x} 血 {}/{} 位置 {} {}{}；效果 {:?}", gen_name(p), s.hp, s.max, fmt_pos(s.pos),
-                                   if s.shown { "显示着" } else { "没显示" }, if crate::nightmare::is_elite(a) { "，魇化记着它" } else { "" }, s.sps));
+                let tag = if wave.contains(i) { "，这一波的" } else if st.genw.called.contains(&p.k) { "，叫过" } else { "" };
+                lines.push(format!("{} 地址 {a:x} 血 {}/{} 位置 {} {}{tag}{}；效果 {:?}", gen_name(p), s.hp, s.max, fmt_pos(s.pos),
+                                   fmt_state(s), if crate::nightmare::is_elite(a) { "，魇化记着它" } else { "" }, s.sps));
             }
-            log(&format!("生成器实验：记录：{} 只（另有 {others} 只没显示、没叫过）（出现过 {}、倒下过 {}、又活过 {}）{}", lines.len(), st.genw.born,
+            log(&format!("生成器实验：记录：{} 只（出现过 {}、倒下过 {}、又活过 {}）{}", lines.len(), st.genw.born,
                          st.genw.died, st.genw.revived, if lines.is_empty() { String::new() } else { format!("：{}", lines.join("；")) }));
         }
         _ => {
@@ -2147,6 +2146,11 @@ fn fmt_pos(p: [f32; 3]) -> String {
     format!("({:.1}, {:.1}, {:.1})", p[0], p[1], p[2])
 }
 
+/// 状态字（原始值）：读取状态 / 激活 / 调试标志，和 0x1c4 起 7 个字节
+fn fmt_state(s: &GenSeen) -> String {
+    format!("状态 {:08x}/{:08x}/{:08x} {}", s.st[0], s.st[1], s.st[2], s.fl.iter().map(|b| format!("{b:02x}")).collect::<String>())
+}
+
 /// 复活前后身上的效果比一比
 fn sp_diff(before: &[i32], after: &[i32]) -> String {
     let lost: Vec<i32> = before.iter().filter(|x| !after.contains(x)).copied().collect();
@@ -2163,12 +2167,17 @@ fn gen_look(c: &Colo, wcm: &WorldChrMan) -> HashMap<usize, (usize, GenSeen)> {
         let Some(&i) = by_ent.get(&ch.event_entity_id) else { continue };
         let p = &ch.modules.physics.position;
         let (hp, max) = (ch.modules.data.hp, ch.modules.data.max_hp);
+        let base = ch as *const eldenring::cs::ChrIns as *const u8;
+        let u32_at = |off: usize| unsafe { std::ptr::read_unaligned(base.add(off) as *const u32) };
+        let f0 = std::mem::offset_of!(eldenring::cs::ChrIns, chr_flags1c4);
         out.insert(a, (i, GenSeen {
             ent: ch.event_entity_id,
             hp,
             max,
             pos: [p.0, p.1, p.2],
-            shown: ch.chr_flags1c5.enable_render(),
+            st: [u32_at(std::mem::offset_of!(eldenring::cs::ChrIns, load_state)), u32_at(std::mem::offset_of!(eldenring::cs::ChrIns, chr_activation_flags)),
+                 u32_at(std::mem::offset_of!(eldenring::cs::ChrIns, debug_flags))],
+            fl: std::array::from_fn(|j| unsafe { *base.add(f0 + j) }),
             sps: if hp > 0 { ch.special_effect.entries().map(|s| s.param_id).collect() } else { Vec::new() },
             alive_max: if hp > 0 { max } else { 0 },
             died_at: None,
@@ -2188,6 +2197,9 @@ fn gen_tick(d: &Def, st: &mut St, wcm: &WorldChrMan, now: Instant) {
         st.genw.next = None;
         log(&format!("生成器实验：在竞技场 {} 的试炼里，开始记那里的敌人（{} 分钟）", g.x, GEN_WATCH.as_secs() / 60));
     }
+    // 这一波出场的（状态字变了要记）
+    let wave: HashSet<usize> = st.run.as_ref().filter(|r| d.colos.get(r.ci).is_some_and(|rc| rc.x == g.x))
+        .and_then(|r| r.spawned.map(|w| r.lineup[w].iter().copied().collect())).unwrap_or_default();
     let w = &mut st.genw;
     if w.until.is_none_or(|t| now > t) || w.next.is_some_and(|t| now < t) {
         return;
@@ -2195,14 +2207,14 @@ fn gen_tick(d: &Def, st: &mut St, wcm: &WorldChrMan, now: Instant) {
     w.next = Some(now + GEN_SCAN);
     let mut cur = gen_look(c, wcm);
     let mut lines = Vec::new();
-    let (mut n_new, mut n_hide, mut n_gone) = (0, 0, 0);
+    let (mut n_new, mut n_gone) = (0, 0);
     for (&a, (i, s)) in cur.iter_mut() {
         let p = &c.parts[*i];
         let called = w.called.contains(&p.k);
         let Some(o) = w.seen.get(&a) else {
             w.born += 1;
             if called {
-                lines.push(format!("出现 {} 地址 {a:x} 血 {}/{} 位置 {}{}", gen_name(p), s.hp, s.max, fmt_pos(s.pos), if s.shown { "" } else { "（没显示）" }));
+                lines.push(format!("出现 {} 地址 {a:x} 血 {}/{} 位置 {} {}", gen_name(p), s.hp, s.max, fmt_pos(s.pos), fmt_state(s)));
             } else {
                 n_new += 1;
             }
@@ -2233,12 +2245,9 @@ fn gen_tick(d: &Def, st: &mut St, wcm: &WorldChrMan, now: Instant) {
                 lines.push(format!("挪了 {} {} → {}（{dist:.1} 米）", gen_name(p), fmt_pos(o.pos), fmt_pos(s.pos)));
             }
         }
-        if o.shown != s.shown {
-            if s.shown || called {
-                lines.push(format!("{} {} 显示", gen_name(p), if s.shown { "开始" } else { "不再" }));
-            } else {
-                n_hide += 1;
-            }
+        // 读取状态 / 激活 / 调试标志变了（叫过的、这一波的才记：出场、开打、复活时变没变）
+        if o.st != s.st && (called || wave.contains(i)) {
+            lines.push(format!("状态变了 {} {:08x}/{:08x}/{:08x} → {}", gen_name(p), o.st[0], o.st[1], o.st[2], fmt_state(s)));
         }
     }
     let due: Vec<(usize, Instant, Vec<i32>)> = w.recheck.iter().filter(|x| now >= x.1).cloned().collect();
@@ -2261,18 +2270,15 @@ fn gen_tick(d: &Def, st: &mut St, wcm: &WorldChrMan, now: Instant) {
     if n_new > 0 {
         lines.push(format!("另有 {n_new} 只出现"));
     }
-    if n_hide > 0 {
-        lines.push(format!("{n_hide} 只不再显示"));
-    }
     if n_gone > 0 {
         lines.push(format!("{n_gone} 只消失"));
     }
-    let shown_alive = cur.values().filter(|(_, s)| s.shown && s.hp > 0).count();
+    let alive = cur.values().filter(|(_, s)| s.hp > 0).count();
     let total = cur.len();
     w.seen = cur.into_iter().map(|(a, (_, s))| (a, s)).collect();
     if !lines.is_empty() && w.logs < GEN_LOGS {
         w.logs += 1;
-        log(&format!("生成器实验：{}；现在 {total} 只、显示着活着的 {shown_alive} 只（出现过 {}、倒下过 {}、又活过 {}）", lines.join("；"), w.born, w.died, w.revived));
+        log(&format!("生成器实验：{}；现在 {total} 只、活着 {alive} 只（出现过 {}、倒下过 {}、又活过 {}）", lines.join("；"), w.born, w.died, w.revived));
     }
 }
 
