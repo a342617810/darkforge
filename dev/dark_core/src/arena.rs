@@ -1075,14 +1075,25 @@ fn start_wave(d: &Def, st: &mut St, r: &mut Run, i: usize, now: Instant) {
     for &m in members {
         flag_set(c.flag + d.spawn + c.parts[m].k, true);
     }
-    // 这一波要挂的：血量随波次（粪金龟不挂）+ 命中的 wfx 规则的效果包，交给敌人效果模块（出场后挂上、上限变了按比例补血）
     crate::foefx::release(FX_TAG);
+    let members = members.clone();
+    wave_effects(d, r, i, &members, "");
+    note(d, st, r.ci, &format!("wave {} {}", r.waves, i + 1));
+    let names: Vec<&str> = members.iter().map(|&m| c.parts[m].name.as_str()).collect();
+    log(&format!("竞技场：第 {} / {} 波出场 {}", i + 1, r.waves, names.join("、")));
+}
+
+/// 第 i 波的这些部件（d.colos[r.ci].parts 的下标）要挂的：血量随波次（粪金龟不挂）+ 命中的 wfx 规则的效果包，交给敌人效果模块
+/// （出场后挂上、上限变了按比例补血；效果没了它自己补挂），精英登记魇化。出场时用；生成器实验复活时也用（复活会清掉身上全部效果，
+/// 清场时这一波已经从敌人效果模块、魇化里放掉了，要重新登记；why 写进日志）
+fn wave_effects(d: &Def, r: &Run, i: usize, members: &[usize], why: &str) {
+    let c = &d.colos[r.ci];
     let hp_sp = d.hpwave.and_then(|(every, sp0, count)| {
         let step = (i / every).min(count);
         (step > 0).then(|| (step, sp0 + step as i32 - 1))
     });
     if let Some((step, sp)) = hp_sp {
-        log(&format!("竞技场：第 {} 波敌人血量加成第 {step} 档（效果 {sp}）", i + 1));
+        log(&format!("竞技场：{why}第 {} 波敌人血量加成第 {step} 档（效果 {sp}）", i + 1));
     }
     for &m in members {
         let p = &c.parts[m];
@@ -1106,7 +1117,7 @@ fn start_wave(d: &Def, st: &mut St, r: &mut Run, i: usize, now: Instant) {
             }
         }
         if !got.is_empty() {
-            log(&format!("竞技场：第 {} 波 {} 挂效果包 {}（效果 {:?}，动作速度 ×{:.2}）", i + 1, p.name, got.join("、"), fx.sps, fx.speed));
+            log(&format!("竞技场：{why}第 {} 波 {} 挂效果包 {}（效果 {:?}，动作速度 ×{:.2}）", i + 1, p.name, got.join("、"), fx.sps, fx.speed));
         }
         crate::foefx::attach(FX_TAG, p.ent, &fx);
     }
@@ -1115,9 +1126,6 @@ fn start_wave(d: &Def, st: &mut St, r: &mut Run, i: usize, now: Instant) {
     if !elites.is_empty() {
         crate::nightmare::force(&elites, d.two.get(r.diff).copied().unwrap_or(0.0));
     }
-    note(d, st, r.ci, &format!("wave {} {}", r.waves, i + 1));
-    let names: Vec<&str> = members.iter().map(|&m| c.parts[m].name.as_str()).collect();
-    log(&format!("竞技场：第 {} / {} 波出场 {}", i + 1, r.waves, names.join("、")));
 }
 
 /// 点亮开打（竞技场的事件打开 AI、关掉无敌）
@@ -2077,7 +2085,7 @@ fn gen_req(d: &Def, st: &mut St, wcm: &WorldChrMan, cmd: &str, now: Instant) {
                 log("生成器实验：复活这一波：这次试炼还没有敌人出场");
                 return;
             };
-            let (mut called, mut alive) = (Vec::new(), Vec::new());
+            let (mut called, mut alive, mut back) = (Vec::new(), Vec::new(), Vec::new());
             for &m in &r.lineup[w] {
                 let p = &c.parts[m];
                 // 看得到就按血量（复活过的死亡标记还亮着）；看不到才按死亡标记
@@ -2089,6 +2097,7 @@ fn gen_req(d: &Def, st: &mut St, wcm: &WorldChrMan, cmd: &str, now: Instant) {
                     flag_set(g.req0 + p.k, true);
                     st.genw.called.insert(p.k);
                     called.push(format!("{}（生成器 {}）", gen_name(p), g.gen0 + p.k));
+                    back.push(m);
                 } else {
                     alive.push(gen_name(p));
                 }
@@ -2096,6 +2105,13 @@ fn gen_req(d: &Def, st: &mut St, wcm: &WorldChrMan, cmd: &str, now: Instant) {
             log(&format!("生成器实验：复活这一波（第 {} 波）：叫 {}；没倒下的不叫：{}", w + 1,
                          if called.is_empty() { "没有".to_string() } else { called.join("、") },
                          if alive.is_empty() { "没有".to_string() } else { alive.join("、") }));
+            // 第八轮：复活会清掉身上全部效果（第七轮实测魇化的血量、描边都没了），按它那一波重新登记魇化、血量加成和效果包
+            // （活着时魇化、敌人效果模块自己会补挂；魇化重新抽词条）
+            if !back.is_empty() {
+                wave_effects(d, r, w, &back, "生成器实验复活：");
+                let elites = back.iter().filter(|&&m| !c.parts[m].boss && !c.parts[m].scarab).count();
+                log(&format!("生成器实验：复活的 {} 只按第 {} 波重新登记效果（其中精英 {elites} 只重新魇化）", back.len(), w + 1));
+            }
         }
         "叫精英" | "叫Boss" => {
             let boss = cmd == "叫Boss";
