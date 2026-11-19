@@ -160,34 +160,55 @@ struct Def {
     gentest: Option<GenTest>,
 }
 
-/// 生成器实验（rr/arena.py 的 GEN_*）：哪个竞技场、第一个标记（+0 开 / +1 刷一只 / +2 关 / +3 显示模板 / +4 隐藏模板，竞技场的事件听）、
-/// 模板的敌人参数（生出来的敌人看它认）、生成器实体、模板实体
+/// 生成器实验（rr/arena.py 的 GEN_*，第六轮）：哪个竞技场、部件 k 的请求标记起点（+ k，竞技场的事件听着叫部件 k 的生成器）、
+/// 部件 k 的生成器实体起点（+ k，只写日志用）
 #[derive(Debug, Clone, Copy, PartialEq)]
 struct GenTest {
     x: u32,
-    flag0: u32,
-    npc: i32,
-    gen_ent: u32,
-    tmpl: u32,
+    req0: u32,
+    gen0: u32,
 }
 
-/// 生成器实验：点过按钮以后这么久里一直记生出来的敌人
+/// 生成器实验：进了那个竞技场的试炼、或者点过按钮以后这么久里一直记那个竞技场的敌人
 const GEN_WATCH: Duration = Duration::from_secs(600);
 const GEN_SCAN: Duration = Duration::from_millis(500);
 const GEN_LOGS: u32 = 400;
+/// 复活后再看一次身上的效果（别的模块可能隔一会儿才挂回去）
+const GEN_RECHECK: Duration = Duration::from_secs(3);
+/// 两次扫描之间活着挪了这么远：当成被生成器挪到了出生点（跑动 0.5 秒到不了）
+const GEN_JUMP: f32 = 5.0;
 
-/// 生成器实验的记录：看到过的同参数敌人（地址 → (实体编号, 血量)）
+/// 生成器实验：一只敌人上次看到的样子
+#[derive(Debug, Default, Clone)]
+struct GenSeen {
+    ent: u32,
+    hp: i32,
+    max: i32,
+    pos: [f32; 3],
+    /// 画面上显示着（ChrIns 的 enable_render；禁用的敌人是关着的）
+    shown: bool,
+    /// 活着时最后一次看到的身上的效果、血量上限
+    sps: Vec<i32>,
+    alive_max: i32,
+    died_at: Option<Instant>,
+}
+
+/// 生成器实验的记录（地址 → 上次看到的样子）
 #[derive(Debug, Default)]
 struct GenWatch {
     until: Option<Instant>,
     next: Option<Instant>,
-    seen: HashMap<usize, (u32, i32)>,
+    seen: HashMap<usize, GenSeen>,
     logs: u32,
     born: u32,
     died: u32,
     revived: u32,
-    /// 每个角色上次倒下的时间（又活了时写隔了几秒）
-    died_at: HashMap<usize, Instant>,
+    /// 叫过生成器的部件 k
+    called: HashSet<u32>,
+    /// 复活后过一会儿再看效果：(地址, 到什么时候, 倒下前的效果)
+    recheck: Vec<(usize, Instant, Vec<i32>)>,
+    /// 玩家身上的卢恩（上次看到的）
+    runes: Option<u32>,
 }
 
 /// 按波次挂的效果（arena.txt 的 wfx 行，rr/arena.py wave_fx_lines）：wfx 竞技场 场次的总波数 哪种敌人 第几波 几率% 效果包（- = 不限）
@@ -302,7 +323,7 @@ fn parse(text: &str) -> Option<Def> {
                 d.dmult[k] = f4(&f[2..])?;
             }
             "hpwave" => d.hpwave = Some(((n(1)? as usize).max(1), n(2)? as i32, n(3)? as usize)),
-            "gentest" => d.gentest = Some(GenTest { x: n(1)?, flag0: n(2)?, npc: n(3)? as i32, gen_ent: n(4)?, tmpl: n(5)? }),
+            "gentest" => d.gentest = Some(GenTest { x: n(1)?, req0: n(2)?, gen0: n(3)? }),
             // 写错的一条不要（不影响整个试炼）
             "wfx" => match WaveFx::parse(&f) {
                 Some(w) => d.wfx.push(w),
@@ -2023,11 +2044,15 @@ fn dev_req(d: &Def, st: &mut St, wcm: &mut WorldChrMan, now: Instant) {
     }
 }
 
-/// 生成器实验（开发工具「生成器 开 / 刷 / 关 / 模板显示 / 模板隐藏 / 记录」）：点亮竞技场事件听的标记（只在那个竞技场里有用），
-/// 之后 GEN_WATCH 里一直记模板这个敌人参数的敌人
+/// 生成器实验（开发工具「生成器 复活这一波 / 叫精英 / 叫Boss / 记录」，第六轮）：点亮部件 k 的请求标记（竞技场的事件听着叫部件 k
+/// 自己的生成器，只在那个竞技场里有用），之后 GEN_WATCH 里一直记那个竞技场的敌人
 fn gen_req(d: &Def, st: &mut St, wcm: &WorldChrMan, cmd: &str, now: Instant) {
     let Some(g) = d.gentest else {
         log("生成器实验：arena.txt 里没有 gentest 行（settings 的 arena.generator_test 没写竞技场名字，或者还没重随）");
+        return;
+    };
+    let Some(c) = d.colos.iter().find(|c| c.x == g.x) else {
+        log(&format!("生成器实验：arena.txt 里没有竞技场 {}", g.x));
         return;
     };
     let here = wcm.main_player.as_ref().map(|p| {
@@ -2037,91 +2062,217 @@ fn gen_req(d: &Def, st: &mut St, wcm: &WorldChrMan, cmd: &str, now: Instant) {
     if here != Some((45, g.x as u8)) {
         log(&format!("生成器实验：现在不在竞技场 {}（m45_0{}）里，标记点了也没人听（人在 {:?}）", g.x, g.x, here));
     }
-    let k = match cmd {
-        "开" => Some(0),
-        "刷" => Some(1),
-        "关" => Some(2),
-        "模板显示" => Some(3),
-        "模板隐藏" => Some(4),
-        "记录" => None,
+    let look = gen_look(c, wcm);
+    let of = |ent: u32| look.iter().find(|(_, (_, s))| s.ent == ent).map(|(&a, (_, s))| (a, s));
+    let run = st.run.as_ref().filter(|r| d.colos.get(r.ci).is_some_and(|rc| rc.x == g.x));
+    match cmd {
+        "复活这一波" => {
+            let Some(r) = run else {
+                log("生成器实验：复活这一波：现在不在这个竞技场的试炼里");
+                return;
+            };
+            let Some(w) = r.spawned else {
+                log("生成器实验：复活这一波：这次试炼还没有敌人出场");
+                return;
+            };
+            let (mut called, mut alive) = (Vec::new(), Vec::new());
+            for &m in &r.lineup[w] {
+                let p = &c.parts[m];
+                // 看得到就按血量（复活过的死亡标记还亮着）；看不到才按死亡标记
+                let gone = match of(p.ent) {
+                    Some((_, s)) => s.hp <= 0,
+                    None => flag_get(c.flag + d.dead + p.k) == Some(true),
+                };
+                if gone {
+                    flag_set(g.req0 + p.k, true);
+                    st.genw.called.insert(p.k);
+                    called.push(format!("{}（生成器 {}）", gen_name(p), g.gen0 + p.k));
+                } else {
+                    alive.push(gen_name(p));
+                }
+            }
+            log(&format!("生成器实验：复活这一波（第 {} 波）：叫 {}；没倒下的不叫：{}", w + 1,
+                         if called.is_empty() { "没有".to_string() } else { called.join("、") },
+                         if alive.is_empty() { "没有".to_string() } else { alive.join("、") }));
+        }
+        "叫精英" | "叫Boss" => {
+            let boss = cmd == "叫Boss";
+            // 优先这次试炼排不到的（排到了的出场时还会被启用一次）
+            let later: HashSet<usize> = run.map(|r| r.lineup.iter().flatten().copied().collect()).unwrap_or_default();
+            let pick = c.parts.iter().enumerate()
+                .filter(|(_, p)| p.boss == boss && !p.scarab && flag_get(c.flag + d.spawn + p.k) != Some(true) && !st.genw.called.contains(&p.k))
+                .min_by_key(|(m, _)| later.contains(m));
+            let Some((m, p)) = pick else {
+                log(&format!("生成器实验：{cmd}：没有没出场、也没叫过的了"));
+                return;
+            };
+            let before = of(p.ent).map_or("现在不在角色列表里".to_string(), |(a, s)| format!("叫之前 地址 {a:x} 血 {}/{} 位置 {}，{}", s.hp, s.max,
+                                                                                         fmt_pos(s.pos), if s.shown { "显示着" } else { "没显示" }));
+            flag_set(g.req0 + p.k, true);
+            st.genw.called.insert(p.k);
+            log(&format!("生成器实验：{cmd}：叫没出场的 {}（生成器 {}{}）；{before}", gen_name(p), g.gen0 + p.k,
+                         if later.contains(&m) { "，这次试炼后面的波次会排到它" } else { "" }));
+        }
+        "记录" => {
+            let wave: HashSet<usize> = run.and_then(|r| r.spawned.map(|w| r.lineup[w].iter().copied().collect())).unwrap_or_default();
+            let mut v: Vec<(&usize, &(usize, GenSeen))> = look.iter().collect();
+            v.sort_by_key(|(_, (i, _))| *i);
+            let (mut lines, mut others) = (Vec::new(), 0);
+            for (&a, (i, s)) in v {
+                let p = &c.parts[*i];
+                if !(s.shown || st.genw.called.contains(&p.k) || wave.contains(i)) {
+                    others += 1;
+                    continue;
+                }
+                lines.push(format!("{} 地址 {a:x} 血 {}/{} 位置 {} {}{}；效果 {:?}", gen_name(p), s.hp, s.max, fmt_pos(s.pos),
+                                   if s.shown { "显示着" } else { "没显示" }, if crate::nightmare::is_elite(a) { "，魇化记着它" } else { "" }, s.sps));
+            }
+            log(&format!("生成器实验：记录：{} 只（另有 {others} 只没显示、没叫过）（出现过 {}、倒下过 {}、又活过 {}）{}", lines.len(), st.genw.born,
+                         st.genw.died, st.genw.revived, if lines.is_empty() { String::new() } else { format!("：{}", lines.join("；")) }));
+        }
         _ => {
             log(&format!("生成器实验：看不懂「{cmd}」"));
             return;
         }
-    };
-    if let Some(k) = k {
-        flag_set(g.flag0 + k, true);
-        log(&format!("生成器实验：{cmd}（点亮 {}；生成器实体 {}，模板实体 {}，敌人参数 {}）", g.flag0 + k, g.gen_ent, g.tmpl, g.npc));
     }
     st.genw.until = Some(now + GEN_WATCH);
     st.genw.next = None;
-    if k.is_none() {
-        let mut lines = Vec::new();
-        for a in crate::chrs::collect(&wcm.player_chr_set, [&wcm.ghost_chr_set, &wcm.summon_buddy_chr_set, &wcm.debug_chr_set, &wcm.open_field_chr_set.base], &wcm.chr_sets) {
-            let ch = unsafe { &*(a as *const eldenring::cs::ChrIns) };
-            if ch.npc_param_id == g.npc || ch.event_entity_id == g.gen_ent || ch.event_entity_id == g.tmpl {
-                let p = &ch.modules.physics.position;
-                lines.push(format!("地址 {a:x} 实体 {} 敌人参数 {} 血 {}/{} 位置 ({:.1}, {:.1}, {:.1})", ch.event_entity_id,
-                                   ch.npc_param_id, ch.modules.data.hp, ch.modules.data.max_hp, p.0, p.1, p.2));
-            }
-        }
-        log(&format!("生成器实验：记录：{} 个（出现过 {}、倒下过 {}、又活过 {}）{}", lines.len(), st.genw.born, st.genw.died, st.genw.revived,
-                     if lines.is_empty() { String::new() } else { format!("：{}", lines.join("；")) }));
-    }
 }
 
-/// 生成器实验：点过按钮以后每 GEN_SCAN 看一眼模板这个敌人参数的敌人，出现 / 倒下 / 消失各记一行
+fn gen_name(p: &Part) -> String {
+    format!("部件 {} {}（实体 {}）", p.k, p.name, p.ent)
+}
+
+fn fmt_pos(p: [f32; 3]) -> String {
+    format!("({:.1}, {:.1}, {:.1})", p[0], p[1], p[2])
+}
+
+/// 复活前后身上的效果比一比
+fn sp_diff(before: &[i32], after: &[i32]) -> String {
+    let lost: Vec<i32> = before.iter().filter(|x| !after.contains(x)).copied().collect();
+    let new: Vec<i32> = after.iter().filter(|x| !before.contains(x)).copied().collect();
+    format!("效果 倒下前 {} 个、现在 {} 个，少了 {lost:?}，多了 {new:?}", before.len(), after.len())
+}
+
+/// 那个竞技场的部件现在的样子：地址 → (部件在 c.parts 的下标, 样子)。全部角色集合（chrs.rs 的 live!）
+fn gen_look(c: &Colo, wcm: &WorldChrMan) -> HashMap<usize, (usize, GenSeen)> {
+    let by_ent: HashMap<u32, usize> = c.parts.iter().enumerate().map(|(i, p)| (p.ent, i)).collect();
+    let mut out = HashMap::new();
+    for a in crate::chrs::collect(&wcm.player_chr_set, [&wcm.ghost_chr_set, &wcm.summon_buddy_chr_set, &wcm.debug_chr_set, &wcm.open_field_chr_set.base], &wcm.chr_sets) {
+        let ch = unsafe { &*(a as *const eldenring::cs::ChrIns) };
+        let Some(&i) = by_ent.get(&ch.event_entity_id) else { continue };
+        let p = &ch.modules.physics.position;
+        let (hp, max) = (ch.modules.data.hp, ch.modules.data.max_hp);
+        out.insert(a, (i, GenSeen {
+            ent: ch.event_entity_id,
+            hp,
+            max,
+            pos: [p.0, p.1, p.2],
+            shown: ch.chr_flags1c5.enable_render(),
+            sps: if hp > 0 { ch.special_effect.entries().map(|s| s.param_id).collect() } else { Vec::new() },
+            alive_max: if hp > 0 { max } else { 0 },
+            died_at: None,
+        }));
+    }
+    out
+}
+
+/// 生成器实验：进了那个竞技场的试炼、或者点过按钮以后，每 GEN_SCAN 看一眼那个竞技场的敌人：倒下 / 又活了（复活前后的效果、血量上限）/
+/// 被挪到出生点 / 开始显示，叫过的出现、不再显示，玩家卢恩多了多少
 fn gen_tick(d: &Def, st: &mut St, wcm: &WorldChrMan, now: Instant) {
     let Some(g) = d.gentest else { return };
+    let Some(c) = d.colos.iter().find(|c| c.x == g.x) else { return };
+    // 进了这个竞技场的试炼就开始记（第一波出场、魇化挂上以后的样子也要）
+    if st.run.as_ref().is_some_and(|r| d.colos.get(r.ci).is_some_and(|rc| rc.x == g.x)) && st.genw.until.is_none_or(|t| now > t) {
+        st.genw.until = Some(now + GEN_WATCH);
+        st.genw.next = None;
+        log(&format!("生成器实验：在竞技场 {} 的试炼里，开始记那里的敌人（{} 分钟）", g.x, GEN_WATCH.as_secs() / 60));
+    }
     let w = &mut st.genw;
     if w.until.is_none_or(|t| now > t) || w.next.is_some_and(|t| now < t) {
         return;
     }
     w.next = Some(now + GEN_SCAN);
-    // 全部角色集合（地图块、开放地图、召唤、灵体……，chrs.rs 的 live!）：生成器生出来的不一定放在地图块的 ChrSet 里
-    let in_blocks: HashSet<usize> = wcm.chr_sets.iter().flatten().flat_map(|s| s.characters().map(|c| &*c as *const _ as usize)).collect();
-    let mut cur: HashMap<usize, (u32, i32, i32, [f32; 3])> = HashMap::new();
-    for a in crate::chrs::collect(&wcm.player_chr_set, [&wcm.ghost_chr_set, &wcm.summon_buddy_chr_set, &wcm.debug_chr_set, &wcm.open_field_chr_set.base], &wcm.chr_sets) {
-        let ch = unsafe { &*(a as *const eldenring::cs::ChrIns) };
-        if ch.npc_param_id == g.npc {
-            let p = &ch.modules.physics.position;
-            cur.insert(a, (ch.event_entity_id, ch.modules.data.hp, ch.modules.data.max_hp, [p.0, p.1, p.2]));
-        }
-    }
+    let mut cur = gen_look(c, wcm);
     let mut lines = Vec::new();
-    for (&a, &(ent, hp, max, pos)) in &cur {
-        let what = format!("{}{}", if ent == g.tmpl { "（模板）" } else if ent == 0 { "（没有实体编号）" } else { "" },
-                           if in_blocks.contains(&a) { "" } else { "（不在地图块的角色集合里）" });
-        match w.seen.get(&a) {
-            None => {
-                w.born += 1;
-                lines.push(format!("出现 地址 {a:x} 实体 {ent}{what} 血 {hp}/{max} 位置 ({:.1}, {:.1}, {:.1})", pos[0], pos[1], pos[2]));
+    let (mut n_new, mut n_hide, mut n_gone) = (0, 0, 0);
+    for (&a, (i, s)) in cur.iter_mut() {
+        let p = &c.parts[*i];
+        let called = w.called.contains(&p.k);
+        let Some(o) = w.seen.get(&a) else {
+            w.born += 1;
+            if called {
+                lines.push(format!("出现 {} 地址 {a:x} 血 {}/{} 位置 {}{}", gen_name(p), s.hp, s.max, fmt_pos(s.pos), if s.shown { "" } else { "（没显示）" }));
+            } else {
+                n_new += 1;
             }
-            Some(&(_, h0)) if h0 > 0 && hp <= 0 => {
-                w.died += 1;
-                w.died_at.insert(a, now);
-                lines.push(format!("倒下 地址 {a:x} 实体 {ent}{what} 位置 ({:.1}, {:.1}, {:.1})", pos[0], pos[1], pos[2]));
+            continue;
+        };
+        // 倒下了也留着活着时的效果、血量上限，和倒下的时间
+        if s.hp <= 0 {
+            s.sps = o.sps.clone();
+            s.alive_max = o.alive_max;
+        }
+        s.died_at = o.died_at;
+        if o.ent != s.ent {
+            lines.push(format!("实体编号变了 地址 {a:x}：{} → {}", o.ent, s.ent));
+        }
+        if o.hp > 0 && s.hp <= 0 {
+            w.died += 1;
+            s.died_at = Some(now);
+            lines.push(format!("倒下 {} 位置 {}", gen_name(p), fmt_pos(s.pos)));
+        } else if o.hp <= 0 && s.hp > 0 {
+            w.revived += 1;
+            let after = s.died_at.take().map_or(String::new(), |t| format!("，倒下后 {:.1} 秒", now.duration_since(t).as_secs_f32()));
+            lines.push(format!("又活了 {} 血 {}/{}（倒下前上限 {}）位置 {}{after}；{}；{}", gen_name(p), s.hp, s.max, o.alive_max, fmt_pos(s.pos),
+                               sp_diff(&o.sps, &s.sps), if crate::nightmare::is_elite(a) { "魇化还记着它" } else { "魇化没记它" }));
+            w.recheck.push((a, now + GEN_RECHECK, o.sps.clone()));
+        } else if o.hp > 0 && s.hp > 0 {
+            let dist = ((o.pos[0] - s.pos[0]).powi(2) + (o.pos[1] - s.pos[1]).powi(2) + (o.pos[2] - s.pos[2]).powi(2)).sqrt();
+            if dist > GEN_JUMP {
+                lines.push(format!("挪了 {} {} → {}（{dist:.1} 米）", gen_name(p), fmt_pos(o.pos), fmt_pos(s.pos)));
             }
-            // 同一个角色血量从 0 回来（生成器把管的部件在出生点重新放出来？出生点 (-6, -12) / (6, -12) / (0, -14)，模板原位 (0, -18)）
-            Some(&(_, h0)) if h0 <= 0 && hp > 0 => {
-                w.revived += 1;
-                let after = w.died_at.remove(&a).map_or(String::new(), |t| format!("，倒下后 {:.1} 秒", now.duration_since(t).as_secs_f32()));
-                lines.push(format!("又活了 地址 {a:x} 实体 {ent}{what} 血 {hp}/{max} 位置 ({:.1}, {:.1}, {:.1}){after}", pos[0], pos[1], pos[2]));
+        }
+        if o.shown != s.shown {
+            if s.shown || called {
+                lines.push(format!("{} {} 显示", gen_name(p), if s.shown { "开始" } else { "不再" }));
+            } else {
+                n_hide += 1;
             }
-            Some(&(e0, _)) if e0 != ent => lines.push(format!("实体编号变了 地址 {a:x}：{e0} → {ent}")),
-            _ => {}
         }
     }
-    for (&a, &(ent, hp)) in &w.seen {
-        if !cur.contains_key(&a) {
-            lines.push(format!("消失 地址 {a:x} 实体 {ent}（消失前血 {hp}）"));
+    let due: Vec<(usize, Instant, Vec<i32>)> = w.recheck.iter().filter(|x| now >= x.1).cloned().collect();
+    w.recheck.retain(|x| now < x.1);
+    for (a, _, before) in due {
+        if let Some((i, s)) = cur.get(&a).filter(|(_, s)| s.hp > 0) {
+            lines.push(format!("复活 {} 秒后 {} 血 {}/{}；{}；{}", GEN_RECHECK.as_secs(), gen_name(&c.parts[*i]), s.hp, s.max, sp_diff(&before, &s.sps),
+                               if crate::nightmare::is_elite(a) { "魇化还记着它" } else { "魇化没记它" }));
         }
     }
-    w.seen = cur.iter().map(|(&a, &(e, h, _, _))| (a, (e, h))).collect();
+    n_gone += w.seen.keys().filter(|a| !cur.contains_key(a)).count();
+    // 卢恩只记多了的（庆典油脂每秒扣、存银行不算）
+    let runes = wcm.main_player.as_ref().map(|p| unsafe { p.player_game_data.as_ref() }.rune_count);
+    if let (Some(a), Some(b)) = (w.runes, runes) {
+        if b > a {
+            lines.push(format!("卢恩 +{}（现在 {b}）", b - a));
+        }
+    }
+    w.runes = runes;
+    if n_new > 0 {
+        lines.push(format!("另有 {n_new} 只出现"));
+    }
+    if n_hide > 0 {
+        lines.push(format!("{n_hide} 只不再显示"));
+    }
+    if n_gone > 0 {
+        lines.push(format!("{n_gone} 只消失"));
+    }
+    let shown_alive = cur.values().filter(|(_, s)| s.shown && s.hp > 0).count();
+    let total = cur.len();
+    w.seen = cur.into_iter().map(|(a, (_, s))| (a, s)).collect();
     if !lines.is_empty() && w.logs < GEN_LOGS {
         w.logs += 1;
-        let alive = cur.values().filter(|x| x.1 > 0).count();
-        log(&format!("生成器实验：{}；现在 {} 只、活着 {} 只（出现过 {}、倒下过 {}、又活过 {}）", lines.join("；"), cur.len(), alive, w.born, w.died, w.revived));
+        log(&format!("生成器实验：{}；现在 {total} 只、显示着活着的 {shown_alive} 只（出现过 {}、倒下过 {}、又活过 {}）", lines.join("；"), w.born, w.died, w.revived));
     }
 }
 
@@ -2248,7 +2399,7 @@ part\t1\t4\te\t45013004\t99300104\t0\tc3010_9006\npart\t1\t5\te\t45013005\t99300
 part\t1\t6\te\t45013006\t99300106\t1\tc4602_9004\npart\t1\t7\te\t45013007\t99300107\t2\tc3970_9050\npart\t1\t8\te\t45013008\t99300108\t2\tc3970_9050\n\
 note\twave 2 1\t1\nnote\twave 2 2\t2\nnote\tclear\t15\n\
 wfx\t-\t4,8\tb\t3-6,8+\t100\t狂暴,铁壁\nwfx\t1\t-\te,s\t2\t50\tarena_rule2\nwfx\t-\t-\tb\t0\t100\tx\nwfx\t-\t-\tb\t1\t100\t\n\
-gentest\t2\t45022750\t99300203\t45023900\t45023910\n";
+gentest\t1\t45012700\t45013700\n";
 
     /// 按波次挂效果的几率：同样的试炼编号 / 波次 / 实体 / 规则两台电脑一样，换一样就变；50% 大约一半
     #[test]
@@ -2306,7 +2457,7 @@ gentest\t2\t45022750\t99300203\t45023900\t45023910\n";
         assert_eq!(d.dmult[1], [1.0; 4]);
         assert_eq!(d.two, vec![0.0, 0.0, 10.0]);
         assert_eq!(d.hpwave, Some((2, 7319970, 4)));
-        assert_eq!(d.gentest, Some(GenTest { x: 2, flag0: 45022750, npc: 99300203, gen_ent: 45023900, tmpl: 45023910 }));
+        assert_eq!(d.gentest, Some(GenTest { x: 1, req0: 45012700, gen0: 45013700 }));
         assert!(parse("req\t1\t2\t3\t4\n").is_none());
     }
 

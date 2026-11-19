@@ -1097,22 +1097,18 @@ impl App {
             let x = line.split('\t').nth(1).unwrap_or("?").to_string();
             let name = match x.as_str() { "0" => "王城", "1" => "盖利德", "2" => "宁姆格福", _ => "?" };
             ui.separator();
-            ui.text_wrapped(format!("生成器实验（{name}竞技场；人要在那个竞技场里，可以先用上面的按钮直接进）："));
-            for (label, cmd) in [("开（自动补到 3 只）", "开"), ("刷一只", "刷"), ("关", "关")] {
+            ui.text_wrapped(format!("生成器实验（{name}竞技场，每个敌人一个生成器；先用上面的按钮进那个竞技场的试炼）："));
+            for (label, cmd) in [("复活这一波倒下的", "复活这一波"), ("叫一只没出场的精英", "叫精英"), ("叫一只没出场的 Boss", "叫Boss")] {
                 if ui.button(format!("{label}##gen{cmd}")) {
                     self.send_arena(&format!("生成器 {cmd}"));
                 }
                 ui.same_line();
             }
             ui.new_line();
-            for (label, cmd) in [("显示模板", "模板显示"), ("隐藏模板", "模板隐藏"), ("记录周围这种敌人", "记录")] {
-                if ui.button(format!("{label}##gen{cmd}")) {
-                    self.send_arena(&format!("生成器 {cmd}"));
-                }
-                ui.same_line();
+            if ui.button("记录这个竞技场的敌人##gen记录") {
+                self.send_arena("生成器 记录");
             }
-            ui.new_line();
-            ui.text_wrapped("结果看 dark_core.log 里「生成器实验：」开头的行（每只生出来的敌人出现 / 倒下 / 消失、实体编号、地址）。");
+            ui.text_wrapped("结果看 dark_core.log 里「生成器实验：」开头的行（倒下 / 又活了、复活前后身上的效果、被挪到出生点、卢恩多了多少）。");
         }
         ui.separator();
     }

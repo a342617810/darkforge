@@ -153,17 +153,19 @@ def arena_spec(co):
         raise RuntimeError('部件实体和传送落点撞号')
     g = co.get('gen')
     if g:
-        # 无尽模式的生成器实验（rr/arena.py 的 GEN_*）：照抄一个精英当模板，从原版学院照抄出生点区域和生成器
+        # 无尽模式的生成器实验（rr/arena.py 的 GEN_*，第六轮）：每个部件一个生成器（照抄湖底的类型 3，管那个部件本身），
+        # 出生点区域从原版学院照抄；生成器 k 的出生点从第 k 个开始排
         src, rsrc = vanilla(rel_map(g['src_map'])), vanilla(rel_map(g.get('region_map') or g['src_map']))
         if not src or not rsrc:
             raise RuntimeError('找不到生成器实验的来源地图 %s / %s' % (g['src_map'], g.get('region_map')))
-        L.append(line('clone', g['src_part'], g['tmpl'], g['tmpl_ent'], float(g['tmpl_at'][0]), Y, float(g['tmpl_at'][1]), ENEMY_YAW))
         names = []
         for i, (ent, (x, z)) in enumerate(zip(g['regs'], g['at'])):
             names.append('DR 生成器实验 出生点 %d' % (i + 1))
             L.append(line('region', rsrc, g['src_region'], names[-1], ent, float(x), Y, float(z), ENEMY_YAW))
-        L.append(line('generator', src, g['src_gen'], 'DR 生成器实验', g['gen_ent'], g['max_num'], g['limit'], g['min_gen'], g['max_gen'],
-                      float(g['min_iv']), float(g['max_iv']), g['initial'], ','.join(names), g['tmpl']))
+        for gi in g['gens']:
+            n = gi['k'] % len(names)
+            L.append(line('generator', src, g['src_gen'], 'DR 生成器实验 %d' % gi['k'], gi['ent'], g['max_num'], g['limit'], g['min_gen'], g['max_gen'],
+                          float(g['min_iv']), float(g['max_iv']), g['initial'], ','.join(names[n:] + names[:n]), gi['part']))
     return '\n'.join(L) + '\n'
 
 
@@ -239,7 +241,7 @@ def map_events(raw, co, f):
           {F + EV_RESPAWN0 + s['v'] for s in co['statues']} | {F + b + p['k'] for p in co['parts'] for b in (EV_PART0, EV_READY0, EV_ENGAGE0)}
     g = co.get('gen')
     if g:
-        ids |= {g['ev0'] + k for k in range(6)}
+        ids |= {g['ev0'] + gi['k'] for gi in g['gens']}
     clash = sorted(ev['id'] for ev in e['events'] if ev['id'] in ids)
     if clash:
         raise RuntimeError('%s 的事件脚本里已经有 %s' % (co['map'], clash[:5]))
@@ -319,14 +321,12 @@ def map_events(raw, co, f):
             wait_flag(F + f['run'] + s['v'])] + died + [
             emevd.ins(2003, 23, ('u32', s['resp']))]})
     if g:
-        # 生成器实验：听 dark_core 点亮的 5 个标记（开 / 刷一只 / 关 / 显示模板 / 隐藏模板）。读图时不关生成器、不藏模板
-        # （第三轮，照原版地下墓地 m30_01：一个生成器管一个模板，模板就是图上那只敌人；前两轮读图就关掉 + 藏起来，开了也没生过一只），
-        # 指令照原版 EMEDF：2003[3] 开关生成器（学院 14003978 用它关），2003[54] 让生成器马上生
-        G, T, f0 = g['gen_ent'], g['tmpl_ent'], g['flag0']
-        state = lambda on: emevd.ins(2003, 3, ('u32', G), ('u8', on))
-        tmpl = lambda on: emevd.ins(2004, 5, ('u32', T), ('u8', on))
-        for k, act in enumerate([state(1), emevd.ins(2003, 54, ('u32', G)), state(0), tmpl(1), tmpl(0)]):
-            new.append({'id': g['ev0'] + 1 + k, 'rest': 0, 'params': [], 'ins': [wait_flag(f0 + k), set_flag(f0 + k, 0), act, RESTART]})
+        # 生成器实验（第六轮）：部件 k 的请求标记（dark_core 点亮）→ 叫部件 k 的生成器（2003[54]，原版 EMEDF Invoke Enemy Generator）。
+        # 生成器读图时开着（第五轮：类型 3 开着也不会自己复活），这里不开不关
+        for gi in g['gens']:
+            q = g['req0'] + gi['k']
+            new.append({'id': g['ev0'] + gi['k'], 'rest': 0, 'params': [], 'ins': [
+                wait_flag(q), set_flag(q, 0), emevd.ins(2003, 54, ('u32', gi['ent'])), RESTART]})
     for ev in new:
         ev['ins'].insert(0, dict(NO_SYNC))
     e['events'] += new

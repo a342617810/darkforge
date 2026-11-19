@@ -64,20 +64,22 @@ RUN = 2620                            # 竞技场里的标记：F + 2620 + 雕�
 # 复活点照设，不靠事件里的 10000）、F + 2640 + k 部件 k 读进来了（事件点亮，dark_core 看）
 ENGAGE, MYDEAD, READY = 2605, 2606, 2640
 # 无尽模式的生成器实验（用户 2026-11-17「开始之前无尽模式的生成器实验吧」；settings 的 generator_test 写竞技场名字才做，默认不做）：
-# 在那个竞技场照抄一个精英部件当模板（F + 3910；第三轮起读图时不藏、生成器也不关，照原版地下墓地 m30_01），从原版学院 m14 照抄 3 个出生点区域（F + 3901~3903，学院的
-# 「レナラの子供たち_ジェネレートポイントA01」14002900）和一个生成器（F + 3900，照学院 14003814：刷蕾娜菈的学生那个），
-# 竞技场的事件听 F + 2750~2754（开 / 刷一只 / 关 / 显示模板 / 隐藏模板，开发工具 F9 按钮经 dark_core 点亮），事件 F + 2760~2765。
-# dark_core 的 arena.rs 记下这个敌人参数的每只敌人出现 / 倒下 / 消失（实体编号、地址），看生出来的敌人能不能接进波次判定
+# 前五轮在那个竞技场照抄一个精英部件当模板（F + 3910），配一个生成器（F + 3900）；出生点区域从原版学院 m14 照抄（学院的
+# 「レナラの子供たち_ジェネレートポイントA01」14002900）。开发工具 F9 按钮经 dark_core 点亮请求标记，竞技场的事件听着去叫生成器；
+# dark_core 的 arena.rs 记下这些敌人出现 / 倒下 / 又活了 / 消失（实体编号、地址、位置）。
 # 出生点区域照抄学院 m14 的；生成器第五轮起照抄湖底 m12_08 的 12083260（类型 3：间隔 0、开场不生，原版靠事件 2003[54] 叫，
 # 湖底 m12_01、地下墓地 m30_03 都这样用，m30_03 关着的也叫）。前四轮照抄学院 14003814（类型 1：只会死后按间隔复活，2003[54] 叫不动）
 GEN_SRC_MAP, GEN_SRC_GEN, GEN_SRC_REGION = 'm12_08_00_00', 12083260, 14002900
 GEN_REGION_MAP = 'm14_00_00_00'
-GEN_ENT, GEN_REG0, GEN_TMPL, GEN_FLAG0, GEN_EV0 = 3900, 3901, 3910, 2750, 2760
-GEN_AT = [(-6.0, -12.0), (6.0, -12.0), (0.0, -14.0)]      # 出生点（同 sc/arena.py 的坐标系：竞技场中心、玩家出生点朝 −z）
-GEN_TMPL_AT = (0.0, -18.0)
 # 第三轮（类型 1，间隔 3~5 秒）实测：生成器不复制，而是模板死了以后把它本身在出生点复活（地址、实体编号不变，满血）。
 # 第四轮（类型 1，间隔 600 秒）：死了 27 秒后点「刷一只」不复活，类型 1 叫不动。
-# 第五轮：类型 3，同时 1 只、总数不限、一次 1 只、间隔 0、开场不生（照湖底 m12_08 的），看「刷一只」能不能按需复活、关着能不能叫
+# 第五轮（类型 3，同时 1 只、总数不限、一次 1 只、间隔 0、开场不生，照湖底 m12_08 的；2026-11-19 实测）：死了不会自己回来（开着也不会），
+# 「刷一只」0.5 秒后在出生点满血复活，还是那只（地址、实体编号不变）；活着时叫一下会挪到出生点；出生点按 1 → 2 → 3 换。
+# 第六轮（现在）：不要模板了，给这个竞技场池子里每个敌人各配一个这样的生成器（管那个部件本身），出生点 6 个（F + 3901~3906），
+# 生成器 k 的出生点从第 k 个开始排（几只一起叫不挤在一处）。生成器实体 F + 3700 + k、请求标记 F + 2700 + k、事件 F + 2950 + k。
+# 要看：没出场（禁用着）的叫得出来吗、复活后魇化 / 血量加成这些效果还在吗、第二次打死给不给卢恩
+GEN_ENT0, GEN_REG0, GEN_REQ0, GEN_EV0 = 3700, 3901, 2700, 2950
+GEN_AT = [(-6.0, -12.0), (6.0, -12.0), (0.0, -14.0), (-10.0, -3.0), (10.0, -3.0), (0.0, -5.0)]   # 出生点（同 sc/arena.py 的坐标系：竞技场中心、玩家出生点朝 −z）
 GEN_PARAMS = dict(max_num=1, limit=-1, min_gen=1, max_gen=1, min_iv=0.0, max_iv=0.0, initial=0)
 DEFAULT = dict(enabled=True, tiers=[31, 13, 8], bosses=8, elite_kinds=4, elite_copies=4, elite_per_wave=2, scarab_pct=20, scarab_copies=4,
                cost=[1, 2, 3], waves=[2, 4, 8],
@@ -355,16 +357,18 @@ def gen_test(ctx, c, colos):
         return None
     x = COLO_KEYS.get(v, int(v) if v.isdigit() else None)
     co = next((co for co in colos if co['x'] == x), None)
-    p = next((p for p in (co['parts'] if co else []) if p['kind'] == 'e'), None)
-    if not p:
-        ctx.report.append('生成器实验：generator_test「%s」不对（写 王城 / 盖利德 / 宁姆格福），或者那个竞技场没有精英，跳过' % v)
+    if not co or not co['parts']:
+        ctx.report.append('生成器实验：generator_test「%s」不对（写 王城 / 盖利德 / 宁姆格福），或者那个竞技场没有敌人，跳过' % v)
         return None
     F = co['flag']
-    g = dict(x=x, src_part='%s_%d' % (p['model'], 9500 + p['k']), tmpl='%s_9590' % p['model'], tmpl_ent=F + GEN_TMPL, gen_ent=F + GEN_ENT,
-             regs=[F + GEN_REG0 + i for i in range(len(GEN_AT))], at=[list(a) for a in GEN_AT], tmpl_at=list(GEN_TMPL_AT),
-             flag0=F + GEN_FLAG0, ev0=F + GEN_EV0, npc=p['npc'], src_map=GEN_SRC_MAP, src_gen=GEN_SRC_GEN, region_map=GEN_REGION_MAP, src_region=GEN_SRC_REGION, **GEN_PARAMS)
-    ctx.report.append('生成器实验：%s，模板照抄 %s（敌人参数 %d）→ %s（实体 %d），生成器实体 %d，F9「斗技场试炼测试」里开 / 刷 / 关' % (
-        COLO_ZH[x], g['src_part'], p['npc'], g['tmpl'], g['tmpl_ent'], g['gen_ent']))
+    if F + GEN_ENT0 + max(p['k'] for p in co['parts']) >= F + GEN_REG0:
+        raise RuntimeError('生成器实验：部件太多，生成器实体和出生点撞号')
+    g = dict(x=x, regs=[F + GEN_REG0 + i for i in range(len(GEN_AT))], at=[list(a) for a in GEN_AT],
+             req0=F + GEN_REQ0, gen0=F + GEN_ENT0, ev0=F + GEN_EV0,
+             gens=[dict(k=p['k'], part='%s_%d' % (p['model'], 9500 + p['k']), ent=F + GEN_ENT0 + p['k']) for p in co['parts']],
+             src_map=GEN_SRC_MAP, src_gen=GEN_SRC_GEN, region_map=GEN_REGION_MAP, src_region=GEN_SRC_REGION, **GEN_PARAMS)
+    ctx.report.append('生成器实验：%s，%d 个敌人各配一个生成器（实体 %d 起，照抄 %s 的 %d），F9「斗技场试炼测试」里叫' % (
+        COLO_ZH[x], len(g['gens']), g['gen0'], GEN_SRC_MAP, GEN_SRC_GEN))
     return g
 
 
@@ -584,8 +588,8 @@ def def_lines(ctx):
     out += wave_fx_lines(ctx, c)
     g = a.get('gen')
     if g:
-        # gentest <竞技场> <第一个标记：开 / 刷一只 / 关 / 显示模板 / 隐藏模板> <模板的敌人参数> <生成器实体> <模板实体>
-        out.append('gentest\t%d\t%d\t%d\t%d\t%d' % (g['x'], g['flag0'], g['npc'], g['gen_ent'], g['tmpl_ent']))
+        # gentest <竞技场> <部件 k 的请求标记起点（+ k，竞技场的事件听，叫部件 k 的生成器）> <部件 k 的生成器实体起点（+ k）>
+        out.append('gentest\t%d\t%d\t%d' % (g['x'], g['req0'], g['gen0']))
     for i, (w, cost) in enumerate(zip(c['waves'], c['cost'])):
         # run <场次> <波数> <碎片> <全部打完多给几件> <全部打完退还几个碎片>
         back = int(c['refund'][i]) if i < len(c.get('refund') or []) else 0
