@@ -491,7 +491,14 @@
       }).join('') + '</div>';
     }
     if (kind === 'enemy') html += enemySec('elite', m.elite) + enemySec('boss', m.boss) + (m.note ? '<div class="en-note">' + esc(m.note) + '</div>' : '');
-    html += '</div></div><div class="dlg-foot"><div class="dlg-ops">' + (m.ops || []).map(function (o) {
+    // 输入框（联机「加入」填联机码，用户 2026-11-20「不读剪贴板而是给个输入框」）：回车 = 默认按钮，回答里带 text；
+    // ops（「粘贴」）放在输入框右边（页面关了右键菜单，只用鼠标也要能粘贴），宿主回 dialogset 换输入框的内容
+    var opBtn = function (o) {
+      return '<button class="btn-ghost sm" data-op="' + esc(o.op) + '"' + (o.once ? ' data-once' : '') + '>' + esc(o.label) + '</button>';
+    };
+    if (kind === 'input') html += '<div class="dlg-inrow"><input class="dlg-input" type="text" spellcheck="false" autocomplete="off" placeholder="' +
+      esc(m.placeholder || '') + '" value="' + esc(m.value || '') + '">' + (m.ops || []).map(opBtn).join('') + '</div>';
+    html += '</div></div><div class="dlg-foot"><div class="dlg-ops">' + (kind === 'input' ? [] : m.ops || []).map(function (o) {
       return '<button class="btn-ghost sm" data-op="' + esc(o.op) + '"' + (o.once ? ' data-once' : '') + '>' + esc(o.label) + '</button>';
     }).join('') + '</div><div class="dlg-btns">' + btns.map(function (t, i) {
       return '<button class="' + (i === m.def ? 'btn-gold' : 'btn-ghost') + '" data-b="' + i + '">' + esc(t) + '</button>';
@@ -537,6 +544,8 @@
     if (on) on.scrollIntoView({ block: 'nearest' });
   }
   function focusDlg(d) {
+    var inp = d.el.querySelector('.dlg-input');
+    if (inp) { inp.focus(); inp.select(); return; }
     var b = d.el.querySelector('[data-b="' + d.m.def + '"]') || d.el.querySelector('[data-b]');
     if (b) b.focus();
   }
@@ -549,11 +558,23 @@
   }
   function answer(d, i) {
     if (d.done) return;
+    var inp = d.el.querySelector('.dlg-input');
+    var text = inp ? inp.value : null;
     removeDlg(d);
-    bridge.post('dialog', { id: d.id, result: i, pick: d.pick, e: d.e, b: d.b });
+    bridge.post('dialog', { id: d.id, result: i, pick: d.pick, e: d.e, b: d.b, text: text });
   }
   function closeDialog(id) {
     dlgs.filter(function (d) { return d.id === id; }).forEach(removeDlg);
+  }
+  // 宿主换输入框的内容（「粘贴」读到的剪贴板）：换完放回焦点，全选
+  function setDialogText(id, text) {
+    dlgs.filter(function (d) { return d.id === id && !d.done; }).forEach(function (d) {
+      var inp = d.el.querySelector('.dlg-input');
+      if (!inp) return;
+      inp.value = text || '';
+      inp.focus();
+      inp.select();
+    });
   }
   document.addEventListener('keydown', function (e) {
     var d = topDlg();
@@ -570,7 +591,7 @@
       var n = (m.items || []).length;
       if (n) setPick(d, Math.max(0, Math.min(n - 1, d.pick + (e.key === 'ArrowDown' ? 1 : -1))));
     } else if (e.key === 'Tab') {                 // 焦点留在最上面这层
-      var f = Array.prototype.slice.call(d.el.querySelectorAll('button:not(:disabled)'));
+      var f = Array.prototype.slice.call(d.el.querySelectorAll('button:not(:disabled), .dlg-input'));
       if (!f.length) return;
       var k = f.indexOf(a);
       e.preventDefault();
@@ -591,8 +612,9 @@
     else if (m.type === 'closeModal') closeModal();
     else if (m.type === 'dialog') openDialog(m);
     else if (m.type === 'dialogclose') closeDialog(m.id);
+    else if (m.type === 'dialogset') setDialogText(m.id, m.text);
   });
-  window.__df = { render: render, showTab: showTab, openModal: openModal, dialog: openDialog, dialogs: function () { return dlgs; },
+  window.__df = { render: render, showTab: showTab, openModal: openModal, dialog: openDialog, dialogs: function () { return dlgs; }, setText: setDialogText,
                   state: function () { return S; } };   // 测试截图用
   bridge.post('ready');
 })();

@@ -207,6 +207,13 @@ html.kb :focus-visible { outline: 2px solid var(--gold-hi); outline-offset: 2px;
   user-select: text; -webkit-user-select: text; }
 .dlg-text.tall { max-height: 500px; font-size: 13px; }
 .dlg-text.help { font-size: 12.5px; line-height: 1.65; color: var(--fg-dim); }
+.dlg-input { width: 100%; height: 38px; box-sizing: border-box; padding: 0 12px; border-radius: 8px; border: 1px solid var(--line); background: rgba(0,0,0,.35);
+  color: var(--fg); font: 13px Consolas, var(--font); outline: none; user-select: text; -webkit-user-select: text; transition: border-color .15s; }
+.dlg-input:focus { border-color: var(--line-hi); }
+.dlg-inrow { display: flex; gap: 8px; align-items: center; }
+.dlg-inrow .dlg-input { flex: 1; min-width: 0; }
+.dlg-inrow .btn-ghost.sm { flex: none; height: 38px; padding: 0 16px; }
+.dlg-input::placeholder { color: var(--fg-muted); }
 .dlg-foot { flex: none; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 13px 20px; background: rgba(0,0,0,.28);
   border-top: 1px solid rgba(255,255,255,.06); }
 .dlg-ops, .dlg-btns { display: flex; flex-wrap: wrap; gap: 10px; }

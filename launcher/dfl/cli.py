@@ -28,7 +28,7 @@ def show_help():
     host('  coop / coopvanilla                 （联机启动 · 敌人随机 / 无敌人随机，要先放 Seamless Co-op）')
     host('  coopcode                           （复制联机码）')
     host('  coophost / coophostvanilla         （联机开房 · 敌人随机 / 无敌人随机）')
-    host('  coopjoin [--code "DR3|..."]        （加入队友：不给 --code 读剪贴板）')
+    host('  coopjoin [--code "DR4..."]         （加入队友：不给 --code 用上次联机 / 加入时的码）')
     host('  coopimport [--code "DR1|..."]      （按联机随机码重随敌人，不给 --code 读剪贴板）')
 
 

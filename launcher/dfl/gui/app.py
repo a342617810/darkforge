@@ -423,7 +423,8 @@ class App:
 
     def modal(self, spec, on_op=None):
         """在页面里弹一层，等回答 {id, result（第几个按钮，-1 = 点 × 关掉）, pick, e, b}；
-        on_op(op)：弹层里不关窗口的按钮点了时调，返回 'close' 就关掉这层（返回 {result: -2}）。页面没了 / 窗口在关返回 None"""
+        on_op(op)：弹层里不关窗口的按钮点了时调，返回 'close' 就关掉这层（返回 {result: -2}），返回 {'text': …} 就把输入框换成这段文字
+        （kind input 的「粘贴」）。页面没了 / 窗口在关返回 None"""
         if not self.dialog_ok():
             return None
         with self.lock:
@@ -447,6 +448,8 @@ class App:
                 if r == 'close':
                     self.send({'type': 'dialogclose', 'id': did})
                     return {'result': -2}
+                if isinstance(r, dict) and 'text' in r:
+                    self.send({'type': 'dialogset', 'id': did, 'text': str(r['text'] or '')})
         finally:
             with self.lock:
                 self.dialogs.pop(did, None)
@@ -469,6 +472,28 @@ class App:
 
     def confirm_box(self, Text, Title):
         return self.show_dr_dialog(Text, Title, ['确定', '取消'], 0, 1, 'question') == 0
+
+    def ask_text(self, Text, Title='暗黑重铸', Value='', Placeholder='', Buttons=('确定', '取消'), Default=0, Cancel=1, Paste=True):
+        """输入框（页面里的弹层，kind input）：点默认按钮 / 回车返回输入的文字，取消 / 关掉 / 页面不能用返回 None。
+        Paste：输入框旁边加「粘贴」按钮，点了才读一次剪贴板填进去（页面关了右键菜单，只用鼠标的玩家没法粘贴；用户 2026-11-20「要加个按钮的」）"""
+        if not self.dialog_ok():
+            return None
+
+        def on_op(op):
+            if op == 'paste':
+                try:
+                    return {'text': re.sub(r'\s+', ' ', win.clipboard_get() or '').strip()}
+                except Exception:
+                    return {'text': ''}
+            return None
+        a = self.modal({'kind': 'input', 'title': Title, 'text': Text, 'value': Value, 'placeholder': Placeholder,
+                        'ops': [{'op': 'paste', 'label': '粘贴'}] if Paste else [],
+                        'buttons': list(Buttons), 'def': Default, 'cancel': Cancel, 'icon': 'question'}, on_op)
+        try:
+            ok = a is not None and int(a.get('result')) == Default
+        except (TypeError, ValueError):
+            ok = False
+        return str(a.get('text') or '') if ok else None
 
     def watch_host_dialogs(self):
         """后台进程的弹窗请求（窗口线程，每 300 毫秒）：<id>.req.json 改名成 .busy.json 认领，弹完把选了第几个写进 <id>.ans.json"""
@@ -1457,9 +1482,9 @@ class App:
                ('已找到：' + ersc if ersc else '⚠ 还没找到 Seamless Co-op。') + '\r\n\r\n' +
                '怎么联机（两人用同一个版本的整合包）：\r\n' +
                '1. 房主点「开房 · 敌人随机」或「开房 · 无敌人随机」：联机码自动复制到剪贴板，游戏同时启动。把联机码发给队友（码里有联机密码，只发给队友）。\r\n' +
-               '2. 队友复制这一行，点「加入」：联机密码、Seamless Co-op 设置、敌人设置和世界照房主的改好；敌人随机和房主不一样时先重随（约 1~5 分钟），然后启动。\r\n' +
+               '2. 队友点「加入」，把这一串粘贴进输入框：联机密码、Seamless Co-op 设置、敌人设置和世界照房主的改好；敌人随机和房主不一样时先重随（约 1~5 分钟），然后启动。\r\n' +
                '3. 进游戏后房主用 Seamless Co-op 的开房道具，队友用加入的道具。两边的游戏数据对不对得上，进同一个会话后自动核对。\r\n' +
-               '下次还是同一队人：房主照样点「开房」，队友点「加入」（剪贴板里没有码时用上次的）。\r\n\r\n' +
+               '下次还是同一队人：房主照样点「开房」，队友点「加入」（输入框里已经填好上次的码）。\r\n\r\n' +
                '联机时：以房主的世界为准；斗技场试炼由房主在雕像开始、队友一起进，头目复活只有房主能用；倒下了会观战队友，直到所有人都倒下或者有人在赐福休息；Seamless Co-op 的入侵会自动关掉；直接改敌人的词条效果由房主那边改。\r\n' +
                '联机存档是 ER0000.rngcoop（以前叫 ER0000.rng.co2，联机启动时会自动换过来），和单机存档分开；联机角色的新装备、锁定等记录也单独存，互不影响。\r\n' +
                '联机还在测试：队友身上的新装备在你这边样子和名字不对；新装备可以在背包里点它「送给」队友。出问题时点「导出诊断包」发过来。')
@@ -1488,23 +1513,29 @@ class App:
                 return
             self.start_run('联机开房 · 无敌人随机', [(False, ['coophostvanilla'] + self.boss_arg(bw))])
         elif r == 2:
-            code = re.sub(r'\s+', ' ', win.clipboard_get() or '').strip()
-            if not re.match(r'^DR(?:[123]\||4)', code, re.I):
-                code = ''
-                files = [f for f in (os.path.join(self.P, 'dll', 'dark_core', 'coop_host_code.txt'),
-                                     os.path.join(self.L, 'reroll', 'state', 'coop_join_code.txt')) if os.path.exists(f)]
-                for f in sorted(files, key=lambda f: os.stat(f).st_mtime_ns, reverse=True):
-                    t = re.sub(r'\s+', ' ', core.read_text(f, 'replace')).strip()
-                    if re.match(r'^DR(?:[123]\||4)', t, re.I):
-                        code = t
-                        break
-            if not code:
-                self.show_info('剪贴板里没有联机码。先复制房主发来的那一串（DR4 开头），再点「加入」。')
-                return
-            plain = coopcode.expand_coop_code('DR4' + code[3:4].lower() + code[4:] if code[:3].upper() == 'DR4' else code)
-            if not plain:
-                self.show_info('这个联机码解不开（多半没复制完整）。让房主重新点「复制联机码」发一次。')
-                return
+            # 联机码让玩家粘贴进输入框（用户 2026-11-20「加入不读剪贴板而是给个输入框让玩家输入」）；预先填上上次联机 / 加入时的码（新的先）
+            last = ''
+            files = [f for f in (os.path.join(self.P, 'dll', 'dark_core', 'coop_host_code.txt'),
+                                 os.path.join(self.L, 'reroll', 'state', 'coop_join_code.txt')) if os.path.exists(f)]
+            for f in sorted(files, key=lambda f: os.stat(f).st_mtime_ns, reverse=True):
+                t = re.sub(r'\s+', ' ', core.read_text(f, 'replace')).strip()
+                if re.match(r'^DR(?:[123]\||4)', t, re.I):
+                    last = t
+                    break
+            code, plain = last, ''
+            while not plain:
+                code = self.ask_text('把房主发来的联机码（DR4 开头的一整串）复制下来，点「粘贴」（或者按 Ctrl+V）填进下面的框，再点「加入」。' +
+                                     ('\r\n已经填上了上次用的码：还是同一队人就直接点「加入」。' if code and code == last else ''),
+                                     '加入队友的联机', code, '房主发来的联机码，DR4 开头', ['加入', '取消'], 0, 1)
+                if code is None:
+                    return
+                code = re.sub(r'\s+', ' ', code).strip()
+                if not re.match(r'^DR(?:[123]\||4)', code, re.I):
+                    self.show_info('这不是联机码：联机码以 DR4 开头。让房主点「复制联机码」再发一次，整串粘贴进来。')
+                    continue
+                plain = coopcode.expand_coop_code('DR4' + code[3:4].lower() + code[4:] if code[:3].upper() == 'DR4' else code)
+                if not plain:
+                    self.show_info('这个联机码解不开（多半没复制完整）。让房主重新点「复制联机码」发一次。')
             rand = not re.match(r'^DR3\|', plain, re.I) or re.search(r'\|m=rand(\||$)', plain, re.I)
             if rand:
                 if not self.confirm_randomizer():

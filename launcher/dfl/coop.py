@@ -1064,7 +1064,8 @@ def invoke_coop_host(ctx, Rand):
 
 
 def invoke_coop_join(ctx, Text=''):
-    """Invoke-CoopJoin：加入队友：找联机码（给的 / 剪贴板 → 联机时联机通道存下的房主的码、上次加入用的码，新的先），照着改好再联机启动"""
+    """Invoke-CoopJoin：加入队友：找联机码（给的 → 联机时联机通道存下的房主的码、上次加入用的码，新的先），照着改好再联机启动。
+    不读剪贴板（用户 2026-11-20「加入不读剪贴板而是给个输入框让玩家输入」：启动器「加入」弹输入框，填的码用 --code 传进来）"""
     from .coopcode import expand_coop_code
     from .launch import invoke_launch
     from .randomizer import get_randomizer_status
@@ -1077,11 +1078,6 @@ def invoke_coop_join(ctx, Text=''):
     cands = []
     if Text:
         cands.append(('给的', Text))
-    else:
-        try:
-            cands.append(('剪贴板里的', win.clipboard_get() or ''))
-        except Exception:
-            pass
     files = [(ctx.CoopHostCodeFile, '上次联机时房主发来的'), (ctx.CoopJoinCodeFile, '上次加入时用的')]
     files = sorted([f for f in files if os.path.exists(f[0])], key=lambda f: os.stat(f[0]).st_mtime_ns, reverse=True)
     for p, n in files:
@@ -1095,7 +1091,7 @@ def invoke_coop_join(ctx, Text=''):
             frm = n
             break
     if not code:
-        write_err('没找到联机码：先复制房主发来的那一串（DR4 开头），再点「加入」。')
+        write_err('没找到联机码：点「加入」后把房主发来的那一串（DR4 开头）粘贴进输入框。')
         return False
     # 前缀不分大小写（以前 .StartsWith 分大小写：「dr4z…」「dr3|…」先被认成联机码、又被当旧版的码拒掉；2026-11-18 移植时修）。
     # DR4 后面的模式字母是小写的（z），base64 那段本身分大小写、不能动
