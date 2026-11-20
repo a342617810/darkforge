@@ -511,6 +511,14 @@ def test_profile_seed():
         def f(ctx):
             core.set_world_packs(ctx, '_coop')
             coop.write_coop_profile(ctx, coop.find_ersc(ctx), 'fp123', rand)
+            # 有意的不同（崩溃风险审查 2026-11-19 第 12 条）：档案多了一行「mods<Tab>自己加的 mod」（副本里没有，是「无」）。
+            # 断言有这一行，再从文件里去掉和 PowerShell 比
+            if os.path.isfile(ctx.CoopProfile):
+                lines = open(ctx.CoopProfile, encoding='utf-8', newline='').read().split('\n')
+                if 'mods\t无' not in lines:
+                    return 'mods 一行不对：%r' % [l for l in lines if l.startswith('mods')]
+                with open(ctx.CoopProfile, 'w', encoding='utf-8', newline='') as fh:
+                    fh.write('\n'.join(l for l in lines if not l.startswith('mods\t')))
             return True
         return f
     case('Write-CoopProfile 敌人随机', ps % '$true', py(True), setup=lambda: mk_ersc(INI_OK), cfg=dict(boss=True))

@@ -2112,7 +2112,8 @@ impl Engine {
                     cond.as_ref().is_none_or(|c| !FOE_HIT_KINDS.contains(&c.as_str()) || f.via == Some(c.as_str()))
                         && !unless.iter().any(|u| FOE_HIT_KINDS.contains(&u.as_str()) && f.via == Some(u.as_str()))
                 };
-                for f in fr.foes.iter().filter(|f| if target_on == "break" { f.broke } else { f.landed }).filter(|f| kind_ok(f)) {
+                // 只对敌人（is_foe：不是友方阵营、不是自己的阵营、不是玩家角色）；PvP 时入侵者 / 被入侵的玩家、联机队友都不算
+                for f in fr.foes.iter().filter(|f| f.hostile && if target_on == "break" { f.broke } else { f.landed }).filter(|f| kind_ok(f)) {
                     let hits: Vec<&Ail> = f
                         .sts
                         .iter()

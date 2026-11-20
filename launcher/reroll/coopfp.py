@@ -3,6 +3,7 @@
   --rand <randomizer 文件夹>   敌人随机的结果：regulation 的指纹 - 地图个数 - 事件个数
   --reroll <out\\reroll>        这次启动生成的重随包：regulation 的指纹
 指纹 = 解密、解压后的 regulation 内容的 SHA-256 前 12 位（加密时的随机初始向量不影响）。几项之间用 / 隔开，一行输出。
+联机启动时 dfl\\coop.py 再在后面接一项「m + 自己加的 mod 的名字和文件清单」（get_player_mod_list；没加 mod 就没有这一项）。
   python coopfp.py [--rand <dir>] [--reroll <dir>] [--dll-dir <找解压 DLL 的文件夹> ...]"""
 import argparse
 import glob

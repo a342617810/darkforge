@@ -569,7 +569,7 @@ impl Workshop {
         let total = 44.0 + wo + 60.0 + 44.0 + wn;
         let mut bx = 960.0 - total / 2.0;
         d.glyph("KG_XboxSeries_R_D", bx, 575.0, 38.0);
-        d.text_mid(bx + 44.0, 594.0, 26.0, TEXT, 1.0, ok);
+        d.text_mid(bx + 44.0, 594.0, 26.0, if self.confirm_ready() { TEXT } else { DIM }, 1.0, ok);
         self.hit(bx, 570.0, 44.0 + wo, 48.0, Hit::Ok);
         bx += 44.0 + wo + 60.0;
         d.glyph("KG_XboxSeries_R_R", bx, 575.0, 38.0);

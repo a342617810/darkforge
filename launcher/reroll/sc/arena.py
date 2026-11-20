@@ -113,8 +113,9 @@ def run_batch(name, src, spec):
     tool_dll = os.path.join(REROLL, 'data', 'msbtool', 'msbtool.dll')
     h = hashlib.sha1(raw + spec.encode('utf-8') + open(tool_dll, 'rb').read()).hexdigest()[:20]
     cached = os.path.join(CACHE_DIR, '%s_%s.msb.dcx' % (name, h))
-    if os.path.isfile(cached):
-        return open(cached, 'rb').read()
+    hit = extragrace.read_cache(cached)              # 不完整的缓存当没有（sc/extragrace.py read_cache）
+    if hit is not None:
+        return hit
     d, why = extragrace.tool()
     if not d:
         raise RuntimeError(why)
@@ -125,14 +126,14 @@ def run_batch(name, src, spec):
                        timeout=600, creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
     if r.returncode != 0 or not r.stdout.strip().endswith('ok') or not os.path.isfile(fout):
         raise RuntimeError('msbtool batch %s 失败：%s' % (name, (r.stdout + r.stderr).strip()[-300:]))
-    out = open(fout, 'rb').read()
+    out = extragrace.checked_output(fout, 'msbtool batch %s' % name)
     for p in (fin, fout, fspec):
         os.remove(p)
     os.makedirs(CACHE_DIR, exist_ok=True)
     for old in os.listdir(CACHE_DIR):
         if old.startswith(name + '_'):
             os.remove(os.path.join(CACHE_DIR, old))
-    open(cached, 'wb').write(out)
+    extragrace.write_cache(cached, out)              # 先写 .tmp 再换上去
     return out
 
 

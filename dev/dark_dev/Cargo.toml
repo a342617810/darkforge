@@ -7,7 +7,8 @@ edition = "2024"
 crate-type = ["cdylib"]
 
 [dependencies]
-hudhook = "0.9.3"
+# 和 dark_ui 用同一份本地 hudhook（dev\vendor\hudhook）
+hudhook = { path = "../vendor/hudhook" }
 
 [profile.release]
 panic = "unwind"

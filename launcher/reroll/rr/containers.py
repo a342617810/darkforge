@@ -207,6 +207,17 @@ def add_pool(ctx, srcs, cat, tiers, pct, lot_cat, item_id, n=1, name=''):
         ctx.unid_pool = getattr(ctx, 'unid_pool', []) + [(','.join(srcs), cat, ','.join(map(str, tiers)), float(pct), lot_cat, item_id, n, name)]
 
 
+def death_pct(S):
+    """死亡惩罚：真死了扣掉背包里未鉴定物品的百分比（settings 的 death_penalty；没写这项按 25，用户 2026-11-19）；0 = 关掉"""
+    v = S.get('death_penalty') or {}
+    if not v.get('enabled', True):
+        return 0
+    try:
+        return max(0.0, min(100.0, float(v.get('unid_pct', 25))))
+    except (TypeError, ValueError):
+        return 25.0
+
+
 def write_def(ctx, path):
     """dark_core 用的定义（一行一项，Tab 分隔）。没有容器就删掉，DLL 看不到这个文件就什么都不做"""
     c = getattr(ctx, 'containers', None)
@@ -240,6 +251,10 @@ def write_def(ctx, path):
         lines.append('dirident\t%d\t%d\t%d\t%d\t%d\t%d\t%s\t%s' % (di['flag'], di['type0'], di['type_bits'], di['rar0'], di['rar_bits'], di['none'],
                                                                      ','.join(map(str, di['cost'])), ','.join(str(t[0]) for t in di['types']))
                      + '\t%d\t%d\t%s\t%s' % (di['kind0'], di['kind_bits'], ','.join(map(str, di['tcost'])), ','.join(a[0] for a in di['archs'])))
+    dp = death_pct(ctx.S)
+    if dp > 0:
+        lines.append('# deathloss <几 %>：死亡惩罚（settings 的 death_penalty，用户 2026-11-19），真死了按这个比例随机扣掉背包里的未鉴定物品（gear/deathloss.rs）')
+        lines.append('deathloss\t%g' % dp)
     lines += ['deliver\t%d\t%d\t%d' % (c['deliver'], DELIVER_ROWS, DELIVER_FLAG), 'identify\t%d' % IDENTIFY_FLAG,
               'lotlayout\t%d\t%d\t%d\t%d\t%d\t%d' % (ctx.P_mp.row_size, erlib.LOT_ID, erlib.LOT_CAT, erlib.LOT_PT, erlib.LOT_NUM, erlib.LOT_FLAG)]
     starts = getattr(ctx, 'start_items', None) or []

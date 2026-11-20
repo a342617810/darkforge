@@ -279,6 +279,12 @@ impl GameTex {
         self.done = Some(Mutex::new(done));
     }
 
+    /// hudhook 重建画面管线后，传好的贴图编号都属于旧贴图表，全部作废（不清的话画的时候编号越界）。
+    /// 解码线程照常用；路上还没回来的解完照样传，传进新的贴图表
+    fn reset(&mut self) {
+        self.cache.clear();
+    }
+
     /// 这一帧重新记要画的
     fn begin_frame(&mut self) {
         self.want.clear();
@@ -347,9 +353,17 @@ struct App {
     ver_logged: bool,
     res_ver: u32,
     pad_prev: u16,
+    /// 开窗口时还按着工坊用的键盘键（比如选菜单的回车）：全松开以前不收键盘
+    kb_wait: bool,
     rep_at: Option<Instant>,
     frame: u64,
     font: String,
+    /// initialize 跑过几次（hudhook 重建画面管线会再跑）；上次 initialize 以后 before_render 走到过没有（没走到 = hudhook 没建成，
+    /// 多半是字体图集建不出来）；连着几次没建成；字体退到第几步（fonts::add_at）
+    inits: u32,
+    ran: bool,
+    init_fails: u32,
+    font_step: u32,
 }
 
 impl App {
@@ -370,9 +384,14 @@ impl App {
             ver_logged: false,
             res_ver: 0,
             pad_prev: 0,
+            kb_wait: false,
             rep_at: None,
             frame: 0,
             font: String::new(),
+            inits: 0,
+            ran: false,
+            init_fails: 0,
+            font_step: 0,
         }
     }
 
@@ -445,22 +464,48 @@ impl App {
 
 impl ImguiRenderLoop for App {
     fn initialize<'a>(&'a mut self, ctx: &mut imgui::Context, _render_context: &'a mut dyn RenderContext) {
-        dlog("初始化开始");
+        // hudhook 重建画面管线（交换链换了、格式或缓冲数变了，或者上次字体图集建不出来）时会再调一次，每次给新的 ImGui 上下文和新的贴图表：
+        // 字体每次装进新上下文（文件只读一次），旧贴图编号作废；输入钩子、解码线程、素材、词条百科只做第一次。
+        // 字体图集建不出来时 hudhook 每帧都重建：连着没建成就少装些字（fonts::add_at，退了就不再回去），日志只记前 4 次、第 8、16、32… 次和退字体那次
+        self.inits += 1;
+        let again = self.inits > 1;
+        self.init_fails = if again && !self.ran { self.init_fails + 1 } else { 0 };
+        self.ran = false;
+        let step = self.font_step.max(self.init_fails.min(2));
+        let log = !again || self.inits <= 4 || self.inits.is_power_of_two() || step != self.font_step;
+        if !again {
+            dlog("初始化开始");
+        } else if log {
+            let fail = if self.init_fails > 0 { format!("，上次没建成（连着 {} 次）", self.init_fails) } else { String::new() };
+            dlog(&format!("再次初始化（第 {} 次）：hudhook 重建了画面管线{fail}；贴图重新传，输入钩子不重装", self.inits));
+        }
         DRAWN.store(true, Ordering::Relaxed);
+        self.tex.reset();
         let r = root();
         // 字体只装用得到的字：词条库、咒痕的名字和说明（curses.txt）、骨灰词条（ashes.txt 只要 ashcx 行，别的行是 dark_core 用的骨灰名字说明，不装）、
-        // 源码里的文字（fonts.rs 的 SOURCES）
-        let read = |f: &str| std::fs::read_to_string(r.join("dll").join("dark_core").join(f)).unwrap_or_default();
-        let mut lib = ["affixes.txt", "curses.txt"].iter().map(|f| read(f) + "\n").collect::<String>();
-        lib.extend(read("ashes.txt").lines().filter(|x| x.starts_with("ashcx\t")).map(|x| format!("{x}\n")));
-        let (font, ids) = fonts::add(ctx, &lib, &r.join("out").join("menu"));
-        let frames = std::fs::read_to_string(r.join("launcher").join("reroll").join("data").join("menu").join("dr_frames.txt")).unwrap_or_default();
-        self.ws.codex = ui::Codex::parse(&lib, &frames);
-        dlog(&format!("字体：{font}（中文 {}、英文 {}）", ids[0].is_some(), ids[1].is_some()));
+        // 源码里的文字（fonts.rs 的 SOURCES）。再次初始化时不用读（字形范围 fonts.rs 第一次就算好了，词条百科也还在）
+        let mut lib = String::new();
+        if !again {
+            let read = |f: &str| std::fs::read_to_string(r.join("dll").join("dark_core").join(f)).unwrap_or_default();
+            lib = ["affixes.txt", "curses.txt"].iter().map(|f| read(f) + "\n").collect::<String>();
+            lib.extend(read("ashes.txt").lines().filter(|x| x.starts_with("ashcx\t")).map(|x| format!("{x}\n")));
+        }
+        let (font, ids) = fonts::add_at(ctx, &lib, &r.join("out").join("menu"), step);
+        if !again {
+            let frames = std::fs::read_to_string(r.join("launcher").join("reroll").join("data").join("menu").join("dr_frames.txt")).unwrap_or_default();
+            self.ws.codex = ui::Codex::parse(&lib, &frames);
+        }
+        if log {
+            dlog(&format!("字体：{font}（中文 {}、英文 {}）", ids[0].is_some(), ids[1].is_some()));
+        }
         self.font = font;
+        self.font_step = step;
         self.ws.fonts = ids.map(|f| f.map(ui::UiFont));
         ctx.set_ini_filename(None::<PathBuf>);
         self.hooks = hooks::install();
+        if again {
+            return;
+        }
         dlog(&format!("输入钩子：光标 {}、键鼠 {}、手柄 {}", self.hooks.0, self.hooks.1, self.hooks.2));
         let a = Assets::load(&r.join("out").join("menu").join("dark_ui_sprites.bin"), &r.join("launcher").join("reroll").join("data").join("menu"));
         dlog(&format!("素材：{}", a.note));
@@ -474,6 +519,7 @@ impl ImguiRenderLoop for App {
     }
 
     fn before_render<'a>(&'a mut self, ctx: &mut imgui::Context, render_context: &'a mut dyn RenderContext) {
+        self.ran = true;
         ctx.io_mut().mouse_draw_cursor = self.open;
         hooks::BLOCK.store(self.open || self.release_wait, Ordering::Relaxed);
         hooks::set_typing(self.open && self.ws.typing());
@@ -531,6 +577,7 @@ impl ImguiRenderLoop for App {
             self.ws.set_mode(mode);
             self.ws.snap = None;
             self.pad_prev = pad_buttons(); // 打开时还按着的（选菜单的 A）不算
+            self.kb_wait = ui::KB_KEYS.iter().any(|&k| ui.is_key_down(k)); // 键盘同样：松开以前不算
             self.res_ver = api.get(1).0;
             self.snap_ver = 0;
             self.prev_ver = api.get(2).0;
@@ -551,7 +598,10 @@ impl ImguiRenderLoop for App {
             self.poll();
         }
         let pressed = self.pad_pressed();
-        let act = Workshop::keys(ui, pressed, self.ws.typing());
+        if self.kb_wait && !ui::KB_KEYS.iter().any(|&k| ui.is_key_down(k)) {
+            self.kb_wait = false;
+        }
+        let act = Workshop::keys(ui, pressed, self.ws.typing() || self.kb_wait);
         let screen = ui.io().display_size;
         self.tex.begin_frame();
         self.ws.frame(ui, &mut self.tex, act, screen);

@@ -450,6 +450,8 @@ struct AshSt {
     src_seen: bool,
     /// 获取格备不了容器（容器不够）已经写过日志
     src_full_told: bool,
+    /// 身份还没认准（who.rs）时要写的记录：欠着，认准后补写；换了身份作废
+    owed: bool,
 }
 
 impl AshSt {
@@ -477,8 +479,16 @@ pub(super) struct AshSpec {
 
 static AST: Mutex<Option<AshSt>> = Mutex::new(None);
 
-fn save(a: &AshSt) {
+fn save(a: &mut AshSt) {
     let Some(who) = a.who.as_ref() else { return };
+    if !crate::who::is_confirmed(who) {
+        if !a.owed {
+            log(&format!("骨灰：格子 {}「{}」还没进到世界里，记录先不写，认准后再写", who.0, who.1));
+        }
+        a.owed = true;
+        return;
+    }
+    a.owed = false;
     let path = rec_file(who.0);
     if let Some(p) = path.parent() {
         let _ = fs::create_dir_all(p);
@@ -976,13 +986,43 @@ fn texts(d: &Defs, def: &Def, a: &mut AshSt) {
 
 /// 进存档：读这个角色的记录，按记录重建容器的参数行（文字等占位扫完再写）
 pub(super) fn on_load(who: &(i32, String)) {
+    on_load_with(who, true);
+}
+
+/// 刚建的角色（gear::start_fresh，who.rs 认准时游戏时间不到 3 分钟）：不接格子里原来的骨灰记录。格子的文件是这个名字的就
+/// 复制一份进旧记录，然后按空记录重来（获取格改回原版骨灰，稳定后再按规则备）
+pub(super) fn start_fresh(who: &(i32, String)) {
+    let n = {
+        let g = AST.lock().unwrap_or_else(|e| e.into_inner());
+        match g.as_ref() {
+            Some(a) if a.who.as_ref() == Some(who) => a.recs.len(),
+            _ => return,
+        }
+    };
+    if n == 0 {
+        return;
+    }
+    let path = rec_file(who.0);
+    let mine = fs::read_to_string(&path).ok().as_deref().and_then(rec_text_name).as_deref() == Some(who.1.as_str());
+    let kept = if mine { rec_aside_copy(&path) } else { None };
+    log(&format!(
+        "骨灰：格子 {}「{}」是刚建的角色，不接原来的 {n} 个骨灰记录{}，按空记录重来",
+        who.0,
+        who.1,
+        kept.map_or(String::new(), |p| format!("（原来那份复制到 {}）", p.display()))
+    ));
+    on_load_with(who, false);
+}
+
+fn on_load_with(who: &(i32, String), read: bool) {
     let Some(def) = adef() else { return };
     let mut g = AST.lock().unwrap_or_else(|e| e.into_inner());
     let a = g.get_or_insert_with(AshSt::default);
     a.who = Some(who.clone());
-    let text = fs::read_to_string(rec_file(who.0)).unwrap_or_default();
+    a.owed = false;
+    let text = if read { fs::read_to_string(rec_file(who.0)).unwrap_or_default() } else { String::new() };
     a.recs = rec_load_text(&text, &who.1);
-    if a.recs.is_empty() && rec_text_name(&text).as_deref() != Some(who.1.as_str()) {
+    if read && a.recs.is_empty() && rec_text_name(&text).as_deref() != Some(who.1.as_str()) {
         // 这一格的记录是别的角色的（或者没有）：到 旧记录 里找这个角色以前被挪开的那份（gear.rs）
         if let Some((p, t)) = rec_find_aside(&rec_file(who.0), &who.1) {
             a.recs = rec_load_text(&t, &who.1);
@@ -1154,6 +1194,10 @@ pub(super) fn tick(d: &Defs, st: &St, pgd: &mut PlayerGameData, who: &(i32, Stri
     let Some(def) = adef() else { return };
     let mut g = AST.lock().unwrap_or_else(|e| e.into_inner());
     let Some(a) = g.as_mut().filter(|a| a.who.as_ref() == Some(who)) else { return };
+    if a.owed && crate::who::is_confirmed(who) {
+        log(&format!("骨灰：格子 {}「{}」已经进到世界里，补写记录", who.0, who.1));
+        save(a);
+    }
     texts(d, def, a);
     fx::tick(def, a); // 机制前缀 + 召唤日志（没有召唤物时只看一眼列表）
     if st.frames < SETTLE_FRAMES || st.frames % 30 != 7 {

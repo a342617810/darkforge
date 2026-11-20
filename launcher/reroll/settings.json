@@ -172,6 +172,8 @@
   "identify_build_bias": {"enabled": true, "candidates": 3},
   "spirit_ash_rarity": {"enabled": true, "pools": [300, 120, 60, 30, 36, 12], "weights": [40, 30, 20, 10], "mult": [1.0, 1.05, 1.1, 1.2], "suffixes": [1, 1, 2, 2], "rally": true, "prefix_chance": [0, 30, 60, 100], "mimic_pools": [8, 8], "boss_drop": [1, 1]},
   "_spirit_ash_rarity": "骨灰稀有度 + 词条（用户 2026-11-09 / 10，rr/ashcont.py + dll\\dark_core 的 gear\\ashes.rs）：拿到原版骨灰（掉落、商店、NPC 给的都算，以前拿到的也换）进背包就换成容器——种类、强化等级不变，稀有度按 weights（普通 / 稀有 / 史诗 / 传说）抽，召唤物血量、攻击 × mult，数值词条 suffixes 条（每条一样的几率），传说带集结（召唤数量 +1，仿身泪滴是多一个仿身，原版 5 只的变 6 只）；prefix_chance = 各稀有度带一条机制前缀（爆裂 / 殉道 / 激昂 / 庇护 / 共鸣 / 战意，第二期 2026-11-10，dark_core gear\\ashes\\fx.rs 运行时做）的几率 %。pools = 召唤 1 ~ 6 只的骨灰各留几个容器，mimic_pools = 仿身泪滴专用（召唤 2 只 / 集结 3 只）各几个；boss_drop = 死亡 / 不可能每个 Boss 战第一次击败掉几个随机骨灰（用户 2026-11-10）（每个角色最多拿这么多带稀有度的骨灰；集结算多一只）",
+  "death_penalty": {"enabled": true, "unid_pct": 25},
+  "_death_penalty": "死亡惩罚（用户 2026-11-19「加一下死亡惩罚 死亡时永久遗失身上25%的未鉴定装备」，dll\\dark_core 的 gear\\deathloss.rs）：真正死亡时，背包里的未鉴定物品（仓库里的不算）随机扣掉 unid_pct ％（件数不是整数时余下的部分按几率多扣一件），复活后提示。高难度的馈赠复活顶掉的那次、斗技场里倒下的不算。enabled = false 或 unid_pct = 0 关掉",
   "directed_identify": {"enabled": true, "cost": [10, 100, 500, 1000, 2000], "talisman_mult": 10},
   "_directed_identify": "用户 2026-11-09：「鉴定」改成 一键鉴定 / 武器鉴定 / 防具鉴定（选部位）/ 护符鉴定（选流派），防具每件同 cost，护符每件 cost × talisman_mult。定向鉴定（用户 2026-11-03）：赐福「暗黑重铸」→「鉴定」里和一键鉴定并列，每种武器类型一项，选了再选稀有度（普通 / 稀有 / 史诗 / 传说 / 传说（幽影之地）/ 全部），把背包里那个稀有度的未鉴定武器鉴定成这一类型（本体同样偏向加点，稀有度不变），每件按它的稀有度扣 cost 卢恩（普通 / 稀有 / 史诗 / 传说 / 传说（幽影之地），用户 2026-11-03），便宜的先鉴定，付不起的不鉴定。enabled = false 关掉",
   "_identify_build_bias": "鉴定武器偏向当前角色的加点：每件先生成 candidates 把候选，需求够得着、补正对得上加点的更容易被选中（1 = 不偏向）",

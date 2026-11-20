@@ -24,6 +24,7 @@ EXCL = ['launcher/game_path.txt', 'launcher/randomizer_settings_path.txt', 'laun
         'randomizer/dll/*_log.txt', 'randomizer/dll/*.old','randomizer/map/*', 'randomizer/event/*', 'randomizer/msg/*', 'randomizer/script/*', 'randomizer/sfx/*',
         'randomizer/regulation.bin', 'randomizer/config_eldenringrandomizer.toml', 'randomizer/spoiler_logs/*',
         'dll/logs/*', 'dll/*/logs/*', 'dll/*.log', 'dll/*/*.log', 'dll/*/*.old', 'dll/*/*.old2',
+        'dll/dark_lock/no_menu_text.txt',   # 游戏脚本包这次没挂上时启动器写的标记（崩溃风险审查 2026-11-19 第 17 条），本机状态
         # 启动时（重随）生成、按本机内容写的 DLL 定义 / 记录
         'dll/dark_sell/inventory.txt', 'dll/dark_sell/difficulty.txt', 'dll/dark_sell/difficulty_tiers.txt', 'dll/dark_sell/ash_dup.txt',
         'dll/dark_sell/sell_items.txt', 'dll/dark_lock/lock_items.txt', 'dll/dark_core/festive.txt', 'dll/dark_core/container.txt',

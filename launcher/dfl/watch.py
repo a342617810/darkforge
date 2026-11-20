@@ -3,19 +3,67 @@
 查 Windows 有没有记录这个进程号的崩溃（Application Error 1000）或卡住后被关掉（Application Hang 1002），
 有就自动导出诊断包到 崩溃诊断\\（留最近 10 个）并弹窗提示；每局怎么结束的都记一行到 launcher\\logs\\game_sessions.txt。
 
-由 launch.start_crash_watch 用包里的 pythonw.exe 跑 `df.py watch --game-pid <进程号>`（没有窗口、不写运行日志）。"""
+由 launch.start_crash_watch 用包里的 pythonw.exe 跑 `df.py watch --game-pid <进程号>`（没有窗口、不写运行日志）。
+看守开着时顺带做定时备份（用户 2026-11-19，backup.new_rng_timed_backup）：每分钟看一次，到间隔了就在另一个线程里存（不耽误这边
+记游戏窗口最后还在的时间）；游戏退出后再存一份。"""
 import datetime
 import os
 import re
 import subprocess
 import tempfile
+import threading
 import time
 
-from . import core, win
+from . import backup, core, win
 from .diag import _explorer_select, fmt_num, get_ersc_dumps, invoke_diag, round1
 from .pytool import CREATE_NO_WINDOW, find_python
 
 EXIT_OFFSETS = r'^(0x)?0*(1ebb809|1ebcef9|1ebb799)$'      # 带 mod 退出游戏时几乎每次都在这里出错（2.7.1.0 / 2.7.2.0 / 不支持的 2.7.0.0，同一处 DL_PANIC）
+
+
+class TimedBackup:
+    """游戏开着时的定时备份：poll() 在等游戏的循环里一直调，每 CHECK 秒看一次（撞上游戏正在写时 RETRY 秒后再看）；final() 游戏退出后调"""
+    CHECK = 60.0
+    RETRY = 10.0
+
+    def __init__(self, ctx, clock=time.monotonic):
+        self.ctx = ctx
+        self.clock = clock
+        self.next = clock() + self.CHECK
+        self.th = None
+        self.last = None                         # 上一次的结果（saved / same / busy / none / wait / error）
+
+    def _run(self, mode, need_due, quiet):
+        try:
+            if need_due and not backup.timed_backup_due(self.ctx):
+                self.last = 'wait'
+                return
+            self.last = backup.new_rng_timed_backup(self.ctx, mode, quiet)[0]
+        except Exception as e:
+            self.last = 'error'
+            try:
+                backup.add_rng_ops_log(self.ctx, '定时备份（' + mode + '）出错：' + str(e))
+            except Exception:
+                pass
+
+    def poll(self):
+        if self.th and self.th.is_alive():
+            return
+        now = self.clock()
+        if self.th is not None:                  # 上一次刚做完：按结果排下一次
+            self.next = now + (self.RETRY if self.last == 'busy' else self.CHECK)
+            self.th = None
+            return
+        if now < self.next:
+            return
+        self.th = threading.Thread(target=self._run, args=('游戏中', True, backup.TIMED_QUIET), daemon=True)
+        self.th.start()
+
+    def final(self):
+        """游戏退出后：等还在做的那次做完，再存一份（游戏已经关了，不用等存档静下来）"""
+        if self.th:
+            self.th.join(120)
+        self._run('退出游戏后', False, 0)
 
 
 def _minutes(a, b):
@@ -129,6 +177,7 @@ def invoke_crash_watch(ctx, ProcId, settle=8.0):
     if pid <= 0 or pid not in win.find_pids('eldenring'):
         return
     p = win.Proc(pid)                      # 先拿住进程句柄，退出后才读得到退出码
+    tb = TimedBackup(ctx)
     try:
         started = p.start_time() or datetime.datetime.now()
         # 边等边记游戏窗口最后一次还在的时间：正常退出时窗口先关、进程后结束；游戏中崩溃时窗口会留到进程结束
@@ -139,9 +188,11 @@ def invoke_crash_watch(ctx, ProcId, settle=8.0):
                 if win.main_window(pid):
                     win_seen = True
                     last_win = datetime.datetime.now()
+                tb.poll()
                 p.wait(500)
         else:
             while win.pid_alive(pid):
+                tb.poll()
                 time.sleep(5)
         ended = datetime.datetime.now()
         window_closed_first = win_seen and (ended - last_win).total_seconds() >= 1.5
@@ -149,7 +200,9 @@ def invoke_crash_watch(ctx, ProcId, settle=8.0):
         exit_code = ('0x%08X' % (code & 0xFFFFFFFF)) if code is not None else '读不到'
     finally:
         p.close()
-    time.sleep(settle)                     # 等 Windows 写完崩溃记录
+    t0 = time.monotonic()
+    tb.final()                             # 游戏退出后的那份定时备份（等 Windows 写崩溃记录的这段时间里顺便做）
+    time.sleep(max(0.0, settle - (time.monotonic() - t0)))     # 等 Windows 写完崩溃记录
     local = os.environ.get('LOCALAPPDATA') or ''
     ev = _app_error(started, pid)
     if not ev:

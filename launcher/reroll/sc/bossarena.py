@@ -236,8 +236,9 @@ def port_map(src, ar, k):
     tool_dll = os.path.join(DATA, 'bossmods', '_tools', 'msbport.dll')          # 工具换了也重做
     h = hashlib.sha1(raw + open(done, 'rb').read() + repr(ar['parts']).encode() + open(tool_dll, 'rb').read()).hexdigest()[:20]
     cached = os.path.join(CACHE_DIR, '%s_%s.msb.dcx' % (k, h))
-    if os.path.isfile(cached):
-        return open(cached, 'rb').read()
+    hit = extragrace.read_cache(cached)              # 不完整的缓存当没有（sc/extragrace.py read_cache）
+    if hit is not None:
+        return hit
     d, why = extragrace.tool()
     if not d:
         raise RuntimeError(why)
@@ -253,14 +254,14 @@ def port_map(src, ar, k):
                        creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
     if r.returncode != 0 or not r.stdout.strip().endswith('ok'):
         raise RuntimeError('msbport 失败：%s' % (r.stdout + r.stderr).strip()[-200:])
-    out = open(o, 'rb').read()
+    out = extragrace.checked_output(o, 'msbport')
     for p in (a, b, o):
         os.remove(p)
     os.makedirs(CACHE_DIR, exist_ok=True)
     for old in os.listdir(CACHE_DIR):
         if old.startswith(k + '_'):
             os.remove(os.path.join(CACHE_DIR, old))
-    open(cached, 'wb').write(out)
+    extragrace.write_cache(cached, out)              # 先写 .tmp 再换上去
     return out
 
 

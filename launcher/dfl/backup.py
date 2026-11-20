@@ -1,27 +1,36 @@
 # -*- coding: utf-8 -*-
-"""启动前自动备份 / 恢复（backup.ps1，外加 launcher.ps1 的 Invoke-LaunchBackup、Invoke-OnceReset）。
+"""自动备份 / 恢复（backup.ps1，外加 launcher.ps1 的 Invoke-LaunchBackup、Invoke-OnceReset）。
 我们自己的东西都在存档文件夹 %APPDATA%\\EldenRing 下的 DarkReforged\\ 里（游戏自己的 <SteamID>\\ER0000.rng、GraphicsConfig.xml 不动）：
   DarkReforged\\角色记录\\     DLL 记的装备配方（items_<格子>.txt）、锁定名单、免费许愿次数，一次性重随的结果（once.json）
       角色记录\\联机\\            联机（Seamless Co-op）存档 ER0000.rngcoop（以前叫 ER0000.rng.co2）的角色的同样这些
-  DarkReforged\\启动前备份\\   每次启动游戏前存一份：<时间>_启动前\\<SteamID>\\ER0000.rng、<时间>_启动前\\角色记录\\…、backup_info.json
+  DarkReforged\\启动前备份\\   自动备份（文件夹名照旧）：2026-11-19 起是游戏开着时的定时备份 <时间>_定时.zip（压缩包里 <SteamID>\\ER0000.rng、
+                               角色记录\\…、backup_info.json，只留最近 RngTimedKeep 份）；以前的版本每次启动前 / 恢复前存的
+                               <时间>_启动前\\、<时间>_恢复前\\ 文件夹还认、还能恢复，不再新存，定时备份攒满后删掉
   DarkReforged\\旧文件\\       不再使用的：RNG Lands 时代的 RNGLands_*、重置前的一次性重随记录等
   DarkReforged\\version.txt   上次用的整合包版本（更新提醒）
 2026-10-29 以前这些都散在 EldenRing 根目录（DarkReforged_*.txt、DarkReforged_启动前备份\\ 等）：move_rng_legacy_files 搬进来。
-和上一份内容完全相同（存档、记录都没变）就不重复存；启动前备份只留最近 RngBackupKeep 份（一份约 30 MB）。
+和上一份同种的备份内容完全相同（存档、记录都没变）就不重复存。
 
 和 PowerShell 版的不同：backup.ps1 被 dot-source 时会顺手跑一次 Move-RngLegacyFiles；这里 import 时什么都不做，
 要整理旧文件的地方自己调 move_rng_legacy_files(ctx)（invoke_launch_backup、restore_rng_backup、invoke_once_reset 本来就调）。
 
 文件对象：Get-ChildItem / Get-Item 返回的 FileInfo 在这里是 FileItem，属性名照抄（FullName、Name、Directory.Name、DirectoryName、
 Length、LastWriteTime、LastWriteTimeUtc、Extension、PSIsContainer），调用的地方（诊断包、图形界面）照原样用。"""
+import contextlib
 import ctypes
 import datetime
 import decimal
+import hashlib
 import json
+import msvcrt
 import os
 import re
 import shutil
 import stat
+import struct
+import tempfile
+import time
+import zipfile
 from ctypes import wintypes as W
 
 from . import win
@@ -582,9 +591,13 @@ def _backup_cmp(a, b):
 
 
 def get_rng_backups(ctx, ManualDir=''):
-    """启动前备份 + 恢复前备份 + 「存档备份」按钮存的（ManualDir），新的在前：
-    [Rec(Dir, Tag, Time（datetime）, Mode, Sig, Records（几个记录）, Saves（几个存档）)]"""
+    """定时备份（压缩包）+ 以前的启动前 / 恢复前备份（文件夹）+ 「存档备份」按钮存的（ManualDir），新的在前：
+    [Rec(Dir, Tag, Time（datetime）, Mode, Sig, Records（几个记录）, Saves（几个存档）, Zip（定时备份的压缩包是 True）)]"""
     lst = []
+    for f in _gci(ctx.RngBackupDir, dirs=False, pattern='*.zip'):
+        r = _zip_backup(ctx, f.FullName)
+        if r:
+            lst.append(r)
     for d in _gci(ctx.RngBackupDir, files=False):
         info_file = os.path.join(d.FullName, 'backup_info.json')
         if not os.path.exists(info_file):                                  # 没写完的
@@ -612,14 +625,19 @@ def get_rng_backups(ctx, ManualDir=''):
 
 
 def restore_rng_backup(ctx, Backup):
-    """恢复一份备份（get_rng_backups 给的一项）：先把现在的存档和记录存成「恢复前」备份（恢复错了还能换回来），再复制回去。
-    角色记录整套换成备份里的：备份之后才有的记录删掉（已经存进「恢复前」），免得和换回去的存档对不上。
+    """恢复一份备份（get_rng_backups 给的一项；定时备份的压缩包先解到临时文件夹）：复制回去。
+    2026-11-19 起不再先存「恢复前」备份（用户「取消启动前备份和恢复备份 改为定时备份」）：退出游戏后看守存的那份定时备份就是现在的样子。
+    角色记录整套换成备份里的：备份之后才有的记录删掉，免得和换回去的存档对不上。
     备份里没有联机存档、也没有联机记录（加联机以前的备份）时，现在的联机存档和 联机\\ 记录不动（不然联机角色的装备记录会被删光）。
     返回恢复了什么（给玩家看的几段文字）"""
     move_rng_legacy_files(ctx)
-    pre = new_rng_backup(ctx, '恢复前')
+    with backup_as_dir(Backup) as src:
+        return _restore_from_dir(ctx, Backup, src)
+
+
+def _restore_from_dir(ctx, Backup, Dir):
     done = []
-    saves = get_rng_saves_in(ctx, Backup.Dir)
+    saves = get_rng_saves_in(ctx, Dir)
     for f in saves:
         name = f.Name
         if ieq(name, RngCoopSaveOld):
@@ -631,10 +649,10 @@ def restore_rng_backup(ctx, Backup):
         os.makedirs(to, exist_ok=True)
         _copy_item(f.FullName, os.path.join(to, name), force=True)
         done.append(('联机存档 ' if test_rng_coop_save_name(f.Name) else '存档 ') + f.Directory.Name)
-    coop = any(test_rng_coop_save_name(s.Name) for s in saves) or os.path.exists(os.path.join(Backup.Dir, '角色记录\\联机'))
+    coop = any(test_rng_coop_save_name(s.Name) for s in saves) or os.path.exists(os.path.join(Dir, '角色记录\\联机'))
     keep = {}                                                             # 和 PowerShell 的 @{} 一样不分大小写
     os.makedirs(ctx.RngRecordDir, exist_ok=True)
-    for f in get_rng_record_files(ctx, Backup.Dir):
+    for f in get_rng_record_files(ctx, Dir):
         copy_rng_record(f, ctx.RngRecordDir)
         keep[get_rng_record_name(f).casefold()] = True
     for f in get_rng_record_files(ctx):
@@ -644,26 +662,267 @@ def restore_rng_backup(ctx, Backup):
         if name.casefold() not in keep:
             _remove_file(f.FullName)
     done.append('角色记录 ' + str(len(keep)) + ' 个')
-    add_rng_ops_log(ctx, '恢复：' + '、'.join(done) + '，来自 ' + Backup.Dir + '（' + Backup.Tag + ' ' + Backup.Time.strftime('%Y-%m-%d %H:%M:%S') + '）；' +
-                    '恢复前的存档和记录存在 ' + (os.path.basename(pre) if pre else '（没有，原来就是空的）'))
+    add_rng_ops_log(ctx, '恢复：' + '、'.join(done) + '，来自 ' + Backup.Dir + '（' + Backup.Tag + ' ' + Backup.Time.strftime('%Y-%m-%d %H:%M:%S') + '）')
     return done
+
+
+# ---------------------------------------------------------------- 定时备份
+# 用户 2026-11-19：「取消启动前备份和回复备份 改为定时备份 默认10min一次 玩家可以在设置里手动调整间隔」「最多5个」「存成压缩包」。
+# 游戏开着时崩溃看守（watch.py）每分钟看一次：存档或角色记录变了、存档停了几秒没再写、离上一份定时备份够间隔了，就把存档和角色记录
+# 一起存成 启动前备份\<时间>_定时.zip（文件夹名照旧，旧版本的启动器还认得里面以前的备份）；游戏退出后再存一份。只留最近 RngTimedKeep 份。
+# 游戏写存档时会把整个文件重写一遍（存档每一块开头 16 字节是后面内容的 MD5）：读的时候允许游戏同时写 / 改名（不挡游戏存档），
+# 读完逐块核对 MD5、前后的大小和修改时间也得一样，对不上就是正好撞上游戏在写，这次不存、过一会儿再试
+RngTimedTag = '定时'
+RngTimedKeep = 5
+RngTimedIntervals = (5, 10, 15, 30, 60)          # 设置里能选的间隔（分钟）
+RngTimedDefault = 10
+TIMED_QUIET = 5.0                                 # 存档最后一次写过以后至少静这么久才读（秒）
+TIMED_SLACK = 20.0                                # 每分钟才看一次：差这么点也算到时间了（秒），不然 10 分钟会拖成 11 分钟
+
+_GENERIC_READ, _SHARE_ALL, _OPEN_EXISTING = 0x80000000, 0x7, 3
+_k32.CreateFileW.argtypes = [W.LPCWSTR, W.DWORD, W.DWORD, W.LPVOID, W.DWORD, W.DWORD, W.HANDLE]
+_k32.CreateFileW.restype = W.HANDLE
+_k32.CloseHandle.argtypes = [W.HANDLE]
+_k32.CloseHandle.restype = W.BOOL
+_INVALID_HANDLE = ctypes.c_void_p(-1).value
+
+
+def get_backup_interval(ctx):
+    """定时备份的间隔（分钟）：玩家在「工具与设置」→「存档」里选的（reroll\\state\\backup_interval.txt），没选过或不认识的是 10"""
+    try:
+        with open(ctx.BackupIntervalFile, 'rb') as f:
+            v = int(f.read().decode('utf-8', 'replace').strip().lstrip('﻿'))
+        return v if v in RngTimedIntervals else RngTimedDefault
+    except (OSError, ValueError):
+        return RngTimedDefault
+
+
+def set_backup_interval(ctx, Minutes):
+    """记下间隔；不在可选范围里的不写，返回实际的间隔"""
+    try:
+        m = int(Minutes)
+    except (TypeError, ValueError):
+        return get_backup_interval(ctx)
+    if m not in RngTimedIntervals:
+        return get_backup_interval(ctx)
+    os.makedirs(os.path.dirname(ctx.BackupIntervalFile), exist_ok=True)
+    with open(ctx.BackupIntervalFile, 'wb') as f:
+        f.write((str(m) + '\r\n').encode('utf-8'))
+    return m
+
+
+def _read_shared(path):
+    """整个文件读出来：打开时允许别人同时读、写、删除 / 改名。dark_core 写记录是「写 .tmp 再改名覆盖」，Rust 的 fs::rename 用
+    POSIX 语义的覆盖，我们开着读时照样成功（2026-11-19 实测；Python 的 os.replace 这时会失败）"""
+    h = _k32.CreateFileW(path, _GENERIC_READ, _SHARE_ALL, None, _OPEN_EXISTING, 0x80, None)
+    if not h or h == _INVALID_HANDLE:
+        err = ctypes.get_last_error()
+        raise OSError(0, ctypes.FormatError(err).strip(), path, err)
+    try:
+        fd = msvcrt.open_osfhandle(h, os.O_RDONLY | os.O_BINARY)
+    except OSError:
+        _k32.CloseHandle(h)
+        raise
+    with os.fdopen(fd, 'rb') as f:                 # 关文件时句柄跟着关
+        return f.read()
+
+
+def _mirror_bak(path):
+    """游戏每次存档写完会把同样的内容再写一份 <存档>.bak（大小、修改时间一模一样）：是这样就读 .bak，不碰游戏正在用的存档
+    （游戏怎么打开存档不清楚，万一我们读的那一下它要写，撞上的也只是 .bak）。对不上就读存档本身"""
+    bak = path + '.bak'
+    try:
+        a, b = os.stat(path), os.stat(bak)
+    except OSError:
+        return path
+    return bak if (a.st_size, a.st_mtime_ns) == (b.st_size, b.st_mtime_ns) else path
+
+
+def _read_stable(path):
+    """读一个文件，读之前和之后的大小、修改时间都一样才算（中途被改了返回 None）→ (内容, 修改时间秒)"""
+    a = os.stat(path)
+    data = _read_shared(path)
+    b = os.stat(path)
+    if (a.st_size, a.st_mtime_ns) != (b.st_size, b.st_mtime_ns) or len(data) != b.st_size:
+        return None
+    return data, b.st_mtime
+
+
+def _bnd4_entries(b):
+    """存档（BND4）里每一块的 (位置, 大小)；不是 BND4 返回 None（格式照 reroll\\erlib.py 的 Bnd4）"""
+    if b[:4] != b'BND4' or len(b) < 0x40:
+        return None
+    count = struct.unpack_from('<i', b, 0x0C)[0]
+    hdr_size = struct.unpack_from('<q', b, 0x20)[0]
+    if count < 0 or hdr_size <= 0:
+        return []
+    fmt = b[0x31]
+    if b[0x0A]:                                   # 小端存的格式字节要反过来读
+        fmt = int('{:08b}'.format(fmt)[::-1], 2)
+    long_off, compr = fmt & 0x10, fmt & 0x20
+    out = []
+    pos = 0x40
+    for _ in range(count):
+        p = pos + 8
+        size = struct.unpack_from('<q', b, p)[0]
+        p += 16 if compr else 8
+        off = struct.unpack_from('<q', b, p)[0] if long_off else struct.unpack_from('<I', b, p)[0]
+        out.append((off, size))
+        pos += hdr_size
+    return out
+
+
+def save_data_ok(data):
+    """存档内容完整：每一块开头 16 字节都是后面内容的 MD5（正好撞上游戏在写时对不上）。不是 BND4 的（认不出格式）只看大小不为 0"""
+    try:
+        ents = _bnd4_entries(data)
+    except struct.error:
+        return False
+    if ents is None:
+        return len(data) > 0
+    if not ents:
+        return False
+    for off, size in ents:
+        if size < 16 or off + size > len(data):
+            return False
+        if data[off:off + 16] != hashlib.md5(data[off + 16:off + size]).digest():
+            return False
+    return True
+
+
+def _zip_backup(ctx, path):
+    """一份定时备份的压缩包 → Rec（同 get_rng_backups 的一项，Dir 是压缩包的路径）；读不了 / 没写完的返回 None"""
+    try:
+        with zipfile.ZipFile(path) as z:
+            names = z.namelist()
+            text = _net_decode(z.read('backup_info.json'))
+        info = json.loads(text, object_pairs_hook=_json_obj, parse_float=decimal.Decimal) if text.strip(_JSON_WS) else None
+        t = _ps_datetime(_jget(info, 'time'))
+    except (OSError, KeyError, ValueError, TypeError, EOFError, zipfile.BadZipFile):
+        return None
+    save_names = [n.casefold() for n in RngSaveNames + [RngCoopSaveOld]]
+    saves = sum(1 for n in names if n.rsplit('/', 1)[-1].casefold() in save_names)
+    recs = sum(1 for n in names if n.startswith('角色记录/') and n.rsplit('.', 1)[-1].casefold() in ('txt', 'json'))
+    return Rec(Dir=path, Tag=_ps_str(_jget(info, 'tag')), Time=t, Mode=_ps_str(_jget(info, 'mode')), Sig=_ps_str(_jget(info, 'sig')),
+               Records=recs, Saves=saves, Zip=True)
+
+
+@contextlib.contextmanager
+def backup_as_dir(Backup):
+    """一份备份的文件夹：压缩包先解到临时文件夹（用完删掉），文件夹的照原样"""
+    if not str(Backup.Dir).casefold().endswith('.zip'):
+        yield Backup.Dir
+        return
+    tmp = tempfile.mkdtemp(prefix='darkforge_backup_')
+    try:
+        with zipfile.ZipFile(Backup.Dir) as z:
+            z.extractall(tmp)                      # extractall 会去掉 ..、盘符这类越界的路径
+            for zi in z.infolist():                # 修改时间照压缩包里记的（extractall 不管，恢复出来的文件就成了现在的时间）
+                p = os.path.join(tmp, *[x for x in zi.filename.split('/') if x not in ('', '.', '..')])
+                if os.path.isfile(p):
+                    t = time.mktime(zi.date_time + (0, 0, -1))
+                    os.utime(p, (t, t))
+        yield tmp
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def timed_backup_due(ctx, now=None):
+    """离上一份定时备份够间隔了没有（没有定时备份时算到了）"""
+    last = next((b for b in get_rng_backups(ctx) if ieq(b.Tag, RngTimedTag)), None)
+    if not last or not last.Time:
+        return True
+    now = now or _now()
+    return (now - last.Time).total_seconds() >= get_backup_interval(ctx) * 60 - TIMED_SLACK
+
+
+def new_rng_timed_backup(ctx, Mode='游戏中', Quiet=TIMED_QUIET):
+    """存一份定时备份（压缩包）。返回 (结果, 路径)：saved 存了、same 和上一份定时备份一样、busy 正好撞上在写（过一会儿再试）、none 没东西可存"""
+    saves = get_rng_save_files(ctx)
+    records = get_rng_record_files(ctx)
+    if not saves and not records:
+        return 'none', None
+    sig = get_rng_file_sig(saves + records)
+    last = next((b for b in get_rng_backups(ctx) if ieq(b.Tag, RngTimedTag)), None)
+    if last and ieq(last.Sig, sig):
+        return 'same', last.Dir
+    now = time.time()
+    if Quiet and any(now - os.stat(f.FullName).st_mtime < Quiet for f in saves):
+        return 'busy', None
+    parts = []                                     # (压缩包里的路径, 内容, 修改时间)
+    for f in saves:
+        r = _read_stable(_mirror_bak(f.FullName))
+        if r is None or not save_data_ok(r[0]):
+            add_rng_ops_log(ctx, '定时备份（' + Mode + '）：' + f.Directory.Name + '\\' + f.Name + ' 正好在写，这次不存，过一会儿再试')
+            return 'busy', None
+        parts.append((f.Directory.Name + '/' + f.Name, r[0], r[1]))
+    for f in records:
+        r = _read_stable(f.FullName)
+        if r is None:
+            return 'busy', None
+        parts.append(('角色记录/' + get_rng_record_name(f).replace('\\', '/'), r[0], r[1]))
+    if get_rng_file_sig(get_rng_save_files(ctx) + get_rng_record_files(ctx)) != sig:     # 读的时候又有文件变了：下次再存
+        return 'busy', None
+    os.makedirs(ctx.RngBackupDir, exist_ok=True)
+    stamp = _now().strftime('%Y%m%d_%H%M%S')
+    dst = os.path.join(ctx.RngBackupDir, stamp + '_' + RngTimedTag + '.zip')
+    k = 2
+    while os.path.exists(dst):
+        dst = os.path.join(ctx.RngBackupDir, stamp + '_' + RngTimedTag + '_' + str(k) + '.zip')
+        k += 1
+    info = {'tag': RngTimedTag, 'time': _now().strftime('%Y-%m-%d %H:%M:%S'), 'mode': Mode, 'sig': sig}
+    tmp = dst + '.tmp'
+    try:
+        with zipfile.ZipFile(tmp, 'w', zipfile.ZIP_DEFLATED, compresslevel=6) as z:
+            for arc, data, mt in parts:
+                zi = zipfile.ZipInfo(arc, date_time=max(time.localtime(mt)[:6], (1980, 1, 1, 0, 0, 0)))
+                zi.compress_type = zipfile.ZIP_DEFLATED
+                z.writestr(zi, data, compresslevel=6)
+            z.writestr('backup_info.json', _ps_json_flat(info).encode('utf-8'))
+        os.replace(tmp, dst)
+    finally:
+        if os.path.exists(tmp):
+            _remove_file(tmp)
+    mb = os.path.getsize(dst) / 1048576.0
+    add_rng_ops_log(ctx, '定时备份（' + Mode + '）：存档 ' + str(len(saves)) + ' 个、角色记录 ' + str(len(records)) + ' 个 → ' +
+                    os.path.basename(dst) + '（' + ('%.1f' % mb) + ' MB）')
+    for old in [b for b in get_rng_backups(ctx) if ieq(b.Tag, RngTimedTag)][RngTimedKeep:]:
+        if old.Zip:
+            _remove_file(old.Dir)
+        else:
+            _remove_tree_quiet(old.Dir)
+        add_rng_ops_log(ctx, '删掉旧的定时备份（只留最近 ' + str(RngTimedKeep) + ' 份）：' + os.path.basename(old.Dir))
+    prune_legacy_backups(ctx)
+    return 'saved', dst
+
+
+def prune_legacy_backups(ctx):
+    """以前的版本每次启动前 / 恢复前存的备份文件夹（用户 2026-11-19「自动清掉」）：定时备份攒满 RngTimedKeep 份以后删掉，
+    在那之前留着（刚更新时它们是仅有的备份）。只删自动备份文件夹里带 启动前 / 恢复前 标签的，「存档备份」按钮存的不动。返回删了几份"""
+    lst = get_rng_backups(ctx)
+    if sum(1 for b in lst if ieq(b.Tag, RngTimedTag)) < RngTimedKeep:
+        return 0
+    old = [b for b in lst if not b.Zip and (ieq(b.Tag, '启动前') or ieq(b.Tag, '恢复前'))]
+    for b in old:
+        _remove_tree_quiet(b.Dir)
+    if old:
+        add_rng_ops_log(ctx, '定时备份已经有 ' + str(RngTimedKeep) + ' 份，删掉以前的启动前 / 恢复前备份 ' + str(len(old)) + ' 份：' +
+                        '、'.join(os.path.basename(b.Dir) for b in old))
+    return len(old)
 
 
 # ---------------------------------------------------------------- launcher.ps1 里的两个
 def invoke_launch_backup(ctx, Mode):
-    """启动游戏前自动备份存档 + 角色记录；图形界面「恢复存档」默认恢复最近一份"""
+    """启动游戏前整理存档文件夹（旧位置的文件搬进 DarkReforged\\）。以前这里还存一份「启动前」备份：2026-11-19 起改成游戏开着时
+    定时备份（watch.py 调 new_rng_timed_backup），这里不再存"""
     try:
         n = move_rng_legacy_files(ctx)
         if n:
             host('  整理存档文件夹：' + str(n) + ' 项搬进 ' + ctx.RngDataDir)
     except Exception as e:
         write_warn('整理存档文件夹失败（下次启动再试）：' + _msg(e))
-    try:
-        d = new_rng_backup(ctx, '启动前', Mode)
-        if d:
-            host('  启动前备份：' + d)
-    except Exception as e:
-        write_warn('启动前备份失败（不影响游戏，但出问题时没法恢复到这次启动前）：' + _msg(e))
+    host('  定时备份：游戏开着时每 ' + str(get_backup_interval(ctx)) + ' 分钟自动备份一次存档和角色记录（有变化才存），退出游戏后再存一份，留最近 ' +
+         str(RngTimedKeep) + ' 份')
 
 
 def invoke_once_reset(ctx):

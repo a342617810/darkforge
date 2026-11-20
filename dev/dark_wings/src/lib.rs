@@ -824,6 +824,33 @@ fn finish(st: &mut St, p: &mut PlayerIns, why: &str) {
     st.pose_pending = false;
 }
 
+/// tick 出错（panic）后：还在飞 / 滑翔就照 finish 恢复——放开定住的动画、写回起飞前的「关掉动作 / 关掉移动」开关和扶正开关
+/// （崩溃风险审查 2026-11-19 第 27 条：以前只把状态改回 Idle，开关留着关，人物动不了要读档）。返回恢复了没有
+fn recover() -> bool {
+    let mut st = st();
+    if st.mode == Mode::Idle {
+        FROZEN.store(false, Ordering::Relaxed);
+        return false;
+    }
+    let done = match unsafe { WorldChrMan::instance_mut() }.ok().and_then(|w| w.main_player.as_mut()) {
+        Some(p) => {
+            let p: &mut PlayerIns = p;
+            unfreeze(&st, &mut p.chr_ins.modules);
+            p.chr_ins.modules.physics.use_world_y_alignment_logic = st.saved_align;
+            p.chr_ins.debug_flags.set_disabled_secondary_actions(st.saved_flags.0);
+            p.chr_ins.debug_flags.set_disabled_movement(st.saved_flags.1);
+            true
+        }
+        None => false,
+    };
+    FROZEN.store(false, Ordering::Relaxed);
+    st.mode = Mode::Idle;
+    st.used = true;
+    st.pose_pending = false;
+    st.pitch = 0.0;
+    done
+}
+
 fn set_mode(st: &mut St, mode: Mode, why: &str) {
     log(&format!("{:?} → {:?}：{why}", st.mode, mode));
     st.mode = mode;
@@ -1290,11 +1317,15 @@ pub unsafe extern "system" fn DllMain(hmodule: u64, reason: u32, _reserved: *mut
         task.run_recurring(
             move |_: &FD4TaskData| {
                 if catch_unwind(AssertUnwindSafe(tick)).is_err() {
-                    FROZEN.store(false, Ordering::Relaxed);
-                    st().mode = Mode::Idle;
+                    // 还在飞 / 滑翔的话把关掉的动作、移动、定住的动画恢复（recover）；恢复也出错就只停下（同以前）
+                    let restored = catch_unwind(recover).unwrap_or_else(|_| {
+                        FROZEN.store(false, Ordering::Relaxed);
+                        st().mode = Mode::Idle;
+                        false
+                    });
                     errs += 1;
                     if errs <= 3 {
-                        log("飞行：读写人物时出错（已停下）");
+                        log(if restored { "飞行：读写人物时出错（已停下，动作和移动已恢复）" } else { "飞行：读写人物时出错（已停下）" });
                     }
                 }
             },

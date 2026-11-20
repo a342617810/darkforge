@@ -321,7 +321,7 @@ def g_user_dll(tmp):
 
         def py(ctx, ext=ext):
             ctx.ErdSaveExt = ext
-            return launch.get_user_dll_lines(ctx)
+            return sv_delay(launch.get_user_dll_lines(ctx))
         p.run('Get-UserDllLines ' + name, ps, wrap(py), files=('root\\dll',), ctx_args={'DryRun': dry}, times=True)
     # Join-DllLines：联机的 ersc.dll、YAFSML自定义.ini 的 [dll]
     for name, coop, pl in (('平常', '', None), ('联机', '..\\dll\\SeamlessCoop\\ersc.dll', None),
@@ -333,8 +333,20 @@ def g_user_dll(tmp):
             ctx.CoopDll = coop
             if pl:
                 ctx.PlayerLoad = Rec(Dll=pl)
-            return launch.join_dll_lines(ctx, '; 无敌人随机：不需要额外 DLL')
+            return sv_delay(launch.join_dll_lines(ctx, '; 无敌人随机：不需要额外 DLL'))
         p.run('Join-DllLines ' + name, ps, wrap(py), files=('root\\dll',), times=True)
+
+
+def sv_delay(s):
+    """有意的不同（崩溃风险审查 2026-11-19 第 14 条）：敌人信息 mod（souls_vision）那一行 Python 加了 |delay,3000。
+    加载了它就断言带着，再去掉和 PowerShell 比"""
+    if isinstance(s, str) and 'user_souls_vision=' in s:
+        COUNT[0] += 1
+        if 'souls_vision.dll|delay,3000' not in s:
+            FAILS.append('souls_vision 没带 |delay,3000')
+            sys.__stdout__.write('DIFF 敌人信息 mod 那一行没带 |delay,3000（有意的不同）：' + s + '\n')
+        return s.replace('souls_vision.dll|delay,3000', 'souls_vision.dll')
+    return s
 
 
 def g_enemy_info(tmp):
@@ -579,7 +591,22 @@ def g_processes(tmp):
     run_proc(p, 'Start-YafGame 启动、第 3 秒看到游戏', [False, False, False, True], "(Start-YafGame '敌人随机')",
              lambda c: launch.start_yaf_game(c, '敌人随机'), files=files)
     run_proc(p, 'Start-YafGame 60 秒没看到', [False], "(Start-YafGame '敌人随机')", lambda c: launch.start_yaf_game(c, '敌人随机'), files=files)
-    run_proc(p, 'Start-YafGame 游戏已在运行', [True, True, False, True], "(Start-YafGame 'x')", lambda c: launch.start_yaf_game(c, 'x'), files=files)
+    # 有意的不同（崩溃风险审查 2026-11-19 第 15 条）：游戏已在运行时 PowerShell 先结束它再启动，Python 报错、不结束也不启动。
+    # 只跑 Python 这边（PowerShell 那边会写 YAFSML.log，两份副本就对不齐了）
+    st, fp, kp, sl, stt = proc_fakes([True, True, False, True])
+
+    def py_running(c):
+        c.PythonExe = PYEXE
+        with patched(win, find_pids=fp, kill_pid=kp, Proc=FakeProc), patched(launch, _sleep=sl, _start=stt):
+            return launch.start_yaf_game(c, 'x')
+    b, ob = py_call(py_running, p.env['py'], root=p.root['py'])
+    COUNT[0] += 1
+    ok = (b is False and not st['killed'] and not st['sp'] and not st['sl']
+          and any(l.startswith('  [错误] 游戏还在运行') and '任务管理器' in l for l in ob))
+    print(('OK   ' if ok else 'DIFF ') + 'Start-YafGame 游戏已在运行（有意的不同：Python 不结束游戏，报错不启动）')
+    if not ok:
+        print('   PY:', b, st, ob)
+        FAILS.append('Start-YafGame 游戏已在运行')
     p.each(lambda r, e, b: touch(os.path.join(r, 'launcher', 'game_path.txt'), 'Q:\\nope\r\n'))
     run_proc(p, 'Start-YafGame 记下的游戏路径不对（自动检测）', [False], "(Start-YafGame 'x')", lambda c: launch.start_yaf_game(c, 'x'),
              ctx_args={'NoLaunch': True}, files=files + ('root\\launcher\\game_path.txt',), ps_pre='$NoLaunch = $true\n')
@@ -890,12 +917,29 @@ def g_launch(tmp):
 
         def py(c, rand=rand, coop=coop):
             launch.invoke_launch(c, rand, coop)
+            prof_mods(c)
             return {'suffix': c.WorldSuffix, 'ext': c.ErdSaveExt, 'coopdll': c.CoopDll}
         p.run('Invoke-Launch ' + name, ps, wrap(py), ctx_args={'DryRun': dry, 'NoLaunch': not dry, 'BossWorld': bw},
               files=LAUNCH_FILES, times=True)
     p = Pair(tmp, 'launch_notool', setup_launch)
     p.each(lambda r, e, b: os.remove(os.path.join(r, 'launcher', 'reroll', 'scripts.py')))
     p.run('Invoke-Launch 缺少脚本', 'Invoke-Launch $false', wrap(lambda c: launch.invoke_launch(c, False)), files=LAUNCH_FILES, times=True)
+
+
+def prof_mods(c):
+    """有意的不同（崩溃风险审查 2026-11-19 第 12 条）：联机兼容档案多了一行「mods<Tab>自己加的 mod」（副本里没有，是「无」）。
+    写了档案就断言有这一行，再从文件里去掉和 PowerShell 比"""
+    if not os.path.isfile(c.CoopProfile):
+        return
+    lines = open(c.CoopProfile, encoding='utf-8', newline='').read().split('\n')
+    if not any(l.startswith('fingerprint\t') for l in lines):      # 这次没写（副本里原来就有的那份）
+        return
+    COUNT[0] += 1
+    if 'mods\t无' not in lines:
+        FAILS.append('联机兼容档案没有 mods 一行')
+        sys.__stdout__.write('DIFF 联机兼容档案没有「mods\t无」一行（有意的不同）：%r\n' % lines)
+    with open(c.CoopProfile, 'w', encoding='utf-8', newline='') as f:
+        f.write('\n'.join(l for l in lines if not l.startswith('mods\t')))
 
 
 def g_status(tmp):

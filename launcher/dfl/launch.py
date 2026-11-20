@@ -200,6 +200,7 @@ def _get_item_size(p):
 #   Seamless Co-op（ersc.dll）不在这里加载：只有联机启动才加载（见 coop 模块，Join-DllLines 放最前面）
 def get_user_dll_lines(ctx):
     """Get-UserDllLines：dll\\ 里要加载的 DLL 写成 [dll] 的行；一个都没有返回 ''"""
+    import fnmatch
     if not os.path.exists(ctx.UserDllDir):
         return ''
     files = ls(ctx.UserDllDir, '*.dll', 'file')
@@ -223,7 +224,10 @@ def get_user_dll_lines(ctx):
             k = key + '_' + str(n)
             n += 1
         used.add(k.casefold())
-        lines.append(k + '=..\\dll\\' + rel)
+        # 敌人信息 mod 晚 3 秒再加载（YAFSML 自带的示例也是 delay）：启动头几秒 dark_ui、ErdTools、幻化插件都在装钩子，
+        # 装钩子时会把进程里别的线程都停一下，错开免得撞在一起（崩溃风险审查 2026-11-19 第 14 条）
+        cond = '|delay,3000' if fnmatch.fnmatchcase(name.lower(), 'souls_vision*.dll') else ''
+        lines.append(k + '=..\\dll\\' + rel + cond)
     if not lines:
         return ''
     return '; 用户 DLL（整合包根目录 dll\\ 文件夹，自动扫描）\r\n' + '\r\n'.join(lines)
@@ -421,6 +425,23 @@ def get_scripts_line(ctx, ModLines):
     return ''
 
 
+def set_lock_text_marker(ctx, Loaded):
+    """物品菜单「锁定 / 送给」的文字（4190~4196）只在游戏脚本覆盖包里（sc/lock.py 写进 menu_dlc02）：这次没挂覆盖包就在 dll\\dark_lock\\
+    放一个标记（no_menu_text.txt），dark_lock 看到就不加这两种选项，免得游戏建选项时拿到空文字（崩溃风险审查 2026-11-19 第 17 条）；挂上了就删掉。
+    dll\\dark_lock 不在（没装 / 停用了）就不管"""
+    d = os.path.join(ctx.UserDllDir, 'dark_lock')
+    if not os.path.isdir(d):
+        return
+    p = os.path.join(d, 'no_menu_text.txt')
+    if Loaded:
+        _remove_file(p)
+        return
+    try:
+        core.write_text(p, '这次启动游戏脚本覆盖包没有加载（启动器写的，下次加载上了会删掉）：物品菜单里不加「锁定 / 送给」\r\n')
+    except OSError as e:
+        host('  写不了 ' + p + '：' + str(e))
+
+
 def get_menu_line(ctx):
     """Get-MenuLine：菜单覆盖包（reroll\\menu.py）：自制状态图标（buff 图标）、生成装备的稀有度边框图标。从本机游戏 Data0 里的原版菜单文件合成到 out\\menu
     （只读游戏文件，没变就沿用上次的）；返回要追加的 [mod] 行（失败返回空，照常启动，只是没有自制图标）"""
@@ -482,6 +503,7 @@ def write_ini_file(ctx, ModLines, DllLines):
     if _true(_g(pl, 'Before')):
         ModLines = _s(_g(pl, 'Before')) + '\r\n' + ModLines
     sl = get_scripts_line(ctx, ModLines)
+    set_lock_text_marker(ctx, bool(sl))
     write_progress_bar(97)
     ml = get_menu_line(ctx)
     write_progress_bar(100)
@@ -535,6 +557,11 @@ def show_ini_dry(ctx, ModLines, DllLines):
 # 以前 YAFSML 第一次启动（yafsml\cache 为空，或游戏更新后）会先「预热」一次：先启动一次只建 BootBoost 缓存再关掉，
 # 因为那时候缓存现场建的那一局读档会崩在 YAFSML.dll 里。2026-10-30 用 YAFSML 0.10.4 测过缓存全空直接启动：
 # 7 个缓存当场建好、文字包和 regulation 都覆盖上了、读档进地图不闪退，所以去掉了预热。
+# 游戏在跑时不启动（不替玩家结束游戏：可能正在存档）。上次崩溃 / 退出时卡住、窗口没了进程还在的，让玩家自己在任务管理器里结束
+GameRunningMsg = ('游戏还在运行。先在游戏里正常退出（系统 → 退出游戏），等游戏完全关闭后再启动。'
+                  '如果游戏已经关了还这样提示（上次没退干净，后台还留着），打开任务管理器结束 eldenring.exe 再启动。')
+
+
 def stop_elden_ring(ctx=None):
     """Stop-EldenRing：结束 eldenring.exe，最多等 10 秒（每 0.5 秒看一次）"""
     pids = win.find_pids('eldenring')
@@ -594,6 +621,51 @@ def save_run_logs(ctx, Mode):
             pass
 
 
+# 游戏目录 Game\ 顶层的这些文件会被游戏当成系统 DLL 先加载（别的 mod 加载器、ReShade、补帧 / 超分类 mod 常用的「代理」文件名）：
+# 和整合包一起就是同一个游戏里再加载一套 mod（再来一份 Seamless Co-op 或 ErdTools 必出事）。原版游戏、整合包、YAFSML、Seamless Co-op
+# 都不往 Game\ 放这些（2026-11-19 核对：原版 Game\ 顶层只有 amd_ags_x64 / bink2w64 / eossdk / oo2core / steam_api64）
+ProxyDllNames = ('dinput8.dll', 'dxgi.dll', 'd3d11.dll', 'd3d12.dll', 'winmm.dll', 'version.dll', 'dsound.dll', 'winhttp.dll',
+                 'xinput1_3.dll', 'xinput1_4.dll')
+# 画面类（ReShade、补帧 / 超分）常用的名字：很多玩家长期开着，联机也只提示不拦；拦的是 mod 加载器常用的其余几个名字
+GraphicsProxyNames = ('dxgi.dll', 'd3d11.dll', 'd3d12.dll')
+
+
+def find_proxy_dlls(game_dir):
+    """Game\\ 顶层的代理 DLL（实际的文件名）；读不了目录返回 []"""
+    try:
+        names = os.listdir(game_dir)
+    except OSError:
+        return []
+    want = {n.casefold() for n in ProxyDllNames}
+    return sorted((n for n in names if n.casefold() in want and os.path.isfile(os.path.join(game_dir, n))), key=str.casefold)
+
+
+def test_game_dir_proxies(ctx, er_root, Coop):
+    """启动前看 Game\\ 顶层有没有别的 mod 留下的代理 DLL（崩溃风险审查 2026-11-19 第 16 条）：单机提示一句照常启动；联机不启动。
+    同一个游戏目录一次启动只看一次。返回能不能启动"""
+    game_dir = os.path.join(er_root, 'Game')
+    if getattr(ctx, 'ProxyChecked', '') == game_dir:
+        return True
+    ctx.ProxyChecked = game_dir
+    found = find_proxy_dlls(game_dir)
+    if not found:
+        return True
+    names = '、'.join(found)
+    host('  游戏目录 ' + game_dir + ' 顶层有代理 DLL：' + names)
+    gfx = {n.casefold() for n in GraphicsProxyNames}
+    if Coop and all(n.casefold() in gfx for n in found):
+        write_player_warn('游戏的 Game 文件夹里有画面类 mod 的文件（' + names + '）。联机时如果闪退或掉线，先把它们从 Game 文件夹挪走' +
+                          '（例如放进一个新建的文件夹）再试：' + game_dir)
+        return True
+    if Coop:
+        write_err('联机启动不了：游戏的 Game 文件夹里有别的 mod 留下的文件（' + names + '），游戏会额外加载一套别的 mod，' +
+                  '联机时容易掉线或闪退。把这些文件从 Game 文件夹挪走（例如放进一个新建的文件夹）再联机启动：' + game_dir)
+        return False
+    write_player_warn('游戏的 Game 文件夹里有别的 mod 留下的文件（' + names + '），游戏会额外加载一套别的 mod，可能闪退或者功能出错。' +
+                      '不用的话把它们从 Game 文件夹挪走（例如放进一个新建的文件夹）：' + game_dir)
+    return True
+
+
 def _newest_pid(pids):
     """Sort-Object StartTime -Descending | Select-Object -First 1（读不到启动时间的排最后）"""
     def start(pid):
@@ -625,12 +697,16 @@ def start_yaf_game(ctx, Mode=''):
     ok_ver = getattr(ctx, 'GameVerOk', None)
     if not (ok_ver is not None and core.ieq(ok_ver, game_exe)) and not gamepath.test_game_version(ctx, game_exe):
         return False
+    if not test_game_dir_proxies(ctx, er_root, bool(getattr(ctx, 'CoopDll', ''))):
+        return False
     if ctx.NoLaunch:
         write_warn('[-NoLaunch] 只写配置，不启动 YAFSML。')
         return True
+    # 游戏已经在跑：不再结束它（崩溃风险审查 2026-11-19 第 15 条：以前直接结束，赶上另一个启动器刚启动的游戏、或者正在存档就坏档）。
+    # 以前要结束多半是为了上次没退干净的进程；invoke_launch 生成之前已经查过一次，走到这里说明是生成的这一会儿里有人又启动了游戏
     if _eldenring_running():
-        write_warn('检测到游戏已在运行，先关闭旧进程...')
-        stop_elden_ring(ctx)
+        write_err(GameRunningMsg)
+        return False
     save_run_logs(ctx, Mode)
     # Start-Process -WindowStyle Minimized：直接启动（不经过 shell），最小化，不继承句柄，不等它。命令行照 PowerShell 拼（路径总带引号）
     si = subprocess.STARTUPINFO()
@@ -895,6 +971,10 @@ def invoke_launch(ctx, Rand, Coop=False):
         host('  Seamless Co-op：' + _full(ersc) + '（版本 ' + _s(get_ersc_version(ctx, ersc)) + '）')
         if not test_ersc_settings(ctx, ersc):
             return
+        # 自己加的 mod 排在整合包后面、改了数值 / 地图 / 事件的不让联机（两人的游戏数据会对不上）
+        from .coop import test_coop_player_mods
+        if not test_coop_player_mods(ctx):
+            return
         # 联机存档 2026-11-17 起叫 ER0000.rngcoop（YAFSML.ini.tpl）：还没有就从旧的 ER0000.rng.co2 复制，免得 YAFSML 从原版联机存档 ER0000.co2 复制一份新的
         if not ctx.DryRun:
             move_coop_save_name(ctx)
@@ -994,7 +1074,7 @@ def invoke_launch(ctx, Rand, Coop=False):
         return
     # 要覆盖游戏正在用的 out\reroll 等文件
     if _eldenring_running():
-        write_err('游戏还在运行。先在游戏里正常退出（系统 → 退出游戏），等游戏完全关闭后再启动。')
+        write_err(GameRunningMsg)
         return
     # 游戏版本不对：大半功能不工作，生成之前先说（游戏路径还没选好的，到 start_yaf_game 选完再核对）
     ctx.GameVerOk = ''
@@ -1003,6 +1083,9 @@ def invoke_launch(ctx, Rand, Coop=False):
         if not gamepath.test_game_version(ctx, os.path.join(gr, 'Game\\eldenring.exe')):
             return
         ctx.GameVerOk = os.path.join(gr, 'Game\\eldenring.exe')
+        # Game\ 顶层别的 mod 留下的代理 DLL：联机在生成之前就不启动（游戏路径还没选好的，到 start_yaf_game 选完再看）
+        if not test_game_dir_proxies(ctx, gr, Coop):
+            return
     py = find_python(ctx)
     if not py:
         write_err('找不到 Python 3：包里自带的 ' + os.path.join(ctx.LauncherDir, 'python') + ' 不完整，系统里也没装（python.org 装 3.8 以上即可）')

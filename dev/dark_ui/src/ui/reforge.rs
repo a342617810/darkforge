@@ -2,8 +2,9 @@
 //!   左：背包里的生成武器（装备着的标原版「装备中」标记、锁定的标锁），上面一排类别页签（X / Tab）
 //!   中：原版武器详情那样——名字（稀有度名牌底）、类型 · 强化 · 战技 · 重量，攻击力（基础 + 属性加成，dark_core 照原版算的）、
 //!       防御时减伤、能力加成（补正数值）、必需能力值（不够的标红）、附加效果
-//!   右：「重铸」按钮、消耗（武器重铸石）、重铸后的范围（dark_core 按现在的加点抽很多次统计的：每项属性有补正的几率、补正和需求的范围、补正项数）
-//! 操作：上下选武器，A 到右边按钮、再 A 弹确认；Y 直接确认；B 返回 / 关窗口；X 换类别。
+//!   右：「重铸」按钮、「快速重铸」按钮、消耗（武器重铸石）、重铸后的范围（dark_core 按现在的加点抽很多次统计的：每项属性有补正的几率、补正和需求的范围、补正项数）
+//! 操作：上下选武器，A 到右边按钮、再 A 弹确认；Y（键盘 R）快速重铸：不弹确认直接重铸，按一下重铸一次、按住不连发
+//! （用户 2026-11-19「给重铸添加一个无需确认的快速重铸」）；B 返回 / 关窗口；X 换类别。
 use super::*;
 
 /// 武器类型名（原版 GR_MenuText 60010~60187 的文字，按 wepType）
@@ -105,8 +106,8 @@ impl Workshop {
         } else if a.left || a.lb {
             self.rcol = 0;
         }
-        if a.y && self.weapon().is_some_and(|w| !w.ovl) {
-            self.confirm = true;
+        if a.y {
+            self.quick_reforge();
         }
         if a.b {
             if self.rcol > 0 {
@@ -114,6 +115,21 @@ impl Workshop {
             } else {
                 self.reqs.push(Req::Close);
             }
+        }
+    }
+
+    /// 能快速重铸：选中了武器、没超限过、还有重铸石（石头不够时 dark_core 也会拒）
+    pub(super) fn can_quick_reforge(&self) -> bool {
+        self.stones_left() > 0 && self.weapon().is_some_and(|w| !w.ovl)
+    }
+
+    /// 快速重铸：不弹确认，直接重铸选中的武器（等 dark_core 回了结果才能再来一次：waiting 时 handle 不收操作）
+    pub(super) fn quick_reforge(&mut self) {
+        match self.weapon() {
+            None => {}
+            Some(w) if w.ovl => self.msg = Some((false, self.t("这把武器超限过，不能再重铸", "This armament has been overlimited and can't be reforged").to_string())),
+            Some(_) if self.stones_left() == 0 => self.msg = Some((false, self.t("没有武器重铸石", "You have no Weapon Reforge Stone").to_string())),
+            Some(_) => self.reforge_go(),
         }
     }
 
@@ -307,12 +323,24 @@ impl Workshop {
         d.sprite("MENU_FL_Cursor_EntWaku", bx, by, bw, bh, if focus { 1.0 } else { 0.6 });
         let label = self.t("重铸", "Reforge");
         let lw = d.width(label, 30.0);
-        d.glyph(if focus { "KG_XboxSeries_R_D" } else { "KG_XboxSeries_R_U" }, bx + (bw - lw) / 2.0 - 48.0, by + (bh - 38.0) / 2.0, 38.0);
+        // A 到这里、再 A 弹确认（Y 现在是下面的快速重铸）
+        d.glyph("KG_XboxSeries_R_D", bx + (bw - lw) / 2.0 - 48.0, by + (bh - 38.0) / 2.0, 38.0);
         d.text_mid(bx + (bw - lw) / 2.0, by + bh / 2.0, 30.0, if ok { TEXT } else { DIM }, 1.0, label);
         self.hit(bx, by, bw, bh, Hit::Forge);
+        // 快速重铸（Y / 键盘 R / 点）：不弹确认
+        let (qy, qh) = (by + bh + 10.0, 60.0);
+        d.sprite("MENU_FL_Cursor_EntWaku", bx, qy, bw, qh, 0.6);
+        let ql = self.t("快速重铸", "Quick reforge");
+        let qn = self.t("（不用确认）", " (no prompt)");
+        let (qw, nw) = (d.width(ql, 24.0), d.width(qn, 18.0));
+        let qx = bx + (bw - 40.0 - qw - nw) / 2.0;
+        d.glyph("KG_XboxSeries_R_U", qx, qy + (qh - 32.0) / 2.0, 32.0);
+        d.text_mid(qx + 40.0, qy + qh / 2.0, 24.0, if ok { TEXT } else { DIM }, 1.0, ql);
+        d.text_mid(qx + 40.0 + qw, qy + qh / 2.0, 18.0, DIM, 1.0, qn);
+        self.hit(bx, qy, bw, qh, Hit::QuickForge);
         // 消耗（超限过的不能重铸：这一行换成说明）
         let (s_icon, n) = self.snap.as_ref().map_or((0, 0), |s| (s.rstone_icon, s.rstones));
-        let cy = by + bh + 16.0;
+        let cy = qy + qh + 16.0;
         if wp.ovl {
             d.text_clip(x, cy + 9.0, w, 20.0, ERRC, 1.0, self.t("这把武器超限过，不能再重铸", "This armament has been overlimited and can't be reforged"));
             return;
@@ -376,7 +404,7 @@ impl Workshop {
         let total = 44.0 + wo + 60.0 + 44.0 + wn;
         let mut bx = 960.0 - total / 2.0;
         d.glyph("KG_XboxSeries_R_D", bx, 575.0, 38.0);
-        d.text_mid(bx + 44.0, 594.0, 26.0, TEXT, 1.0, ok);
+        d.text_mid(bx + 44.0, 594.0, 26.0, if self.confirm_ready() { TEXT } else { DIM }, 1.0, ok);
         self.hit(bx, 570.0, 44.0 + wo, 48.0, Hit::Ok);
         bx += 44.0 + wo + 60.0;
         d.glyph("KG_XboxSeries_R_R", bx, 575.0, 38.0);

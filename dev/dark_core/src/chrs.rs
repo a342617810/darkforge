@@ -11,37 +11,51 @@
 //! - v0.8.2 一度改成按物理位置自己算距离，用户觉得不靠谱，查实确实不对：物理位置是各自地图块里的坐标，跨地图块直接相减没意义
 //!   （2026-11-01 运行中读：游戏距离 13.5 米的敌人按位置算 103 米）。改回用游戏的距离、加就绪检查。
 //! 宏里只借 WorldChrMan 的这几个字段，调用处同时可变借着 main_player 也行。
+//! 在场 = ChrSet 里的非空条目，去掉正在建（状态字节 1）和正在拆（5）的（崩溃风险审查 2026-11-19 第 20 条：以前全收，下游照样解引用、挂效果、改血量）。
+//! - 只排除这两种，不是只收「Active」：第一版只收 vendored 枚举的 Active（2），同日 18:18 实测稳定在场的主角一直是 4、从来不是 2，
+//!   前 90 秒 live! / around! 一个角色都没有（斗技场第一波精英没魇化）。黄金树爬塔（1.17.1）也把 4（ReadyForActivation）当在场，
+//!   没唤醒的地图敌人是 0（Unloaded）、被停读的也是 0：0 照旧算（联机时房主那边离房主远、靠近客机的敌人可能就是 0，房主要替客机改它）。
+//! - 主角读到 2 或 4（确认这个字节就是状态）以前全收，不等、不会一开始全空；读到大于 5 的值就当不是状态，之后一直全收。
+//! - 见过不在建的角色之后再读到 1 也照样算（SEEN）：不让 speed.rs / rules 丢掉要改回的记录。
+//! - status_diag 照样记实测的值（「周围角色（实测）」），以后要改规则先看它。
 
-use std::collections::HashSet;
+use std::collections::{BTreeMap, HashSet};
 use std::ffi::c_void;
 use std::ptr::NonNull;
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicU8, AtomicUsize, Ordering};
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
-use eldenring::cs::{ChrIns, ChrSet, PlayerIns, WorldChrMan};
+use eldenring::cs::{ChrIns, ChrSet, ChrSetEntry, PlayerIns, WorldChrMan};
 use fromsoftware_shared::{FromStatic, OwnedPtr, Subclass};
 use windows::Win32::System::Diagnostics::Debug::ReadProcessMemory;
 use windows::Win32::System::Threading::GetCurrentProcess;
 
 use crate::log;
 
-/// 在场角色的地址（玩家、灵体、召唤、调试、开放地图、各地图块的 ChrSet）
+/// 在场角色的地址（玩家、灵体、召唤、调试、开放地图、各地图块的 ChrSet；正在建 / 正在拆的不算，见文件开头）
 macro_rules! live {
     ($w:expr) => {
-        $crate::chrs::collect(
+        $crate::chrs::collect_live(
             &$w.player_chr_set,
             [&$w.ghost_chr_set, &$w.summon_buddy_chr_set, &$w.debug_chr_set, &$w.open_field_chr_set.base],
             &$w.chr_sets,
         )
+        .1
     };
 }
 
-/// 周围的角色（游戏算的距离，由近到远），距离列表还没就绪时是 None；$me = 主角 ChrIns 的地址（换了就重新等）
+/// 周围的角色（游戏算的距离，由近到远），距离列表还没就绪时是 None；$me = 主角 ChrIns 的地址（换了就重新等）。
+/// 列表按所有非空条目核对，给出去的不含正在建 / 正在拆的
 macro_rules! around {
     ($w:expr, $me:expr) => {{
         let t0 = $crate::prof::on().then(std::time::Instant::now);
-        let r = $crate::chrs::around(&$w.chr_inses_by_distance, live!($w), $me);
+        let (all, live) = $crate::chrs::collect_live(
+            &$w.player_chr_set,
+            [&$w.ghost_chr_set, &$w.summon_buddy_chr_set, &$w.debug_chr_set, &$w.open_field_chr_set.base],
+            &$w.chr_sets,
+        );
+        let r = $crate::chrs::around(&$w.chr_inses_by_distance, all, &live, $me);
         if let Some(t0) = t0 {
             $crate::prof::around_done(t0.elapsed(), r.as_ref().map_or(0, |v| v.len()));
         }
@@ -53,6 +67,7 @@ fn add<T: Subclass<ChrIns> + 'static>(out: &mut HashSet<usize>, s: &ChrSet<T>) {
     out.extend(s.characters().map(|c| c as *mut T as usize));
 }
 
+/// ChrSet 里所有非空条目（不看状态）：斗技场生成器要看还没生成的部件（arena.rs）；状态字节还没确认时 live! 也用它
 pub fn collect(players: &ChrSet<PlayerIns>, fixed: [&ChrSet<ChrIns>; 4], sets: &[Option<OwnedPtr<ChrSet<ChrIns>>>]) -> HashSet<usize> {
     let mut out = HashSet::new();
     add(&mut out, players);
@@ -65,6 +80,152 @@ pub fn collect(players: &ChrSet<PlayerIns>, fixed: [&ChrSet<ChrIns>; 4], sets: &
     out
 }
 
+/// 条目里状态字节的位置、条目长度（vendored 定义；两个游戏版本 ChrSet 的虚函数逐条一样：容量 +0x10、条目表 +0x18、每条 0x10 字节）
+const STATUS_AT: usize = std::mem::offset_of!(ChrSetEntry<ChrIns>, chr_load_status);
+const ENTRY_SIZE: usize = size_of::<ChrSetEntry<ChrIns>>();
+
+/// 逐条看 ChrSet：（角色地址, 状态字节）。状态按字节读（值的意思还没定，不能当枚举用）
+fn scan<T: Subclass<ChrIns> + 'static>(s: &ChrSet<T>, f: &mut impl FnMut(usize, u8)) {
+    let base = s.entries.as_ptr() as *const u8;
+    for i in 0..s.capacity as usize {
+        let e = unsafe { base.add(i * ENTRY_SIZE) };
+        let chr = unsafe { (e as *const usize).read() };
+        if chr != 0 {
+            f(chr, unsafe { e.add(STATUS_AT).read() });
+        }
+    }
+}
+
+/// 状态字节：正在建、正在拆（vendored 枚举 Initializing / Unloading），比 STATUS_MAX 大就不是状态
+const BUILDING: u8 = 1;
+const TEARING: u8 = 5;
+const STATUS_MAX: u8 = 5;
+/// 0 还没确认（主角还没读到 2 / 4，先全收）、1 确认了、2 读到不认识的值（这个字节不是状态）→ 一直全收
+static STATUS_LAYOUT: AtomicU8 = AtomicU8::new(0);
+/// 见过不在建、不在拆的角色地址：之后再读到正在建也照样算在场；正在拆或者离开 ChrSet 就忘掉
+static SEEN: Mutex<Option<HashSet<usize>>> = Mutex::new(None);
+
+/// 状态字节读到不认识的值：之后不看状态（只记一次）
+fn status_bad(why: &str) {
+    if STATUS_LAYOUT.swap(2, Ordering::Relaxed) != 2 {
+        log(&format!("周围角色：ChrSet 条目的状态字节对不上（{why}），之后不看状态、所有非空条目都算在场（同以前）"));
+    }
+}
+
+/// （所有非空条目, 其中在场的 = 去掉正在建 / 正在拆的）。状态字节还没确认或者对不上时两份一样
+pub fn collect_live(players: &ChrSet<PlayerIns>, fixed: [&ChrSet<ChrIns>; 4], sets: &[Option<OwnedPtr<ChrSet<ChrIns>>>]) -> (HashSet<usize>, HashSet<usize>) {
+    if STATUS_LAYOUT.load(Ordering::Relaxed) != 1 {
+        let all = collect(players, fixed, sets);
+        return (all.clone(), all);
+    }
+    let mut entries = Vec::new();
+    let mut f = |a: usize, st: u8| entries.push((a, st));
+    scan(players, &mut f);
+    for s in fixed {
+        scan(s, &mut f);
+    }
+    for s in sets.iter().flatten() {
+        scan(s, &mut f);
+    }
+    let all: HashSet<usize> = entries.iter().map(|e| e.0).collect();
+    let mut g = SEEN.lock().unwrap_or_else(|e| e.into_inner());
+    match pick(&entries, g.get_or_insert_with(HashSet::new)) {
+        Ok(live) => (all, live),
+        Err((a, st)) => {
+            drop(g);
+            status_bad(&format!("角色 {a:#x} 的状态是 {st}"));
+            (all.clone(), all)
+        }
+    }
+}
+
+/// 按状态字节挑在场的：去掉正在拆的，正在建的只留以前见过的（seen 跟着更新）；读到比 STATUS_MAX 大的值 = Err（不是状态）
+fn pick(entries: &[(usize, u8)], seen: &mut HashSet<usize>) -> Result<HashSet<usize>, (usize, u8)> {
+    if let Some(&odd) = entries.iter().find(|e| e.1 > STATUS_MAX) {
+        return Err(odd);
+    }
+    let mut live: HashSet<usize> = entries.iter().filter(|e| e.1 != BUILDING && e.1 != TEARING).map(|e| e.0).collect();
+    let building: HashSet<usize> = entries.iter().filter(|e| e.1 == BUILDING).map(|e| e.0).collect();
+    // 正在拆的、不在 ChrSet 里的忘掉
+    seen.retain(|a| live.contains(a) || building.contains(a));
+    live.extend(building.iter().copied().filter(|a| seen.contains(a)));
+    seen.extend(live.iter().copied());
+    Ok(live)
+}
+
+/// 每帧（refresh_players）：主角读到 2 或 4 就确认这个字节是状态，开始排除正在建 / 正在拆的；读到不认识的值就一直全收
+fn status_watch(w: &WorldChrMan) {
+    if STATUS_LAYOUT.load(Ordering::Relaxed) != 0 {
+        return;
+    }
+    let Some(me) = w.main_player.as_ref().map(|p| p.as_ptr() as usize) else { return };
+    let mut main = None;
+    scan(&w.player_chr_set, &mut |a, st| {
+        if a == me {
+            main = Some(st);
+        }
+    });
+    match main {
+        Some(st @ (2 | 4)) => {
+            if STATUS_LAYOUT.compare_exchange(0, 1, Ordering::Relaxed, Ordering::Relaxed).is_ok() {
+                log(&format!("周围角色：ChrSet 条目的状态字节对上了（主角是 {st}），之后正在建（1）/ 正在拆（5）的角色不算在场"));
+            }
+        }
+        Some(st) if st > STATUS_MAX => status_bad(&format!("主角的状态是 {st}")),
+        _ => {}
+    }
+}
+
+/// 状态字节实测（只记日志，不影响谁算在场）：每秒最多看一次；主角的值、玩家和其他角色各出现过哪些值，有变化才记一行，最多 STATUS_DIAG_MAX 行
+struct StatusDiag {
+    last: Option<Instant>,
+    key: Option<(Option<u8>, Vec<u8>, Vec<u8>)>,
+    lines: u32,
+}
+
+static STATUS_DIAG: Mutex<StatusDiag> = Mutex::new(StatusDiag { last: None, key: None, lines: 0 });
+const STATUS_DIAG_MAX: u32 = 40;
+
+fn status_diag(w: &WorldChrMan) {
+    let now = Instant::now();
+    let mut g = STATUS_DIAG.lock().unwrap_or_else(|e| e.into_inner());
+    if g.lines >= STATUS_DIAG_MAX || g.last.is_some_and(|t| now - t < Duration::from_secs(1)) {
+        return;
+    }
+    g.last = Some(now);
+    let me = w.main_player.as_ref().map_or(0, |p| p.as_ptr() as usize);
+    let mut main = None;
+    let mut players: BTreeMap<u8, usize> = BTreeMap::new();
+    let mut others: BTreeMap<u8, usize> = BTreeMap::new();
+    scan(&w.player_chr_set, &mut |a, st| {
+        if a == me {
+            main = Some(st);
+        }
+        *players.entry(st).or_default() += 1;
+    });
+    let mut count = |_: usize, st: u8| *others.entry(st).or_default() += 1;
+    for s in [&w.ghost_chr_set, &w.summon_buddy_chr_set, &w.debug_chr_set, &w.open_field_chr_set.base] {
+        scan(s, &mut count);
+    }
+    for s in w.chr_sets.iter().flatten() {
+        scan(s, &mut count);
+    }
+    let key = (main, players.keys().copied().collect::<Vec<_>>(), others.keys().copied().collect::<Vec<_>>());
+    if g.key.as_ref() == Some(&key) {
+        return;
+    }
+    g.key = Some(key);
+    g.lines += 1;
+    let fmt = |m: &BTreeMap<u8, usize>| m.iter().map(|(v, n)| format!("{v}×{n}")).collect::<Vec<_>>().join(" ");
+    log(&format!(
+        "周围角色（实测）：ChrSet 条目的状态字节：主角 {}；玩家 [{}]；其他角色 [{}]（值×个数；出现的值变了才记，最多 {STATUS_DIAG_MAX} 行{}）",
+        main.map_or("不在".to_string(), |v| v.to_string()),
+        fmt(&players),
+        fmt(&others),
+        if g.lines == STATUS_DIAG_MAX { "，后面不再记" } else { "" }
+    ));
+}
+
 /// 玩家角色（本机主角、联机的队友、入侵者：都在 WorldChrMan 的 player_chr_set 里）的地址，每帧开头刷新一次（lib.rs）。
 /// 「找敌人」的地方用 rules::is_foe 跳过它们：玩家角色永远不算敌人（联机计划 13.2 G8，单机也一样）。以前只按阵营号排除友方，
 /// 入侵的真人玩家会被当成敌人（扣血档、猎印、改架势、减速），时隙还会改队友的速度
@@ -74,8 +235,124 @@ pub fn refresh_players() {
     let mut v = Vec::new();
     if let Ok(wcm) = unsafe { WorldChrMan::instance() } {
         v.extend(wcm.player_chr_set.characters().map(|c| c as *mut PlayerIns as usize));
+        status_watch(wcm);
+        status_diag(wcm);
     }
     *PLAYERS.lock().unwrap_or_else(|e| e.into_inner()) = v;
+}
+
+// ------------------------------------------------------------------ 人物结构自检（崩溃风险审查第 22 条）
+/// 唤声船、难度屏障、碾压 / 飞鸿 / 见切的无敌直接写主角的物理、坠落、动作标记模块。这些偏移按 2.7.1.0 写，2.7.2.0 上用
+/// 两个 exe 的机器码静态比对过（同样的代码、同样的位移），但不按版本号分；照 dark_wings 的做法第一次要写之前核对一次：
+/// 各模块的「所属角色」都指回主角、几个布尔字节是 0 / 1、位置朝向血量在合理范围。
+/// 0 还没核对过、1 通过、2 对不上（这次进游戏这几处都不写）
+static PLAYER_LAYOUT: AtomicU8 = AtomicU8::new(0);
+/// 一直核对不出来（数值不合理，可能还在读图）多久写一行日志
+const LAYOUT_SLOW: Duration = Duration::from_secs(60);
+static LAYOUT_WAIT: Mutex<(Option<Instant>, bool)> = Mutex::new((None, false));
+
+/// Ok(true) 通过、Ok(false) 还看不出来（模块还没建好 / 数值还不正常，下次再看）、Err 对不上
+fn check_player(p: &PlayerIns) -> Result<bool, String> {
+    let me = &p.chr_ins as *const ChrIns as usize;
+    if p.chr_ins.modules.as_ptr().is_null() {
+        return Ok(false);
+    }
+    let m = &p.chr_ins.modules;
+    let mods: [(&str, usize); 6] = [
+        ("物理", m.physics.as_ptr() as usize),
+        ("行为", m.behavior.as_ptr() as usize),
+        ("坠落", m.fall.as_ptr() as usize),
+        ("数据", m.data.as_ptr() as usize),
+        ("动作标记", m.action_flag.as_ptr() as usize),
+        ("骑乘", m.ride.as_ptr() as usize),
+    ];
+    if mods.iter().any(|x| x.1 == 0) {
+        return Ok(false);
+    }
+    for (n, o) in [
+        ("物理", m.physics.owner.as_ptr() as usize),
+        ("行为", m.behavior.owner.as_ptr() as usize),
+        ("坠落", m.fall.owner.as_ptr() as usize),
+        ("数据", m.data.owner.as_ptr() as usize),
+        ("动作标记", m.action_flag.owner.as_ptr() as usize),
+        ("骑乘", m.ride.owner.as_ptr() as usize),
+    ] {
+        if o == 0 {
+            return Ok(false);
+        }
+        if o != me {
+            return Err(format!("{n}模块的所属角色对不上（{o:#x} / {me:#x}）"));
+        }
+    }
+    // 布尔字段按字节读（不经过 bool）：不是 0 / 1 就是位置错了
+    let byte = |p: *const bool| unsafe { (p as *const u8).read() };
+    let ph = &m.physics;
+    for (n, b) in [
+        ("重力开关", byte(&raw const ph.gravity_disabled)),
+        ("角色代理重放", byte(&raw const ph.chr_proxy_pos_update_requested)),
+        ("按世界竖直扶正", byte(&raw const ph.use_world_y_alignment_logic)),
+        ("骑着灵马", byte(&raw const m.ride.is_mounted)),
+    ] {
+        if b > 1 {
+            return Err(format!("{n}读到 {b}（应该是 0 / 1）"));
+        }
+    }
+    let pos = &ph.position;
+    let q = &ph.orientation;
+    let qn = q.0 * q.0 + q.1 * q.1 + q.2 * q.2 + q.3 * q.3;
+    let d = &m.data;
+    let fine = [pos.0, pos.1, pos.2].iter().all(|x| x.is_finite() && x.abs() < 1e5)
+        && qn.is_finite()
+        && (0.8..1.2).contains(&qn)
+        && (1..=1_000_000).contains(&d.max_hp)
+        && (0..=1_000_000).contains(&d.hp)
+        && (0..=1_000_000).contains(&d.fp)
+        && m.fall.fall_timer.is_finite();
+    if !fine {
+        let mut w = LAYOUT_WAIT.lock().unwrap_or_else(|e| e.into_inner());
+        let t = *w.0.get_or_insert_with(Instant::now);
+        if !w.1 && t.elapsed() >= LAYOUT_SLOW {
+            w.1 = true;
+            log(&format!("人物结构自检：{} 秒还核对不出来（位置 {:.1},{:.1},{:.1}，朝向长度 {qn:.3}，血 {} / {}，蓝 {}），这几处先不写",
+                         LAYOUT_SLOW.as_secs(), pos.0, pos.1, pos.2, d.hp, d.max_hp, d.fp));
+        }
+        return Ok(false);
+    }
+    Ok(true)
+}
+
+/// 主角的结构能不能写（第一次核对通过后一直是 true；对不上一直是 false）
+pub fn player_layout_ok(p: &PlayerIns) -> bool {
+    match PLAYER_LAYOUT.load(Ordering::Relaxed) {
+        1 => return true,
+        2 => return false,
+        _ => {}
+    }
+    match check_player(p) {
+        Ok(true) => {
+            PLAYER_LAYOUT.store(1, Ordering::Relaxed);
+            log("人物结构自检通过（物理、行为、坠落、数据、动作标记、骑乘模块）");
+            true
+        }
+        Ok(false) => false,
+        Err(e) => {
+            PLAYER_LAYOUT.store(2, Ordering::Relaxed);
+            log(&format!("人物结构自检没通过（游戏版本的结构变了？）：{e}；这次进游戏唤声船、难度屏障推回、碾压 / 飞鸿 / 见切的无敌都不改人物"));
+            false
+        }
+    }
+}
+
+/// 别的角色（灵马）的物理模块指回它自己才写
+pub fn chr_physics_ok(c: &ChrIns) -> bool {
+    let me = c as *const ChrIns as usize;
+    !c.modules.as_ptr().is_null() && !c.modules.physics.as_ptr().is_null() && c.modules.physics.owner.as_ptr() as usize == me
+}
+
+/// 别的角色（灵马）的动作标记模块指回它自己才写
+pub fn chr_action_flag_ok(c: &ChrIns) -> bool {
+    let me = c as *const ChrIns as usize;
+    !c.modules.as_ptr().is_null() && !c.modules.action_flag.as_ptr().is_null() && c.modules.action_flag.owner.as_ptr() as usize == me
 }
 
 /// 这个角色是不是玩家角色（PlayerIns 的第一个字段就是 ChrIns，地址一样）
@@ -125,7 +402,8 @@ struct Gate {
 
 static GATE: Mutex<Gate> = Mutex::new(Gate { me: 0, last: None, since: None, ready: false, wait_from: None, told: false });
 
-pub fn around<T>(list: &T, live: HashSet<usize>, me: usize) -> Option<Vec<Near>> {
+/// live = 所有非空条目（核对列表用），keep = 其中在场的（给出去的只有这些）
+pub fn around<T>(list: &T, live: HashSet<usize>, keep: &HashSet<usize>, me: usize) -> Option<Vec<Near>> {
     let now = Instant::now();
     let mut g = GATE.lock().unwrap_or_else(|e| e.into_inner());
     if g.me != me || g.last.is_none_or(|t| now - t > GAP) {
@@ -157,7 +435,7 @@ pub fn around<T>(list: &T, live: HashSet<usize>, me: usize) -> Option<Vec<Near>>
                 g.ready = true;
                 log(&format!("周围角色：距离列表正常（{} 项），开始用", items.len()));
             }
-            Some(items.into_iter().filter_map(|(a, distance)| Some(Near { chr_ins: NonNull::new(a as *mut ChrIns)?, distance })).collect())
+            Some(items.into_iter().filter(|(a, _)| keep.contains(a)).filter_map(|(a, distance)| Some(Near { chr_ins: NonNull::new(a as *mut ChrIns)?, distance })).collect())
         }
     }
 }
@@ -278,5 +556,30 @@ mod tests {
         assert!(judge(most_gone, &live, true).is_err());
         assert!(judge(vec![], &live, false).is_err()); // 空的 = 还在读图
         assert!(judge(vec![], &live, true).is_err());
+    }
+
+    /// 条目的布局（两个 exe 的 ChrSet 虚函数里核对过：条目 0x10 字节，状态字节在 +8）
+    #[test]
+    fn entry_layout() {
+        assert_eq!((STATUS_AT, ENTRY_SIZE), (8, 16));
+    }
+
+    /// 0 / 2 / 3 / 4 都算在场（实测主角是 4，没唤醒的地图敌人是 0）；正在拆的不算；正在建的只算以前见过的；不认识的值 = 不是状态
+    #[test]
+    fn pick_by_status() {
+        let mut seen = HashSet::new();
+        let live = pick(&[(10, 4), (11, 2), (12, 0), (13, 3), (14, 1), (15, 5)], &mut seen).unwrap();
+        assert_eq!(live, [10, 11, 12, 13].into_iter().collect());
+        // 10 重新读到正在建（同一个地址重新初始化 / 状态来回变）：见过，照样算；14 一直在建，不算；12 开始拆，不算、忘掉
+        let live = pick(&[(10, 1), (11, 4), (12, 5), (14, 1)], &mut seen).unwrap();
+        assert_eq!(live, [10, 11].into_iter().collect());
+        assert!(!seen.contains(&12));
+        // 12 离开过（正在拆）以后同一个地址又在建：不再当见过
+        let live = pick(&[(12, 1)], &mut seen).unwrap();
+        assert!(live.is_empty());
+        // 14 建好了，之后再读到 1 也算
+        pick(&[(14, 4)], &mut seen).unwrap();
+        assert_eq!(pick(&[(14, 1)], &mut seen).unwrap(), [14].into_iter().collect());
+        assert_eq!(pick(&[(10, 4), (16, 9)], &mut seen), Err((16, 9)));
     }
 }

@@ -695,6 +695,16 @@ pub fn tick() {
     let quick = d.quickcharge.as_ref().and_then(|k| tier(k, &has).map(|r| charge_pct(run_num("quickcharge", k, r)))).filter(|_| charging);
     let action = if has(d.mark("sync")) { 1.0 } else { load * crate::rules::action_mult() };
     let speed = slip.unwrap_or(1.0) * deft.unwrap_or(1.0) * volley * quick.unwrap_or(1.0) * action * skill_speed(anim);
+    // 写进游戏前查一下（崩溃风险审查第 24 条）：哪一项算出 NaN / 无穷大 / 0 以下就这一帧不改，过大的夹到 10 倍
+    let speed = if speed.is_finite() && speed > 0.0 {
+        speed.min(10.0)
+    } else {
+        static BAD: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+        if BAD.fetch_add(1, std::sync::atomic::Ordering::Relaxed) < 3 {
+            log(&format!("玩家动作速度：算出来是 {speed}（时隙 {slip:?}、巧手 {deft:?}、连射 {volley}、寸劲 {quick:?}、致命舞 / 处刑 / 转念 {action}），这一帧不改"));
+        }
+        1.0
+    };
     // 实测（诊断）：玩家动作实际播放有多快
     speed_probe(anim, play, speed, p.chr_ins.modules.behavior.animation_speed, p.chr_ins.modules.behavior_data.hks_animation_speed_multiplier, now);
     // 动画更新前真正写进去（pre_behavior）：要的值记下来，不管的时候是 NaN
@@ -987,6 +997,12 @@ pub fn pre_physics() {
         CRUSH_TAE.store(false, std::sync::atomic::Ordering::Relaxed);
         return;
     }
+    // 要写动作标记了：先核对人物结构（崩溃风险审查第 22 条，chrs.rs）；对不上就只记读到的翻滚无敌，不改
+    if !crate::chrs::player_layout_ok(p) {
+        iframes.store(p.chr_ins.modules.action_flag.action_modifiers_flags.dodging(), std::sync::atomic::Ordering::Relaxed);
+        CRUSH_TAE.store(false, std::sync::atomic::Ordering::Relaxed);
+        return;
+    }
     let ids: Vec<i32> = p.chr_ins.special_effect.entries().map(|e| e.param_id).collect();
     let jumping = ids.iter().copied().find(|id| leap.contains(id));
     // 积木词条的无敌效果（rules 的 iframe 行，比如喝完灵药后的无敌）
@@ -1026,11 +1042,11 @@ pub fn pre_physics() {
     drop(on);
     if let Some(h) = horse {
         let found = match wcm.chr_ins_by_handle_mut(&h) {
-            Some(c) => {
+            Some(c) if crate::chrs::chr_action_flag_ok(c) => {
                 c.modules.action_flag.action_modifiers_flags.set_dodging(true);
                 1
             }
-            None => 2,
+            _ => 2,
         };
         if WARD_HORSE.swap(found, std::sync::atomic::Ordering::Relaxed) != found {
             log(if found == 1 { "积木词条的无敌：骑马中，灵马也设上无敌" } else { "积木词条的无敌：骑马中，没找到灵马（只有人物无敌）" });

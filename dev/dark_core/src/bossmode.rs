@@ -18,7 +18,7 @@ use std::path::PathBuf;
 use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
-use eldenring::cs::{GameDataMan, GameMan, WorldChrMan};
+use eldenring::cs::WorldChrMan;
 use fromsoftware_shared::FromStatic;
 
 use crate::gear::{flag_get, flag_set};
@@ -26,9 +26,8 @@ use crate::{barrier, dir, log};
 
 /// 多久看一次（只读几个标记和角色名，很便宜；用户 2026-11-05「进入游戏到屏障放置还是隔了好多秒」：原来 2 秒）
 const SCAN: Duration = Duration::from_millis(250);
-/// 人物生成后等多久再看难度标记：难度的当前档标记跟着存档一起读进来，人物生成时已经是这个角色的了
-/// （难度初始化事件只在一档都没亮时才补点亮「普通」）。原来保守地等 5 秒，进游戏 10 秒左右才围上屏障
-const SETTLE: Duration = Duration::from_millis(500);
+// 人物生成后等多久再看难度标记：以前自己等 0.5 秒（难度的当前档标记跟着存档一起读进来，人物生成时已经是这个角色的了；
+// 原来保守地等 5 秒，进游戏 10 秒左右才围上屏障）。2026-11-19 起等 who.rs 认准（人物在世界里约 1 秒）
 const REC: &str = "boss_mode.txt";
 const SLOTS: &str = "boss_slots.txt";
 /// 错配时的重启提示（notes 的键）：对上了、回到标题时把还在排队的删掉
@@ -165,27 +164,18 @@ pub fn tick() {
         crate::notes::forget(&RESTART_NOTES);
         return;
     }
-    let Some(slot) = unsafe { GameMan::instance() }.ok().map(|g| g.save_slot).filter(|s| *s >= 0) else { return };
-    let Ok(gdm) = (unsafe { GameDataMan::instance() }) else { return };
-    let cn = &gdm.main_player_game_data.character_name;
-    let len = cn.iter().position(|&c| c == 0).unwrap_or(cn.len());
-    let name = String::from_utf16_lossy(&cn[..len]);
-    if name.is_empty() {
-        return;
-    }
-    let who = (slot, name);
-    match &st.who {
-        Some((w, _)) if *w == who => {}
-        _ => {
-            st.who = Some((who, now));
+    // 身份照 who.rs：认准（人物在世界里、格子和名字稳定约 1 秒）之前不看，建新角色时那个临时的格子号不会记进 boss_slots.txt
+    // （用户 2026-11-19「收拢」；以前自己等 SETTLE 0.5 秒）
+    let Some(who) = crate::who::confirmed() else {
+        if st.who.take().is_some() {
             barrier::set_wanted(false);
-            return;
         }
-    }
-    let Some(((slot, name), since)) = st.who.clone() else { return };
-    if now - since < SETTLE {
         return;
+    };
+    if st.who.as_ref().is_none_or(|(w, _)| *w != who) {
+        st.who = Some((who.clone(), now));
     }
+    let (slot, name) = who;
     let high = d.lock.iter().any(|&f| flag_get(f) == Some(true));
     let key = (slot, name.clone(), high);
     if st.written.as_ref() != Some(&key) {

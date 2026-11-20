@@ -54,6 +54,7 @@ class Ctx:
         self.MenuPack = j(self.Paly, 'out', 'menu')
         self.UserDllDir = j(self.Paly, 'dll')
         self.EnemyInfoChoice = j(self.LauncherDir, 'reroll', 'state', 'enemy_info_mod.txt')
+        self.BackupIntervalFile = j(self.LauncherDir, 'reroll', 'state', 'backup_interval.txt')    # 定时备份间隔（分钟，backup.py）
         self.RunLogDir = j(self.LauncherDir, 'logs', 'dll_runs')
         self.ErscLocaleDir = j(self.LauncherDir, 'ersc_locale')
         self.CoopProfile = j(self.Paly, 'dll', 'dark_core', 'coop_profile.txt')

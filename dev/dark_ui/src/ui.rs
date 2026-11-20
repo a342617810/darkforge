@@ -4,7 +4,9 @@
 //!   右：目标格子（背包里的生成防具，穿着的在前；第一格是「提取成护符」），放不了的变暗
 //!   中下：右边选好以后，目标的各个位置（前缀 / 后缀 / 空位）：哪个能替换、能补上，不能的写原因；下面是之后的样子和消耗
 //! 操作：手柄 十字键 / 左摇杆移动，A 下一步（最后一步弹确认），B 上一步（左栏里关窗口），LB / RB 换栏，X 部位，Y 直接确认；
-//! 键盘 方向键、Enter、Esc / Backspace、Tab；
+//! 键盘 方向键、Enter、Esc / Backspace、Tab，R = Y；
+//! 防误触（用户 2026-11-19：玩家按住回车一进工坊就一直自动继承）：键盘只有方向键按住连发，其他键按一下算一下（同手柄）；
+//! 开窗口时还按着的键（选菜单的确认键）松开以后才算；确认框弹出 CONFIRM_GUARD 秒内不收「确定」（确定字样先暗着）。
 //! 鼠标（用户 2026-11-09「做一下对鼠标的兼容」）：停在当前栏的一行上就选中（原版的做法），左键 = A（点别的栏先选上），右键 = B，滚轮翻列表（选中的行不动），
 //! 滚动条能拖，底部按键提示能点；手柄、键盘一动列表又跟着选中的行。
 //! 数据按需加载（同天「不要一次性把数据都加载完」）：快照只有索引，看得见的行 ± 余量的明细用 Req::Want 要（request_data），图标同样多预备一点（Draw::preload）。
@@ -206,10 +208,11 @@ enum Hit {
     KTab(usize),
     KRow(usize),
     KRel(usize),
-    /// 重铸页：左边一行武器、部位页签、重铸按钮
+    /// 重铸页：左边一行武器、部位页签、重铸按钮、快速重铸按钮
     Wpn(usize),
     WTab(usize),
     Forge,
+    QuickForge,
     Tab(usize),
     Src(usize),
     Aff(usize),
@@ -230,6 +233,8 @@ pub struct Workshop {
     pub sel: [usize; 4],
     pub filter: usize,
     pub confirm: bool,
+    /// 确认框弹出了几秒（frame 里累加；不到 CONFIRM_GUARD 不收「确定」）
+    confirm_t: f32,
     /// 角落里的提示（素材没读到之类）
     pub note: String,
     pub reqs: Vec<Req>,
@@ -322,6 +327,7 @@ impl Default for Workshop {
             sel: [0; 4],
             filter: 0,
             confirm: false,
+            confirm_t: 0.0,
             note: String::new(),
             reqs: Vec::new(),
             fonts: [None, None],
@@ -757,6 +763,11 @@ impl Workshop {
         self.msg = Some((true, self.t("处理中……", "Working…").to_string()));
     }
 
+    /// 确认框弹出够久了，可以按「确定」（防止连按两下、按住的键一下子确认掉）
+    fn confirm_ready(&self) -> bool {
+        self.confirm_t >= CONFIRM_GUARD
+    }
+
     /// 执行完（dark_core 回了结果）：成功就回到左栏
     pub fn done(&mut self, ok: bool, text: String) {
         self.msg = Some((ok, text));
@@ -773,23 +784,25 @@ impl Workshop {
     /// 手柄（按下的那一下 + 连发，lib.rs 算好）、键盘合成这一帧的操作
     /// typing = 正在往输入框里打字（键盘这时不当操作，手柄照常）
     pub fn keys(ui: &Ui, pressed: u16, typing: bool) -> Act {
+        // 方向键按住连发（翻列表）；其他键按一下只算一下：按住回车不会一路点到确定（以前 ImGui 默认连发，每 50 毫秒算按一次）
         let k = |key: Key| !typing && ui.is_key_pressed(key);
+        let once = |key: Key| !typing && ui.is_key_pressed_no_repeat(key);
         let ctrl = ui.io().key_ctrl;
         Act {
             up: pressed & P_UP != 0 || k(Key::UpArrow),
             down: pressed & P_DOWN != 0 || k(Key::DownArrow),
             left: pressed & P_LEFT != 0 || k(Key::LeftArrow),
             right: pressed & P_RIGHT != 0 || k(Key::RightArrow),
-            lb: pressed & P_LB != 0 || k(Key::PageUp),
-            rb: pressed & P_RB != 0 || k(Key::PageDown),
-            a: pressed & P_A != 0 || k(Key::Enter) || k(Key::KeypadEnter) || k(Key::Space),
-            b: pressed & P_B != 0 || k(Key::Escape) || k(Key::Backspace),
-            x: pressed & P_X != 0 || k(Key::Tab),
-            y: pressed & P_Y != 0,
-            lt: pressed & P_LT != 0 || k(Key::Q),
-            rt: pressed & P_RT != 0 || k(Key::E),
-            filter: pressed & P_START != 0 || (k(Key::F) && !ctrl),
-            search: k(Key::Slash) || (k(Key::F) && ctrl),
+            lb: pressed & P_LB != 0 || once(Key::PageUp),
+            rb: pressed & P_RB != 0 || once(Key::PageDown),
+            a: pressed & P_A != 0 || once(Key::Enter) || once(Key::KeypadEnter) || once(Key::Space),
+            b: pressed & P_B != 0 || once(Key::Escape) || once(Key::Backspace),
+            x: pressed & P_X != 0 || once(Key::Tab),
+            y: pressed & P_Y != 0 || once(Key::R),
+            lt: pressed & P_LT != 0 || once(Key::Q),
+            rt: pressed & P_RT != 0 || once(Key::E),
+            filter: pressed & P_START != 0 || (once(Key::F) && !ctrl),
+            search: once(Key::Slash) || (once(Key::F) && ctrl),
         }
     }
 
@@ -804,7 +817,7 @@ impl Workshop {
             return;
         }
         if self.confirm {
-            if a.a || a.y {
+            if (a.a || a.y) && self.confirm_ready() {
                 match self.page {
                     1 => self.reforge_go(),
                     2 => self.overlimit_go(),
@@ -1068,6 +1081,7 @@ impl Workshop {
         }
         let a = Act { a: true, ..Act::default() };
         match hit {
+            Some(Hit::Ok) if !self.confirm_ready() => {}
             Some(Hit::Ok) if self.page == 1 => self.reforge_go(),
             Some(Hit::Ok) if self.page == 2 => self.overlimit_go(),
             Some(Hit::Ok) => self.apply(),
@@ -1109,6 +1123,7 @@ impl Workshop {
                 self.rcol = 1;
                 self.handle_reforge(a);
             }
+            Some(Hit::QuickForge) => self.quick_reforge(),
             Some(Hit::Tab(i)) => {
                 self.filter = i;
                 self.sel = [0; 4];
@@ -1180,6 +1195,7 @@ impl Workshop {
     pub fn frame(&mut self, ui: &Ui, tex: &mut dyn Tex, act: Act, screen: [f32; 2]) {
         self.s = (screen[0] / 1920.0).min(screen[1] / 1080.0);
         self.o = [(screen[0] - 1920.0 * self.s) / 2.0, (screen[1] - 1080.0 * self.s) / 2.0];
+        self.confirm_t = if self.confirm { self.confirm_t + ui.io().delta_time } else { 0.0 };
         self.refresh_views();
         let m = self.mouse(ui);
         self.handle(Act { b: act.b || m.b, ..act });
@@ -1600,6 +1616,9 @@ impl Workshop {
             items.push(("KG_XboxSeries_L1", String::new()));
             items.push(("KG_XboxSeries_R1", self.t("换栏", "Column").to_string()));
         }
+        if self.page == 1 && self.can_quick_reforge() {
+            items.push(("KG_XboxSeries_R_U", self.t("快速重铸", "Quick reforge").to_string()));
+        }
         let x_label = match self.page {
             1 => self.t("类别", "Category"),
             2 => self.t("武器 / 防具", "Armament / Armor"),
@@ -1692,7 +1711,7 @@ impl Workshop {
         let total = 44.0 + wo + 60.0 + 44.0 + wn;
         let mut bx = 960.0 - total / 2.0;
         d.glyph("KG_XboxSeries_R_D", bx, 575.0, 38.0);
-        d.text_mid(bx + 44.0, 594.0, 26.0, TEXT, 1.0, ok);
+        d.text_mid(bx + 44.0, 594.0, 26.0, if self.confirm_ready() { TEXT } else { DIM }, 1.0, ok);
         self.hit(bx, 570.0, 44.0 + wo, 48.0, Hit::Ok);
         bx += 44.0 + wo + 60.0;
         d.glyph("KG_XboxSeries_R_R", bx, 575.0, 38.0);
@@ -1714,6 +1733,28 @@ const SRC_NEAR: usize = 2;
 /// 滚轮一格翻几行；指针停多久算选中（路过的不算）
 const WHEEL_ROWS: usize = 3;
 const HOVER_SECS: f32 = 0.1;
+/// 确认框弹出后这么久才收「确定」
+const CONFIRM_GUARD: f32 = 0.3;
+/// 工坊用到的键盘键：开窗口时还按着就等全松开才收键盘（lib.rs）
+pub const KB_KEYS: [Key; 17] = [
+    Key::Escape,
+    Key::Backspace,
+    Key::Enter,
+    Key::KeypadEnter,
+    Key::Space,
+    Key::Tab,
+    Key::UpArrow,
+    Key::DownArrow,
+    Key::LeftArrow,
+    Key::RightArrow,
+    Key::PageUp,
+    Key::PageDown,
+    Key::Q,
+    Key::E,
+    Key::F,
+    Key::R,
+    Key::Slash,
+];
 
 /// 第一行 top、一屏 vis 行、总共 n 行，前后各留 m 行：这段的行号
 fn window(top: usize, vis: usize, n: usize, m: usize) -> Range<usize> {
@@ -1753,6 +1794,7 @@ fn glyph_act(g: &str) -> Act {
         "KG_XboxSeries_R_D" => a.a = true,
         "KG_XboxSeries_R_R" => a.b = true,
         "KG_XboxSeries_R_L" => a.x = true,
+        "KG_XboxSeries_R_U" => a.y = true,
         "KG_XboxSeries_L1" => a.lb = true,
         "KG_XboxSeries_R1" => a.rb = true,
         "KG_XboxSeries_L2" => a.lt = true,
@@ -2421,5 +2463,73 @@ mod tests {
         assert!(glyph_act("KG_XboxSeries_R_R").b);
         assert!(glyph_act("KG_XboxSeries_R2").rt);
         assert_eq!(glyph_act("nothing"), Act::default());
+        assert!(glyph_act("KG_XboxSeries_R_U").y);
+    }
+
+    fn reforges(w: &mut Workshop) -> Vec<u32> {
+        w.reqs.drain(..).filter_map(|r| if let Req::Reforge(k) = r { Some(k) } else { None }).collect()
+    }
+
+    #[test]
+    fn quick_reforge_skips_the_dialog() {
+        let mut w = keyed();
+        w.page = 1;
+        w.snap.as_mut().unwrap().rstones = 2;
+        let y = Act { y: true, ..Act::default() };
+        w.handle(y);
+        assert!(!w.confirm, "Y 不弹确认");
+        assert_eq!(reforges(&mut w), vec![7], "直接重铸选中的那把");
+        w.handle(y);
+        assert!(reforges(&mut w).is_empty(), "上一次还没回结果，不再发");
+        w.done(true, "ok".to_string());
+        w.handle(y);
+        assert_eq!(reforges(&mut w), vec![7], "回了结果可以接着重铸");
+        w.done(true, "ok".to_string());
+        // A 照旧：到右边按钮、再 A 弹确认，不直接重铸
+        let a = Act { a: true, ..Act::default() };
+        w.rcol = 0;
+        w.handle(a);
+        w.handle(a);
+        assert!(w.confirm);
+        assert!(reforges(&mut w).is_empty());
+    }
+
+    #[test]
+    fn confirm_waits_before_taking_a_press() {
+        let mut w = keyed();
+        w.page = 1;
+        w.snap.as_mut().unwrap().rstones = 2;
+        let a = Act { a: true, ..Act::default() };
+        w.handle(a);
+        w.handle(a);
+        assert!(w.confirm, "A、A 弹确认");
+        w.handle(a);
+        w.handle(Act { y: true, ..Act::default() });
+        assert!(w.confirm && reforges(&mut w).is_empty(), "刚弹出来接着按的不算确定");
+        w.confirm_t = CONFIRM_GUARD;
+        w.handle(a);
+        assert!(!w.confirm);
+        assert_eq!(reforges(&mut w), vec![7], "等一下再按才确定");
+        w.done(true, "ok".to_string());
+        w.handle(a);
+        assert!(w.confirm);
+        w.handle(Act { b: true, ..Act::default() });
+        assert!(!w.confirm, "取消不用等");
+    }
+
+    #[test]
+    fn quick_reforge_refuses_without_stones_or_after_overlimit() {
+        let mut w = keyed();
+        w.page = 1;
+        let y = Act { y: true, ..Act::default() };
+        w.handle(y);
+        assert!(reforges(&mut w).is_empty(), "没有重铸石");
+        assert!(matches!(&w.msg, Some((false, _))));
+        w.snap.as_mut().unwrap().rstones = 5;
+        let i = w.wview()[0];
+        w.snap.as_mut().unwrap().weapons[i].ovl = true;
+        w.handle(y);
+        assert!(reforges(&mut w).is_empty(), "超限过的不能重铸");
+        assert!(!w.confirm && !w.waiting);
     }
 }

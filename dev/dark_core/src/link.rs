@@ -6,11 +6,13 @@
 //! - 兼容档案：启动器联机启动时写 dll\dark_core\coop_profile.txt（一行一项：整合包版本、联机核对码、世界、Seamless 的随人数加强、
 //!   敌人设置），握手时逐项比对，不一样的记日志，连接标成「档案不一致」（以后要同步的功能看 compatible()）；
 //! - 心跳：连上后每 PING_EVERY 发 PING，对方回 PONG，算往返时间；LOST 内收不到对方任何消息 = 断了，从握手重来；
-//! - 只收名单里的人发来的（自测时收自己发给自己的）；看不懂的、协议版本不同的丢掉并记一次。
+//! - 握手退避：对方一直没回音时 HELLO 越发越慢，几分钟后停（HELLO_GIVE_UP / HELLO_BUDGET），名单变了或对方来了消息再开始；
+//! - 只收名单里的人发来的（自测时收自己发给自己的）；看不懂的、协议版本不同的丢掉并记一次。加载了 Seamless 就每帧收，
+//!   不在会话里收到的直接丢（不让 Steam 攒着）；发件箱有上限，通道用不了时清掉。
 //! - 开发工具（F9「联机通道测试」）写 coopnet_req.txt：状态 / 自测 / 测试 <文字>。
 //! 日志开头「联机通道」。参考黄金树爬塔（github.com/tamikip/erdtree-tower）的握手思路，没抄代码。
 
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::fs;
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
@@ -23,15 +25,25 @@ use crate::{dir, log};
 pub const PROTO: u32 = 3;
 const MAGIC: &str = "DFL";
 const HELLO_EVERY: Duration = Duration::from_secs(1);
+/// 握手的退避：一直没有对方的任何消息时，头 HELLO_FAST_FOR 每秒一条 HELLO，之后每 HELLO_SLOW 一条，到 HELLO_GIVE_UP 就不发了
+/// （名单变了、或者对方来了消息再开始）。对方一直不读整合包的频道（没装整合包、dark_core 没起来、名单一直没就绪）时，
+/// Steam 给他攒着的消息不会一直涨（和 Seamless 共用同一条连接，接收缓冲攒满了会丢包）
+const HELLO_FAST_FOR: Duration = Duration::from_secs(30);
+const HELLO_SLOW: Duration = Duration::from_secs(5);
+const HELLO_GIVE_UP: Duration = Duration::from_secs(180);
+/// 同一个队员一直没回音时，这次会话里最多给他发几条 HELLO（名单变了重新开始的也算在里面；收到他的消息就重新算）
+const HELLO_BUDGET: u32 = 200;
+/// 发件箱最多攒几条（通道用不了时不让它一直涨；满了丢最早的）
+const OUT_MAX: usize = 256;
 const PING_EVERY: Duration = Duration::from_secs(5);
 const LOST: Duration = Duration::from_secs(20);
 const RTT_LOG_EVERY: Duration = Duration::from_secs(60);
 const SELFTEST_WAIT: Duration = Duration::from_secs(5);
 const ROSTER_EVERY: Duration = Duration::from_millis(500);
 /// 兼容档案里各项的中文名（对不上时写日志用）
-const LABELS: [(&str, &str); 6] =
+const LABELS: [(&str, &str); 7] =
     [("version", "整合包版本"), ("fingerprint", "联机核对码"), ("world", "世界"), ("scaling", "Seamless 随人数加强"), ("enemy", "敌人设置"),
-     ("seamless", "Seamless Co-op 版本")];
+     ("seamless", "Seamless Co-op 版本"), ("mods", "自己加的模组")];
 
 // ------------------------------------------------------------------ 消息
 
@@ -56,6 +68,9 @@ pub enum Kind {
     GiftOk,
     /// 没收下（n、why）
     GiftNo,
+    /// 送的人 → 收的人：对方回 GOK 时这件已经装备上了（或换了角色），没送成，请把送来的那件（n）退回（gear/gift.rs）。
+    /// 后加的种类，没改协议版本：赠送只在档案一致（整合包版本一样）的队员之间，老版本不会收到
+    GiftBack,
     /// 斗技场试炼（arena.rs，协议 3 起）：房主 → 队员 op=state（进度），队员 → 房主 op=me（自己的情况）
     Arena,
 }
@@ -75,6 +90,7 @@ impl Kind {
             Kind::Gift => "GIFT",
             Kind::GiftOk => "GOK",
             Kind::GiftNo => "GNO",
+            Kind::GiftBack => "GBK",
             Kind::Arena => "ARENA",
         }
     }
@@ -93,6 +109,7 @@ impl Kind {
             "GIFT" => Kind::Gift,
             "GOK" => Kind::GiftOk,
             "GNO" => Kind::GiftNo,
+            "GBK" => Kind::GiftBack,
             "ARENA" => Kind::Arena,
             _ => return None,
         })
@@ -213,6 +230,9 @@ pub struct Peer {
     pub profile_diff: Vec<(String, String, String)>,
     last_rx: Option<Instant>,
     last_hello: Option<Instant>,
+    /// 这一轮没回音的握手从什么时候开始（收到他的任何消息清掉）；退避到头了不再发 HELLO（gave_up）
+    quiet_since: Option<Instant>,
+    gave_up: bool,
     last_ping: Option<Instant>,
     ping_seq: u32,
     ping_sent: HashMap<u32, Instant>,
@@ -226,8 +246,8 @@ pub struct Peer {
 impl Peer {
     fn fresh(id: u64, host: bool, my_nonce: u64) -> Peer {
         Peer {
-            id, host, my_nonce, their_nonce: None, acked: false, profile_diff: Vec::new(), last_rx: None, last_hello: None, last_ping: None,
-            ping_seq: 0, ping_sent: HashMap::new(), rtt_ms: None, rtt_logged: None, linked_logged: false, code: None,
+            id, host, my_nonce, their_nonce: None, acked: false, profile_diff: Vec::new(), last_rx: None, last_hello: None, quiet_since: None,
+            gave_up: false, last_ping: None, ping_seq: 0, ping_sent: HashMap::new(), rtt_ms: None, rtt_logged: None, linked_logged: false, code: None,
         }
     }
 
@@ -244,6 +264,8 @@ pub struct Link {
     told_bad: Vec<String>,
     /// 收到的、要游戏里处理的（FOE、NM）：(发送者, 消息)，tick 取走
     pub inbox: Vec<(u64, Packet)>,
+    /// 每个队员：上次收到他的消息以后发了几条 HELLO（跨名单变化、断线重握手都算，到 HELLO_BUDGET 就不发了）
+    unanswered: BTreeMap<u64, u32>,
 }
 
 fn short(id: u64) -> String {
@@ -253,7 +275,7 @@ fn short(id: u64) -> String {
 
 impl Link {
     pub fn new(me: u64, profile: Vec<(String, String)>, seed: u64) -> Self {
-        Link { me, profile, peers: HashMap::new(), rng: seed | 1, told_bad: Vec::new(), inbox: Vec::new() }
+        Link { me, profile, peers: HashMap::new(), rng: seed | 1, told_bad: Vec::new(), inbox: Vec::new(), unanswered: BTreeMap::new() }
     }
 
     fn nonce(&mut self) -> u64 {
@@ -276,6 +298,7 @@ impl Link {
     /// 名单变了：新来的建状态，走了的关频道、删掉。roster = (Steam ID, 是不是房主)，不含本机
     pub fn set_roster(&mut self, roster: &[(u64, bool)], t: &mut impl Transport) {
         let gone: Vec<u64> = self.peers.keys().copied().filter(|id| !roster.iter().any(|(r, _)| r == id)).collect();
+        let mut changed = !gone.is_empty();
         for id in gone {
             self.peers.remove(&id);
             let conn = conn_suffix(t, id);
@@ -292,7 +315,22 @@ impl Link {
             }
             let n = self.nonce();
             self.peers.insert(id, Peer::fresh(id, host, n));
+            changed = true;
             log(&format!("联机通道：会话里有队员 {}（{}），开始握手", short(id), if host { "房主" } else { "客机" }));
+        }
+        // 名单变了：没连上的从头退避（停了的重新开始发 HELLO；HELLO_BUDGET 用完了的不再开始，等他来消息）
+        if changed {
+            for p in self.peers.values_mut().filter(|p| !p.linked()) {
+                if self.unanswered.get(&p.id).is_some_and(|&n| n >= HELLO_BUDGET) {
+                    continue;
+                }
+                if p.gave_up {
+                    log(&format!("联机通道：名单变了，重新和队员 {} 握手", short(p.id)));
+                }
+                p.gave_up = false;
+                p.quiet_since = None;
+                p.last_hello = None;
+            }
         }
     }
 
@@ -311,9 +349,19 @@ impl Link {
                     log(&format!("联机通道：队员 {} {} 秒没有消息，当作断了，重新握手{}", short(id), LOST.as_secs(), conn_suffix(t, id)));
                     reset = true;
                 } else if !p.linked() {
-                    if p.last_hello.is_none_or(|h| now.duration_since(h) >= HELLO_EVERY) {
-                        p.last_hello = Some(now);
-                        out.push(Packet::new(Kind::Hello)); // 占位，下面换成真的 HELLO（借 self 的档案）
+                    // 退避：没回音的时间越长发得越慢，到头了不发（见 HELLO_GIVE_UP / HELLO_BUDGET）
+                    if !p.gave_up {
+                        let quiet = now.duration_since(*p.quiet_since.get_or_insert(now));
+                        let sent = self.unanswered.get(&id).copied().unwrap_or(0);
+                        if quiet >= HELLO_GIVE_UP || sent >= HELLO_BUDGET {
+                            p.gave_up = true;
+                            log(&format!("联机通道：队员 {} {}，先不发握手了（对方可能没用整合包；名单变了或者对方来了消息再试）{}", short(id),
+                                         if sent >= HELLO_BUDGET { format!("发了 {sent} 次握手都没有回音") } else { format!("{} 秒没有回音", quiet.as_secs()) },
+                                         conn_suffix(t, id)));
+                        } else if p.last_hello.is_none_or(|h| now.duration_since(h) >= if quiet < HELLO_FAST_FOR { HELLO_EVERY } else { HELLO_SLOW }) {
+                            p.last_hello = Some(now);
+                            out.push(Packet::new(Kind::Hello)); // 占位，下面换成真的 HELLO（借 self 的档案）
+                        }
                     }
                 } else if p.last_ping.is_none_or(|h| now.duration_since(h) >= PING_EVERY) {
                     p.last_ping = Some(now);
@@ -333,6 +381,7 @@ impl Link {
             for pk in out {
                 let pk = if pk.kind == Kind::Hello {
                     t.accept(id);
+                    *self.unanswered.entry(id).or_insert(0) += 1;
                     self.hello(&self.peers[&id])
                 } else {
                     pk
@@ -373,6 +422,14 @@ impl Link {
         let profile = self.profile.clone();
         let p = self.peers.get_mut(&from).unwrap();
         p.last_rx = Some(now);
+        // 他在读本频道：握手的退避从头算，停了的马上重发 HELLO（对方晚起来时靠这个接上）
+        self.unanswered.remove(&from);
+        p.quiet_since = None;
+        if p.gave_up {
+            p.gave_up = false;
+            p.last_hello = None;
+            log(&format!("联机通道：队员 {} 来了消息，重新握手", short(from)));
+        }
         let mut reply: Vec<Packet> = Vec::new();
         let mut keep: Option<Packet> = None;
         match pk.kind {
@@ -415,7 +472,7 @@ impl Link {
                 }
             }
             Kind::Text => log(&format!("联机通道：队员 {} 发来测试消息「{}」", short(from), pk.get("text").unwrap_or(""))),
-            Kind::Foe | Kind::Nm | Kind::Slip | Kind::Tier | Kind::Gift | Kind::GiftOk | Kind::GiftNo | Kind::Arena => keep = Some(pk.clone()),
+            Kind::Foe | Kind::Nm | Kind::Slip | Kind::Tier | Kind::Gift | Kind::GiftOk | Kind::GiftNo | Kind::GiftBack | Kind::Arena => keep = Some(pk.clone()),
         }
         if p.linked() && !p.linked_logged {
             p.linked_logged = true;
@@ -466,7 +523,7 @@ impl Link {
         }
         let mut v: Vec<String> = self.peers.values().map(|p| {
             format!("{}（{}）{}{}{}", short(p.id), if p.host { "房主" } else { "客机" },
-                    if p.linked() { "已连上" } else if p.their_nonce.is_some() { "等对方确认" } else { "等对方回话" },
+                    if p.linked() { "已连上" } else if p.gave_up { "一直没回音，先不握手了" } else if p.their_nonce.is_some() { "等对方确认" } else { "等对方回话" },
                     p.rtt_ms.map(|m| format!("，往返 {m} 毫秒")).unwrap_or_default(),
                     if p.linked() && !p.profile_diff.is_empty() { "，档案不一致" } else { "" })
         }).collect();
@@ -511,10 +568,13 @@ struct St {
     names: std::collections::BTreeMap<u64, String>,
     /// 斗技场消息因为档案不一致没收的队员（每人只记一行）
     arena_warned: std::collections::BTreeSet<u64>,
+    /// 通道关掉（不在会话里 / 有人在加入中）时留下的 Link::unanswered，下次建通道接着算（HELLO_BUDGET 不因为会话重新就绪就清零）
+    hello_spent: BTreeMap<u64, u32>,
 }
 
 static ST: Mutex<St> = Mutex::new(St { link: None, roster_at: None, me: 0, code_saved: None, foe_logged: 0, tier_sent: None, tier_check: None,
-                                       names: std::collections::BTreeMap::new(), arena_warned: std::collections::BTreeSet::new() });
+                                       names: std::collections::BTreeMap::new(), arena_warned: std::collections::BTreeSet::new(),
+                                       hello_spent: BTreeMap::new() });
 /// 房主的难度档没变时多久重发一次
 const TIER_EVERY: Duration = Duration::from_secs(5);
 /// 发件箱：别的模块排进来（不碰 ST，免得互相锁住），tick 里发
@@ -532,9 +592,28 @@ pub fn gift_peers() -> Vec<(u64, String)> {
     GIFT_PEERS.lock().unwrap_or_else(|e| e.into_inner()).clone()
 }
 
+/// 排进发件箱；满了（OUT_MAX）丢最早的一条
+fn push_out(to: To, pk: Packet) {
+    let mut o = OUT.lock().unwrap_or_else(|e| e.into_inner());
+    if o.len() >= OUT_MAX {
+        let (_, old) = o.remove(0);
+        log_drop(&old.kind, "发件箱满了，丢掉最早的一条");
+    }
+    o.push((to, pk));
+}
+
+/// 通道用不了（没加载 Seamless、Steam 消息接口用不了）时清掉发件箱，不让它一直攒
+fn clear_out() {
+    let mut o = OUT.lock().unwrap_or_else(|e| e.into_inner());
+    if let Some((_, pk)) = o.first() {
+        log_drop(&pk.kind, &format!("联机通道用不了，发件箱里 {} 条清掉", o.len()));
+        o.clear();
+    }
+}
+
 /// 发给某一个队员（连上了才发）
 pub fn send_to(peer: u64, pk: Packet) {
-    OUT.lock().unwrap_or_else(|e| e.into_inner()).push((To::Peer(peer), pk));
+    push_out(To::Peer(peer), pk);
 }
 /// 最近转给房主的（实体, 操作, 值）：同样的 2 秒内不重复发（疫病每 0.5 秒扫一遍）
 static RECENT: Mutex<Vec<(u32, &'static str, i32, Instant)>> = Mutex::new(Vec::new());
@@ -545,6 +624,8 @@ const DROP_LOG: u32 = 20;
 static SEND_LOGGED: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
 static ZERO_LOGGED: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
 static DROP_LOGGED: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+/// 不在会话里收到、丢掉的消息（日志最多 10 行）
+static IDLE_DROP_LOGGED: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
 
 /// 有上限的日志：counter 记写了几行，到 cap 时说明后面不再记
 fn log_capped(counter: &std::sync::atomic::AtomicU32, cap: u32, msg: impl FnOnce() -> String) {
@@ -556,7 +637,7 @@ fn log_capped(counter: &std::sync::atomic::AtomicU32, cap: u32, msg: impl FnOnce
 
 /// 发给所有连上的队员（房主魇化广播等）
 pub fn send_all(pk: Packet) {
-    OUT.lock().unwrap_or_else(|e| e.into_inner()).push((To::All, pk));
+    push_out(To::All, pk);
 }
 
 /// 客机：这个敌人要改，转给房主（联机计划 13.5：直接写敌人内存的只让房主写）。实体编号 0（临时生成的）不转
@@ -575,7 +656,7 @@ pub fn foe_to_host(entity: u32, op: &'static str, v: f32) {
         }
         r.push((entity, op, key, now));
     }
-    OUT.lock().unwrap_or_else(|e| e.into_inner()).push((To::Host, Packet::new(Kind::Foe).with("e", entity).with("op", op).with("v", v)));
+    push_out(To::Host, Packet::new(Kind::Foe).with("e", entity).with("op", op).with("v", v));
     log_capped(&SEND_LOGGED, SEND_LOG, || format!("联机通道：转给房主：实体 {entity} {op} = {v}"));
 }
 
@@ -595,7 +676,7 @@ pub fn slip_to_host(entities: &[u32], m: f32) {
     let same = g.as_ref().is_some_and(|x| (x.1 - m).abs() < 1e-6 && x.2 == ids);
     if off {
         if g.take().is_some() {
-            OUT.lock().unwrap_or_else(|e| e.into_inner()).push((To::Host, Packet::new(Kind::Slip).with("m", 1).with("e", "")));
+            push_out(To::Host, Packet::new(Kind::Slip).with("m", 1).with("e", ""));
             log_capped(&SEND_LOGGED, SEND_LOG, || "联机通道：转给房主：时隙摘下了".to_string());
         }
         return;
@@ -607,7 +688,7 @@ pub fn slip_to_host(entities: &[u32], m: f32) {
         log_capped(&SEND_LOGGED, SEND_LOG, || format!("联机通道：转给房主：时隙 ×{m:.2}，范围里 {} 个敌人", ids.len()));
     }
     let list: Vec<String> = ids.iter().map(|e| e.to_string()).collect();
-    OUT.lock().unwrap_or_else(|e| e.into_inner()).push((To::Host, Packet::new(Kind::Slip).with("m", m).with("e", list.join(","))));
+    push_out(To::Host, Packet::new(Kind::Slip).with("m", m).with("e", list.join(",")));
     *g = Some((now, m, ids));
 }
 
@@ -654,12 +735,14 @@ pub fn tick() {
     let selftest_on = SELFTEST.lock().unwrap_or_else(|e| e.into_inner()).is_some();
     // 没加载 Seamless 时只管开发工具的请求和自测，不碰 Steam
     if !crate::coop::ersc_loaded() && reqs.is_empty() && !selftest_on {
+        clear_out();
         return;
     }
     let Some(steam) = crate::net::steam() else {
         if !reqs.is_empty() {
             log("联机通道：Steam 消息接口用不了，请求没有处理");
         }
+        clear_out();
         return;
     };
     let mut t = SteamT(steam);
@@ -675,7 +758,13 @@ pub fn tick() {
                     let prof = load_profile();
                     log(&format!("联机通道：会话就绪，{} 个队员；兼容档案 {} 项{}", r.len().saturating_sub(1), prof.len(),
                                  if prof.is_empty() { "（没有 coop_profile.txt：不是用启动器的联机启动？档案不比）" } else { "" }));
-                    g.link = Some(Link::new(me, prof, seed()));
+                    let mut l = Link::new(me, prof, seed());
+                    // 握手次数接着上一条通道算（会话重新就绪不清零）
+                    l.unanswered = match g.link.take() {
+                        Some(old) => old.unanswered,
+                        None => std::mem::take(&mut g.hello_spent),
+                    };
+                    g.link = Some(l);
                 }
                 g.me = me;
                 let others: Vec<(u64, bool)> = r.iter().filter(|m| !m.local).map(|m| (m.id, m.host)).collect();
@@ -691,12 +780,30 @@ pub fn tick() {
                         log("联机通道：不在会话里了，通道关掉");
                     }
                 }
-                g.link = None;
+                if let Some(l) = g.link.take() {
+                    g.hello_spent = l.unanswered;
+                }
             }
         }
     }
     if let Some(l) = g.link.as_mut() {
         l.poll(&mut t, now);
+    } else {
+        // 不在会话里（或会话还没就绪）：本频道的消息照样每帧收掉、直接丢，不让 Steam 一直攒着（和 Seamless 共用一条连接）；
+        // 只有自测发给自己的拿来处理
+        let me = steam.me;
+        let mut dropped = 0usize;
+        for (from, data) in t.recv() {
+            if selftest_on && me != 0 && from == me {
+                let mut l = Link::new(me, Vec::new(), 1);
+                l.handle(from, &data, &mut t, now);
+            } else {
+                dropped += 1;
+            }
+        }
+        if dropped > 0 {
+            log_capped(&IDLE_DROP_LOGGED, 10, || format!("联机通道：不在会话里（或会话还没就绪），收到 {dropped} 条消息，丢掉"));
+        }
     }
     // 房主的难度档（联机计划 13.9 A）：每秒看一次，变了马上发、没变每 TIER_EVERY 发一次
     if crate::coop::host() && g.link.as_ref().is_some_and(|l| l.peers.values().any(|p| p.linked())) && g.tier_check.is_none_or(|t| now >= t) {
@@ -797,6 +904,12 @@ pub fn tick() {
                     crate::gear::gift_result(from, n, pk.kind == Kind::GiftOk, pk.get("why").unwrap_or("").to_string());
                 }
             }
+            // 送的人要退回（gift.rs 的 gift_in 按种类分开排队）
+            Kind::GiftBack => {
+                if g.link.as_ref().is_some_and(|l| l.compatible(from)) {
+                    crate::gear::gift_in(from, pk);
+                }
+            }
             // 斗技场试炼：档案一致的才收（两边的 arena.txt 一样，出场的部件才对得上）；房主发来的进度、队员报的情况都交给 arena.rs
             Kind::Arena => {
                 let (host, ok) = g.link.as_ref().map_or((false, false), |l| (l.from_host(from), l.compatible(from)));
@@ -824,16 +937,6 @@ pub fn tick() {
             log("联机通道：和房主的游戏数据对不上，房主的联机随机码存下了（退出游戏后在启动器「联机」→「导入随机码」导入）");
         }
         g.code_saved = Some(code);
-    }
-    if g.link.is_none() && selftest_on {
-        // 不在会话里也收（自测）
-        let me = steam.me;
-        for (from, data) in t.recv() {
-            if from == me {
-                let mut l = Link::new(me, Vec::new(), 1);
-                l.handle(from, &data, &mut t, now);
-            }
-        }
     }
     let mut st = SELFTEST.lock().unwrap_or_else(|e| e.into_inner());
     if st.is_some_and(|at| now.duration_since(at) >= SELFTEST_WAIT) {
@@ -1016,6 +1119,51 @@ mod tests {
         run(&mut a, &mut ta, &mut b, &mut tb, Instant::now(), 3.0);
         assert!(a.compatible(2), "随机码不同不算档案不一致：{:?}", a.peers[&2].profile_diff);
         assert_eq!(b.peers[&1].code.as_deref(), Some("DR2|1"));
+    }
+
+    /// 对方一直不读本频道：HELLO 先每秒一条、再每 5 秒一条，3 分钟后停；名单变了重新开始；对方来了消息马上重发；总数不超过 HELLO_BUDGET
+    #[test]
+    fn hello_backs_off_and_stops() {
+        let (mut a, mut ta, _b, _tb, net) = pair(prof("aaa"), prof("aaa"));
+        let to_b = |net: &Rc<RefCell<Net>>| net.borrow().boxes.get(&2).map_or(0, |v| v.len());
+        let t0 = Instant::now();
+        let mut now = t0;
+        let mut at_30 = 0;
+        while now < t0 + Duration::from_secs(400) {
+            a.poll(&mut ta, now);
+            if now < t0 + HELLO_FAST_FOR {
+                at_30 = to_b(&net);
+            }
+            now += Duration::from_millis(100);
+        }
+        let n = to_b(&net);
+        assert!((29..=31).contains(&at_30), "头 30 秒每秒一条：{at_30}");
+        assert!(n > at_30 && n <= at_30 + 31, "之后每 5 秒一条、3 分钟停：{n}");
+        assert!(a.peers[&2].gave_up);
+        a.poll(&mut ta, now + Duration::from_secs(60));
+        assert_eq!(to_b(&net), n, "停了就不再发");
+        // 名单变了（来了个队员 3）：和 2 也重新开始
+        a.set_roster(&[(2, false), (3, false)], &mut ta);
+        a.poll(&mut ta, now);
+        assert_eq!(to_b(&net), n + 1);
+        // 一直没回音，名单来回变：HELLO 总数不超过 HELLO_BUDGET
+        for k in 0..10 {
+            a.set_roster(if k % 2 == 0 { &[(2, false)][..] } else { &[(2, false), (3, false)][..] }, &mut ta);
+            let end = now + Duration::from_secs(400);
+            while now < end {
+                a.poll(&mut ta, now);
+                now += Duration::from_millis(500);
+            }
+        }
+        let total = to_b(&net);
+        assert!(total <= HELLO_BUDGET as usize, "{total}");
+        assert!(a.peers[&2].gave_up);
+        // 对方来了消息（晚起来了）：马上回 ACK、重发 HELLO
+        net.borrow_mut().boxes.entry(1).or_default().push((2, Packet::new(Kind::Hello).with("nonce", 7).encode()));
+        a.poll(&mut ta, now);
+        assert!(!a.peers[&2].gave_up);
+        let last: Vec<Kind> = net.borrow().boxes[&2][total..].iter().map(|(_, d)| Packet::decode(d).unwrap().kind).collect();
+        assert_eq!(last, vec![Kind::Ack, Kind::Hello]);
     }
 
     #[test]

@@ -468,7 +468,9 @@ def write_coop_profile(ctx, Ersc, Fp, Rand):
             pass
         lines = ['# 联机兼容档案：启动器联机启动时写，dark_core 的联机通道握手时发给队友比对（不含联机密码）',
                  'version\t' + ver, 'fingerprint\t' + (Fp or ''), 'world\t' + (getattr(ctx, 'WorldSuffix', '') or ''),
-                 'scaling\t' + ','.join(rules), 'enemy\t' + enemy, 'seamless\t' + get_ersc_version(ctx, Ersc)]
+                 'scaling\t' + ','.join(rules), 'enemy\t' + enemy, 'seamless\t' + get_ersc_version(ctx, Ersc),
+                 # 自己加的 mod（崩溃风险审查 2026-11-19 第 12 条）：名字 + 文件清单，两边不一样时联机通道的日志里写是哪几个
+                 'mods\t' + (', '.join(m.Label + '#' + m.Hash for m in get_player_mod_list(ctx)) or '无')]
         # 联机码（不算比对的一项；DR3 带着联机密码，只发给会话里的队员）：队友和房主对不上时，联机通道把房主的存到队友的
         # dll\dark_core\coop_host_code.txt，队友退出后点「加入」剪贴板里没有码也能用它
         try:
@@ -524,7 +526,81 @@ def get_coop_fingerprint(ctx, Rand, WithReroll):
     if gr:
         a += ['--dll-dir', os.path.join(gr, 'Game')]
     out = [l for l in _run_stdout(py, a) if _trim(l)]
-    return _trim(out[-1]) if out else ''
+    fp = _trim(out[-1]) if out else ''
+    # 联机启动时（WithReroll）再带上自己加的 mod：名字 + 文件清单（崩溃风险审查 2026-11-19 第 12 条）。
+    # 以前只看 regulation 和随机器输出，两人 mods 文件夹 / YAFSML自定义.ini 的 [mod] [mod_after] 不一样时核对码也一样
+    mods = get_player_mod_list(ctx) if WithReroll else []
+    if fp and mods:
+        import hashlib
+        fp += ' / m' + hashlib.sha256('\n'.join(m.Label + '#' + m.Hash for m in mods).encode('utf-8')).hexdigest()[:8]
+    return fp
+
+
+def _file_list_hash(root):
+    """一个 mod 文件夹的文件清单：每个文件相对路径（不分大小写）+ 大小，SHA-256 前 8 位。不看修改时间（两台电脑各自解压的时间不一样），
+    不读内容（外观 mod 动辄几个 GB）"""
+    import hashlib
+    items = []
+    for dp, dns, fns in os.walk(root):
+        dns.sort()
+        for f in fns:
+            full = os.path.join(dp, f)
+            try:
+                size = os.path.getsize(full)
+            except OSError:
+                continue
+            items.append((os.path.relpath(full, root).replace('\\', '/').casefold(), size))
+    h = hashlib.sha256()
+    for rel, size in sorted(items):
+        h.update(('%s|%d\n' % (rel, size)).encode('utf-8'))
+    return h.hexdigest()[:8]
+
+
+def get_player_mod_list(ctx):
+    """这次实际挂载的、自己加的 mod（usermods.get_user_load_lines 给的 [mod] 行：mods\\ 文件夹、YAFSML自定义.ini 的 [mod] / [mod_after]），
+    按加载顺序：[Rec(Label = 「mods\\名字」/「[mod]名字」/「[mod_after]名字」, Path, After = 排在整合包后面, Hash = 文件清单)]。
+    联机核对码、兼容档案用；读不了当没有（get_player_load 那边也就一个都不加载）。一次启动只算一次"""
+    if getattr(ctx, 'CoopModList', None) is not None:
+        return ctx.CoopModList
+    from .usermods import get_user_load_lines
+    out = []
+    try:
+        pl = get_user_load_lines(ctx)
+    except Exception:
+        pl = None
+    for after, text in ((False, pl.Before if pl else ''), (True, pl.After if pl else '')):
+        for line in re.split(r'\r?\n', text or ''):
+            m = re.match(r'^\s*([^;=\s][^=]*)=(.+)$', line)
+            if not m:
+                continue
+            key, path = m.group(1).strip(), m.group(2).strip()
+            tag = '[mod_after]' if after else ('mods\\' if key.casefold().startswith('user_mod_') else '[mod]')
+            out.append(Rec(Label=tag + os.path.basename(path.rstrip('\\/')), Path=path, After=after, Hash=_file_list_hash(path)))
+    ctx.CoopModList = out
+    return out
+
+
+def test_coop_player_mods(ctx):
+    """联机启动前：YAFSML自定义.ini 的 [mod_after] 排在整合包后面，里面带数值文件（regulation.bin）、地图（map）、事件（event）的话会盖过整合包的，
+    两人的游戏数据对不上（崩溃风险审查 2026-11-19 第 12 条）：不让联机启动。-DryRun 只提示。返回能不能启动"""
+    bad = []
+    for m in get_player_mod_list(ctx):
+        if not m.After:
+            continue
+        has = [what for n, what in (('regulation.bin', '数值文件 regulation.bin'), ('map', '地图（map 文件夹）'), ('event', '事件（event 文件夹）'))
+               if os.path.exists(os.path.join(m.Path, n))]
+        if has:
+            bad.append('「' + m.Label[len('[mod_after]'):] + '」（' + m.Path + '）带着' + '、'.join(has))
+    if not bad:
+        return True
+    msg = ('联机启动不了：YAFSML自定义.ini 的 [mod_after] 里' + '；'.join(bad) +
+           '。[mod_after] 排在整合包后面，会盖过整合包的数值、地图和事件，两个人的游戏数据就对不上，联机时容易掉线或闪退。'
+           '联机前在 YAFSML自定义.ini 里这一行的行首加 ; 停用它（或者挪到 [mod] 段），再联机启动。')
+    if ctx.DryRun:
+        write_warn(msg)
+        return True
+    write_err(msg)
+    return False
 
 
 # ---------------------------------------------------------------- 联机随机码 DR1 / DR2（settings.json 的敌人设置按文字改，不动排版）

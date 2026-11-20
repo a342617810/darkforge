@@ -1040,6 +1040,21 @@ def invader_hp_plain(rand_dir, cache_dir, P_npc, npc_tier, map_tiers, band_idx, 
         '；%d 行也被别的位置用，没动：%s' % (len(shared), shared) if shared else '')
 
 
+def clear_patched_maps(maps_out, parts_too=False):
+    """这次不修补地图（下面两种提前返回）：清掉上一次修补的地图。它们引用的是上一次复制出来的敌人参数编号，这次没复制，
+    启动器照样挂 DR_RerollMaps 的话敌人引用缺行 / 错行（崩溃风险审查 2026-11-19 第 7 条）。清掉后用随机器输出的原图。
+    parts_too：随机器输出里没有地图时 stage3_parts.json 也是旧的（rr/bosses.py 会读），一起删。返回删了几张"""
+    n = 0
+    for f in glob.glob(os.path.join(maps_out, 'map', 'mapstudio', '*.msb.dcx')):
+        os.remove(f)
+        n += 1
+    for name in ('stage3_plan.json',) + (('stage3_parts.json',) if parts_too else ()):
+        p = os.path.join(maps_out, name)
+        if os.path.isfile(p):
+            os.remove(p)
+    return n
+
+
 def stage3_retier(rand_dir, maps_out, P_npc, member_band, band_idx, table_base, npc_lot_off, elite=frozenset(),
                   extra=None, hooked=None, helpers=frozenset(), hp_align=None, P_sp=None, placed=None):
     """开了敌人随机时：被挪到别处的敌人仍带着原来的敌人参数（也就带着原来档次的掉落表）。
@@ -1060,7 +1075,8 @@ def stage3_retier(rand_dir, maps_out, P_npc, member_band, band_idx, table_base, 
     mdir = os.path.join(rand_dir, 'map', 'mapstudio')
     files = sorted(glob.glob(os.path.join(mdir, '*.msb.dcx')))
     if not files:
-        return ['敌人随机档次修正：找不到随机器输出的地图，跳过']
+        n_old = clear_patched_maps(maps_out, parts_too=True) if os.path.isdir(maps_out) else 0
+        return ['敌人随机档次修正：找不到随机器输出的地图，跳过' + ('（清掉了上次修补的 %d 张地图）' % n_old if n_old else '')]
     sig = '%d|%d|%d' % (len(files), sum(os.path.getsize(f) for f in files), int(max(os.path.getmtime(f) for f in files)))
     os.makedirs(maps_out, exist_ok=True)
     cache_p = os.path.join(maps_out, 'stage3_parts.json')
@@ -1088,7 +1104,8 @@ def stage3_retier(rand_dir, maps_out, P_npc, member_band, band_idx, table_base, 
         used_log = os.path.basename(lp)
         break
     if not tgt:
-        return ['敌人随机档次修正：没有找到成功的随机化日志，跳过']
+        n_old = clear_patched_maps(maps_out)
+        return ['敌人随机档次修正：没有找到成功的随机化日志，跳过' + ('（清掉了上次修补的 %d 张地图）' % n_old if n_old else '')]
 
     now_sp = scale_now_effects(rand_dir, maps_out, P_sp) if P_sp is not None else {}
     hp_pos, hp_msg = (hp_align_factors(rand_dir, maps_out, parts, P_npc, hp_align, tgt, now_sp) if hp_align else ({}, ''))

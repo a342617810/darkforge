@@ -861,6 +861,7 @@ pub unsafe extern "system" fn DllMain(hmodule: u64, reason: u32, _reserved: *mut
         };
         log("dark_sell 已加载：赐福「一键出售」；F9 导出背包（排查用）");
         let mut frame = 0u32;
+        let mut sell_errs = 0u32;
         task.run_recurring(
             move |_: &FD4TaskData| {
                 frame = frame.wrapping_add(1);
@@ -873,10 +874,16 @@ pub unsafe extern "system" fn DllMain(hmodule: u64, reason: u32, _reserved: *mut
                 if frame % 120 == 37 && catch_unwind(AssertUnwindSafe(ash_dup_tick)).is_err() {
                     log("复制战灰：读背包时出错（已跳过）");
                 }
-                if input::is_key_pressed(KEY_DUMP) && catch_unwind(AssertUnwindSafe(dump)).is_err() {
+                // 任务回调是 extern "C"（vendored shared\src\task.rs），漏出去的 panic 直接带崩游戏：按键查询、一键出售也接住（崩溃风险审查 2026-11-19 第 3 条）
+                if catch_unwind(|| input::is_key_pressed(KEY_DUMP)).unwrap_or(false) && catch_unwind(AssertUnwindSafe(dump)).is_err() {
                     log("F9：读背包时出错（已跳过）");
                 }
-                poll_sell();
+                if catch_unwind(AssertUnwindSafe(poll_sell)).is_err() {
+                    sell_errs += 1;
+                    if sell_errs <= 3 {
+                        log("一键出售：看请求时出错（已跳过这一帧）");
+                    }
+                }
             },
             CSTaskGroupIndex::FrameBegin,
         );

@@ -34,7 +34,7 @@ PLAYER_ACTIONS = ('vanilla', 'randenemy', 'rand', 'coopvanilla', 'coop', 'update
 SMALL = [
     ('游戏路径', '设置 / 修改游戏目录（包含 Game\\eldenring.exe 的那一层）'),
     ('备份存档', '把暗黑重铸存档（ER0000.rng）和角色记录（存档文件夹里的 DarkReforged\\角色记录）复制到「存档备份」文件夹'),
-    ('恢复存档', '回到上次启动游戏前的样子，之后玩的进度会丢失（确认前会显示差多少）；每次启动前自动备份，留最近 10 份，也可以手动挑别的备份。只是遇到问题的话，先点「导出诊断包」'),
+    ('恢复存档', '从自动备份里挑一份换回去，之后玩的进度会丢失（确认前会显示差多少）。游戏开着时会定时自动备份，间隔在下面的「定时备份」里改。只是遇到问题的话，先点「导出诊断包」'),
     ('重随设置', '用记事本打开重随规则 settings.json（敌人血量、Boss 奖励、局内难度等）'),
     ('一键重随物品', '骨灰的位置、开局装备、开局遗物只在第一次启动时抽一次，之后固定。点这里后，下次启动会重新抽一次（之后再固定）；只对之后新建的角色生效'),
     ('敌人设置', '调整敌人随机：精英怪的多少、头目会不会出现在普通敌人的位置。改完点「一键重随敌人」生效'),
@@ -66,8 +66,9 @@ GAME_PICK_WRONG = ('要选的是游戏的 Game 文件夹（里面有 eldenring.e
                    '    C:\\Program Files (x86)\\Steam\\steamapps\\common\\ELDEN RING\\Game' + '\r\n' +
                    '    D:\\SteamLibrary\\steamapps\\common\\ELDEN RING\\Game（游戏装在别的盘时）' + '\r\n\r\n' +
                    '不知道装在哪：在 Steam 库里右键艾尔登法环 →「管理」→「浏览本地文件」，打开的文件夹里的 Game 就是。')
-BACKUP_PICK_HELP = ('启动前 = 每次启动游戏前自动存的；恢复前 = 每次恢复前自动存的；存档备份 = 点「备份存档」存的。\r\n'
-                    '存档和角色记录一起换回去，那之后的游戏进度会丢失（现在的会先自动备份）。')
+BACKUP_PICK_HELP = ('定时 = 游戏开着时自动存的（「退出游戏后」那份就是退出时的样子）；启动前 / 恢复前 = 以前的版本自动存的（定时备份攒满 5 份后自动删掉）；'
+                    '存档备份 = 点「备份存档」存的。\r\n'
+                    '存档和角色记录一起换回去，那之后的游戏进度会丢失。')
 FAQ_TEXT = (
     "问：我想重新随机敌人怎么办？\r\n"
     "1. 点「一键重随敌人」，等它跑完（2~5 分钟，期间不要碰随机器窗口）。\r\n"
@@ -92,20 +93,22 @@ FAQ_TEXT = (
     "\r\n"
     "问：回退版本怎么办？\r\n"
     "1. 把旧版本的压缩包解压到另一个文件夹。\r\n"
-    "2. 打开旧版本的启动器，点「恢复存档」→「手动选择…」，选一份更新之前的「启动前」备份，点恢复。\r\n"
-    "3. 用旧版本启动。\r\n"
+    "2. 在现在的启动器里点「恢复存档」，选一份更新之前的备份，点恢复（旧版本的启动器认不得新的定时备份，所以在这里恢复）。\r\n"
+    "3. 打开旧版本的启动器，用它启动。\r\n"
     "\r\n"
     "问：精英怪太多 / 太少，或者想在普通敌人的位置遇到头目？\r\n"
     "点「敌人设置」：精英怪比例有六档；「头目出现在普通敌人位置」可以选关闭或四档多少（追忆头目不会出现在这些位置）。\r\n"
     "改完点「一键重随敌人」才会生效，已经随机好的敌人不会变。\r\n"
     "\r\n"
     "问：自动备份的存档在哪？\r\n"
-    "点下面的「打开自动备份文件夹」。每次启动游戏前都会自动存一份，文件夹名字就是时间。\r\n"
+    "点下面的「打开自动备份文件夹」。游戏开着时每隔一段时间（默认 10 分钟，在「工具与设置」→「存档」里改）自动存一份，"
+    "退出游戏后再存一份，存档没变就不存；每份是一个压缩包，名字就是时间，只留最近 5 份。\r\n"
+    "以前的版本每次启动游戏前存的备份（名字是时间的文件夹）在定时备份攒满 5 份后自动删掉，在那之前也能恢复。\r\n"
     "自己点「备份存档」存的，在整合包文件夹里的「存档备份」。\r\n"
     "\r\n"
     "手动恢复：\r\n"
     "1. 关掉游戏。\r\n"
-    "2. 打开一份备份，把里面的 ER0000.rng 复制到「打开存档文件夹」里那个数字文件夹中，覆盖。\r\n"
+    "2. 打开一份备份（压缩包直接双击打开），把里面的 ER0000.rng 复制到「打开存档文件夹」里那个数字文件夹中，覆盖。\r\n"
     "3. 把备份里「角色记录」文件夹中的文件复制到「打开存档文件夹」里的 DarkReforged\\角色记录，覆盖。\r\n"
     "   联机存档 ER0000.rngcoop 同样放进数字文件夹；备份的「角色记录」里的「联机」文件夹整个复制过去。\r\n"
     "   （2026-10-29 以前的备份里是 DarkReforged_*.txt、DarkReforged_once.json：去掉文件名开头的 DarkReforged_ 再放进去。）")
@@ -366,7 +369,8 @@ class App:
                 'cards': cards,
                 'subs': {'launchV': subs['launchV'], 'launchR': subs['launchR'], 'randEnemy': subs['randEnemy'], 'randItems': '骨灰、开局装备重抽，新角色生效'},
                 'run': {'player': player, 'lines': lines, 'pct': pct, 'error': err},
-                'tools': tools, 'coop': self.coop_on, 'update': self.update, 'enemyInfo': self.get_enemy_info()}
+                'tools': tools, 'coop': self.coop_on, 'update': self.update, 'enemyInfo': self.get_enemy_info(),
+                'backupMin': backup.get_backup_interval(self.ctx), 'backupMins': list(backup.RngTimedIntervals), 'backupKeep': backup.RngTimedKeep}
 
     def send(self, obj):
         if self.win:
@@ -1087,7 +1091,7 @@ class App:
                 backup.copy_rng_record(f, rd)
         self.log('存档已备份到：' + dst + '（' + str(len(saves)) + ' 个存档 + ' + str(len(records)) + ' 个角色记录）')
         backup.add_rng_ops_log(self.ctx, '手动备份（「备份存档」按钮）：存档 ' + str(len(saves)) + ' 个、角色记录 ' + str(len(records)) + ' 个 → ' + dst)
-        self.show_info('已备份到：\r\n' + dst + '\r\n\r\n要换回来时点「恢复存档」→「手动选择…」，选这份。')
+        self.show_info('已备份到：\r\n' + dst + '\r\n\r\n要换回来时点「恢复存档」，选这份。')
         _explorer(dst)
 
     @staticmethod
@@ -1101,8 +1105,9 @@ class App:
 
     def restore_diff_lines(self, b):
         try:
-            r = subprocess.run([self.python_exe(), '-X', 'utf8', os.path.join(self.L, 'reroll', 'savediff.py'), b.Dir, self.ctx.RngSaveRoot],
-                               capture_output=True, stdin=subprocess.DEVNULL, creationflags=CREATE_NO_WINDOW, env=child_env(), timeout=120)
+            with backup.backup_as_dir(b) as d:          # 定时备份是压缩包：先解到临时文件夹再比
+                r = subprocess.run([self.python_exe(), '-X', 'utf8', os.path.join(self.L, 'reroll', 'savediff.py'), d, self.ctx.RngSaveRoot],
+                                   capture_output=True, stdin=subprocess.DEVNULL, creationflags=CREATE_NO_WINDOW, env=child_env(), timeout=120)
             if r.returncode != 0:
                 return []
             out = [l for l in r.stdout.decode('utf-8', 'replace').splitlines() if l.strip()]
@@ -1114,13 +1119,13 @@ class App:
         diff = self.restore_diff_lines(b)
         what = ('和现在相比：\r\n' + '\r\n'.join('    ' + x for x in diff)) if diff else '（读不出这份备份和现在差多少）'
         return ('存档和角色记录都会换成这份备份，备份之后玩的进度会丢失：\r\n\r\n    ' + self.backup_text(b) + '\r\n\r\n' + what + '\r\n\r\n' +
-                '现在的会先自动存成「恢复前」备份，恢复错了还能选它换回来。只是遇到问题的话，先点「导出诊断包」，不用恢复。')
+                '现在的样子不会另外备份：恢复错了想换回来，选最新的那份「定时 · 退出游戏后」备份（就是上次退出游戏时的样子）。'
+                '只是遇到问题的话，先点「导出诊断包」，不用恢复。')
 
     def invoke_restore(self, pick):
         done = backup.restore_rng_backup(self.ctx, pick) or []
         self.log('已恢复（' + '、'.join(done) + '）：' + self.backup_text(pick))
-        self.show_info('已恢复：' + '、'.join(done) + '\r\n' + self.backup_text(pick) + '\r\n\r\n' +
-                       '恢复前的存档和记录已存成「恢复前」备份（' + self.ctx.RngBackupDir + '），恢复错了可以再选它换回来。')
+        self.show_info('已恢复：' + '、'.join(done) + '\r\n' + self.backup_text(pick))
 
     def show_backup_pick(self, items):
         a = self.modal({'kind': 'pick', 'title': '恢复存档：手动选择备份', 'icon': '', 'text': BACKUP_PICK_HELP,
@@ -1135,16 +1140,9 @@ class App:
             return
         items = [b for b in backup.get_rng_backups(self.ctx, os.path.join(self.P, '存档备份')) if b.Saves and b.Saves > 0]
         if not items:
-            self.show_info('没有找到可以恢复的备份。' + '\r\n' + '（以后每次启动游戏前会自动备份到 ' + self.ctx.RngBackupDir + '）')
+            self.show_info('没有找到可以恢复的备份。' + '\r\n' + '（游戏开着时会定时自动备份到 ' + self.ctx.RngBackupDir + '）')
             return
-        last = next((b for b in items if b.Tag == '启动前'), None)
-        if last:
-            r = self.show_dr_dialog(self.restore_warn_text(last), '恢复到上次启动前', ['丢弃进度并恢复', '手动选择…', '取消'], 2, 2, 'warn')
-            if r == 0:
-                self.invoke_restore(last)
-                return
-            if r != 1:
-                return
+        # 以前先问「恢复到上次启动前」：2026-11-19 起没有启动前备份了（定时备份），直接列出来挑
         i = self.show_backup_pick(items)
         if i < 0:
             return
@@ -1281,7 +1279,7 @@ class App:
             if op == 'bk':
                 d = c.RngBackupDir if os.path.exists(c.RngBackupDir) else c.RngSaveRoot
                 if not os.path.exists(d):
-                    self.show_info('还没有备份（' + c.RngBackupDir + '）：启动过一次游戏后才会有。')
+                    self.show_info('还没有备份（' + c.RngBackupDir + '）：用启动器启动游戏、玩过一会儿后才会有。')
                     return None
                 _explorer(d)
             elif op == 'save':
@@ -1677,6 +1675,12 @@ class App:
                 self.on_randomizer()
         elif a == 'checkupdate':
             self.start_update_check()
+        elif a == 'backupint':                          # 定时备份间隔（工具与设置 → 存档；看守每分钟读一次，马上生效）
+            try:
+                v = backup.set_backup_interval(self.ctx, m.get('value'))
+                self.toast('定时备份改成每 ' + str(v) + ' 分钟一次')
+            except OSError as e:
+                self.toast('没能保存设置：' + str(e), error=True)
         elif a == 'enemyinfo':
             v = 'off' if m.get('value') == 'off' else 'on'
             try:

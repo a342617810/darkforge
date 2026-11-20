@@ -26,6 +26,7 @@ from sc.esdutil import ROOT, dup_picks, write_check  # noqa: E402
 
 VERSION = 'scripts-1'
 SIG_FILE = 'scripts_source.txt'
+MAPS_FILE = 'scripts_maps.txt'      # 做这个包时各来源包里的地图 / 事件脚本（maps_sig）：这次做不成时比它，变了就不沿用旧包
 # 赐福菜单里加选项的顺序就是这里的顺序（难度 → 一键鉴定 → 许愿 → 一键出售 → DR 说明 → 暗黑商店 → 双子老妪）
 FEATURES = (grace, difficulty, identify, wish, inherit, wspages, wishstone, runebank, notes, sounds, sell, guide, darkshop, forge, twin, lock, slot, start, hks, bells, training, extragrace, bossarena, avatarfix, clergyfix, bossaward, bossmods, arena, story, lostarena, gracelook)   # forge 要在登记进「暗黑重铸」的功能之后，gracelook 最后；lostarena 在改地图的那几个（extragrace、bossarena、avatarfix、arena、story）之后，接着它们改好的那份补
 
@@ -58,6 +59,34 @@ def sig_of(cx, paths):
     return h.hexdigest()
 
 
+def maps_sig(sources):
+    """各来源包里的地图和事件脚本（map\\mapstudio\\*.msb.dcx、event\\*.emevd.dcx）：路径、大小、修改时间（只看文件信息，几百张图也很快）。
+    覆盖包里整张的地图 / 事件是在这些上面改的，地图里敌人引用的敌人参数编号（重随复制出来的那几行，rr/stage3.py）随机器输出一变就整体移位：
+    来源变了还沿用旧包，敌人引用缺行或错行（崩溃风险审查 2026-11-19 第 6 条）。重随只重写变了的地图，随机器只在重新随机化时写，
+    所以修改时间变了基本就是内容变了；误判也只是这次不沿用"""
+    h = hashlib.sha1(b'maps-1')
+    for s in sources:
+        for pat in (('map', 'mapstudio', '*.msb.dcx'), ('event', '*.emevd.dcx')):
+            for p in sorted(glob.glob(os.path.join(s, *pat))):
+                st = os.stat(p)
+                h.update(('%s|%d|%d;' % (os.path.abspath(p).lower(), st.st_size, st.st_mtime_ns)).encode('utf-8'))
+    return h.hexdigest()
+
+
+def old_usable(sources, out):
+    """这次做不成时能不能沿用上次的包：（能不能, 不能的原因）。上次的包要完整（有签名文件），而且来源里的地图 / 事件脚本和做它的时候一样"""
+    if not os.path.isfile(os.path.join(out, SIG_FILE)):
+        return False, ''
+    mf = os.path.join(out, MAPS_FILE)
+    try:
+        same = os.path.isfile(mf) and open(mf, encoding='utf-8').read().strip() == maps_sig(sources)
+    except OSError:
+        same = False
+    if not same:
+        return False, '；上次的包是按另一份地图做的（重新随机化过，或者别的包换了地图），不能沿用'
+    return True, ''
+
+
 def build(sources, out):
     cx = Ctx(sources)
     talk = last_with(sources, TALK)
@@ -74,6 +103,15 @@ def build(sources, out):
     sig = sig_of(cx, srcs)
     sigf = os.path.join(out, SIG_FILE)
     if os.path.isfile(sigf) and open(sigf, encoding='utf-8').read().strip() == sig:
+        # 内容没变但文件信息变了（同样的内容重写过）：记下现在的，免得以后做不成时误判成来源变了
+        try:
+            ms, mf = maps_sig(sources), os.path.join(out, MAPS_FILE)
+            if not (os.path.isfile(mf) and open(mf, encoding='utf-8').read().strip() == ms):
+                with open(mf + '.tmp', 'w', encoding='utf-8') as f:
+                    f.write(ms + '\n')
+                os.replace(mf + '.tmp', mf)
+        except OSError:
+            pass                                    # 记不下只是以后做不成时不沿用
         return '来源没变，沿用上次的结果'
     tmp = out + '.tmp'
     if os.path.isdir(tmp):
@@ -143,6 +181,7 @@ def build(sources, out):
         if hasattr(m, 'files'):
             m.files(cx, tmp)
 
+    open(os.path.join(tmp, MAPS_FILE), 'w', encoding='utf-8').write(maps_sig(sources) + '\n')
     open(os.path.join(tmp, SIG_FILE), 'w', encoding='utf-8').write(sig + getattr(cx, 'sig_extra', '') + '\n')
     swap_in(tmp, out)
     problems = ''.join('；' + p for p in cx.notes if any(k in p for k in ('没', '失败', '跳过')))
@@ -187,15 +226,17 @@ def main():
     ap.add_argument('--dll-dir', action='append', default=[])
     a = ap.parse_args()
     erlib.DLL_DIRS.extend(a.dll_dir)
+    sources = [s for s in a.sources if os.path.isdir(s)]
     try:
-        r = {'ok': True, 'msg': build([s for s in a.sources if os.path.isdir(s)], a.out)}
+        r = {'ok': True, 'msg': build(sources, a.out)}
     except Exception as e:
         err = '%s: %s' % (type(e).__name__, e)
-        # 覆盖包只会是完整的旧包或完整的新包（签名文件最后写、整个目录换上去）：有上次的就接着用
-        if os.path.isfile(os.path.join(a.out, SIG_FILE)):
+        # 覆盖包只会是完整的旧包或完整的新包（签名文件最后写、整个目录换上去）：有上次的、而且来源的地图没变就接着用
+        usable, why = old_usable(sources, a.out)
+        if usable:
             r = {'ok': True, 'warn': True, 'msg': '这次没做成，沿用上次的结果（%s）' % err}
         else:
-            r = {'ok': False, 'msg': err}
+            r = {'ok': False, 'msg': err + why}
     print(json.dumps(r, ensure_ascii=True))
 
 

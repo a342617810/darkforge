@@ -185,8 +185,9 @@ fn dev(st: &mut St) {
     }
 }
 
-/// 每帧（物理更新前）
-pub fn tick() {
+/// 帧开头（FrameBegin）：开发工具请求、禁止 / 恢复传送、到点放圆顶子弹。崩溃风险审查第 21 条：物理更新前那个组不带 Safe，
+/// 生成子弹、改 FieldArea、开发请求挪到这里；圆心和要不要放圆顶由 tick 在物理更新前定（晚一帧放，本来就要等 DOME_DELAY）
+pub fn frame() {
     let mut g = ST.lock().unwrap_or_else(|e| e.into_inner());
     let st = g.get_or_insert_with(St::default);
     st.n = st.n.wrapping_add(1);
@@ -195,32 +196,12 @@ pub fn tick() {
     }
     let want = WANT.load(Ordering::Relaxed) || st.force;
     if !want {
-        if st.anchor.take().is_some() {
-            log("难度屏障：撤掉（难度对上了）");
-        }
-        st.last = None;
         fast_travel(st, false);
         return;
     }
-    let Ok(wcm) = (unsafe { WorldChrMan::instance_mut() }) else { return };
-    let Some(p) = wcm.main_player.as_mut() else {
-        st.anchor = None;
-        st.last = None;
-        return;
-    };
+    let Ok(wcm) = (unsafe { WorldChrMan::instance() }) else { return };
+    let Some(p) = wcm.main_player.as_ref() else { return };
     fast_travel(st, true);
-    let at = where_is(p);
-    let jumped = match (&st.anchor, &st.last) {
-        (Some(a), Some(l)) => a.key != at.key || l.key != at.key || dist_xz(l, &at) > JUMP || (l.y - at.y).abs() > JUMP,
-        _ => true,
-    };
-    if jumped {
-        log(&format!("难度屏障：在 {}（块里 {:.1}, {:.1}, {:.1}）围起来，半径 {} 米，{:.1} 秒后放圆顶", p.current_block_id, p.block_position.x,
-                     p.block_position.y, p.block_position.z, st.radius.unwrap_or(RADIUS), DOME_DELAY.as_secs_f32()));
-        st.anchor = Some(at);
-        let h = p.chr_ins.modules.physics.position;
-        st.dome_check = Some((Instant::now() + DOME_DELAY, [h.0, h.1, h.2], 0));
-    }
     // 在圆心放圆顶（物理坐标：刚围起来时人物的位置）
     if let Some((t, pos, tries)) = st.dome_check {
         if Instant::now() >= t {
@@ -240,18 +221,56 @@ pub fn tick() {
             }
         }
     }
+}
+
+/// 每帧（物理更新前）：围起来、推回圈里（只改位置）
+pub fn tick() {
+    let mut g = ST.lock().unwrap_or_else(|e| e.into_inner());
+    let st = g.get_or_insert_with(St::default);
+    let want = WANT.load(Ordering::Relaxed) || st.force;
+    if !want {
+        if st.anchor.take().is_some() {
+            log("难度屏障：撤掉（难度对上了）");
+        }
+        st.last = None;
+        return;
+    }
+    let Ok(wcm) = (unsafe { WorldChrMan::instance_mut() }) else { return };
+    let Some(p) = wcm.main_player.as_mut() else {
+        st.anchor = None;
+        st.last = None;
+        return;
+    };
+    let at = where_is(p);
+    let jumped = match (&st.anchor, &st.last) {
+        (Some(a), Some(l)) => a.key != at.key || l.key != at.key || dist_xz(l, &at) > JUMP || (l.y - at.y).abs() > JUMP,
+        _ => true,
+    };
+    if jumped {
+        log(&format!("难度屏障：在 {}（块里 {:.1}, {:.1}, {:.1}）围起来，半径 {} 米，{:.1} 秒后放圆顶", p.current_block_id, p.block_position.x,
+                     p.block_position.y, p.block_position.z, st.radius.unwrap_or(RADIUS), DOME_DELAY.as_secs_f32()));
+        st.anchor = Some(at);
+        let h = p.chr_ins.modules.physics.position;
+        st.dome_check = Some((Instant::now() + DOME_DELAY, [h.0, h.1, h.2], 0));
+    }
     st.last = Some(at);
     let Some(a) = st.anchor else { return };
     let Some((dx, dz)) = push_back(&a, &at, st.radius.unwrap_or(RADIUS)) else { return };
+    // 写位置前核对人物结构（崩溃风险审查第 22 条，chrs.rs）：对不上就不推（禁止传送照样有）
+    if !crate::chrs::player_layout_ok(p) {
+        return;
+    }
     st.pushes = st.pushes.wrapping_add(1);
     st.last = Some(G { x: at.x + dx, z: at.z + dz, ..at });
-    // 骑着灵马：推灵马（人跟着马走）；找不到马就推人
+    // 骑着灵马：推灵马（人跟着马走）；找不到马（或者马的物理模块对不上）就推人
     let ride = &p.chr_ins.modules.ride;
     let horse = ride.is_mounted.then(|| ride.ride_node.pair_anim_node.counter_party.clone());
     if let Some(h) = horse {
         if let Some(c) = wcm.chr_ins_by_handle_mut(&h) {
-            moved(c, dx, dz);
-            return;
+            if crate::chrs::chr_physics_ok(c) {
+                moved(c, dx, dz);
+                return;
+            }
         }
     }
     if let Some(p) = wcm.main_player.as_mut() {

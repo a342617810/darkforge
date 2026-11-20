@@ -7,7 +7,11 @@
 //! 这里把两处的「cmp + je」（9 字节）换成跳到旁边申请的一小段：原来的比较照做，再逐个比每个专用容器的第一行
 //! （银色泪滴那一行：专用容器那一段 [lo, hi) 里每 PER 行的第一行，ashes.txt 的 mimic 行，rr/ashcont.py），然后跳回原来的两个去处。
 //! 只认第一行、不认整段（2026-11-10 第一版整段都认：仿身本体在「查召唤物」那处也被当成银色泪滴，左边血条不对）。
-//! 进存档时改一次，之后不再动。
+//! 改一次，之后不再动。什么时候改（崩溃风险审查 2026-11-19 第 23 条：以前进存档时才改，读档画面里别的线程可能正好在执行那几个字节）：
+//! - dark_core 启动时（lib.rs：版本对了以后、等任务调度器之前，游戏还没跑到召唤那段代码）调 dr_mimic_install，按 ashes.txt 改；
+//! - 进存档时那一处（ashes.rs on_load）照旧调 install，已经改好就直接返回。
+//! 怎么改：只换 cmp 那 7 个字节（je 留着：正好执行到 je 的线程照原来的结果跳），先把中转写好，再用一次对齐的 16 字节原子写
+//! （lock cmpxchg16b）把 cmp 换成跳到中转；7 个字节不在同一个对齐的 16 字节里（两个版本的两处都在）才退回普通写。
 
 use std::sync::atomic::{AtomicU8, Ordering};
 
@@ -102,6 +106,84 @@ pub(super) fn ok() -> bool {
     STATE.load(Ordering::Relaxed) == 1
 }
 
+/// 对齐的 16 字节比较交换（lock cmpxchg16b）：内存还是 old 才换成 new，返回换了没有。
+/// rbx 不能直接当操作数（LLVM 留给自己用），先和新值的低 8 字节互换、用完换回来。地址固定放 rdi、结果放 cl：
+/// 让编译器挑寄存器的话它会把地址分到 rbx（实测 release 的机器码），互换以后地址就错了
+unsafe fn cas16(at: *mut u8, old: [u8; 16], new: [u8; 16]) -> bool {
+    let (o, n) = (u128::from_le_bytes(old), u128::from_le_bytes(new));
+    let r: u64;
+    unsafe {
+        std::arch::asm!(
+            "xchg {nlo}, rbx",
+            "lock cmpxchg16b xmmword ptr [rdi]",
+            "sete cl",
+            "mov rbx, {nlo}",
+            nlo = inout(reg) n as u64 => _,
+            in("rdi") at,
+            inout("rax") o as u64 => _,
+            inout("rdx") (o >> 64) as u64 => _,
+            inout("rcx") (n >> 64) as u64 => r,
+            options(nostack),
+        );
+    }
+    r & 0xff != 0
+}
+
+/// 把 at 开始的 old.len() 个字节换成 new（长度一样）：在同一个对齐的 16 字节里就一次原子写，不然普通写。
+/// 换之前那几个字节必须还是 old（别的 mod 刚改过就不动）。返回用的哪种写法
+fn write_code(at: usize, old: &[u8], new: &[u8]) -> Result<&'static str, String> {
+    assert_eq!(old.len(), new.len());
+    let (blk, off) = (at & !15, at & 15);
+    let atomic = off + new.len() <= 16 && std::arch::is_x86_feature_detected!("cmpxchg16b");
+    let mut prot = PAGE_PROTECTION_FLAGS(0);
+    unsafe { VirtualProtect(blk as *const _, 16, PAGE_EXECUTE_READWRITE, &mut prot) }.map_err(|e| format!("改内存属性：{e}"))?;
+    let r = (|| {
+        if atomic {
+            for _ in 0..100 {
+                let cur: [u8; 16] = unsafe { std::ptr::read_volatile(blk as *const [u8; 16]) };
+                if &cur[off..off + old.len()] != old {
+                    return Err("要改的字节已经被别的程序改过".to_string());
+                }
+                let mut nxt = cur;
+                nxt[off..off + new.len()].copy_from_slice(new);
+                if unsafe { cas16(blk as *mut u8, cur, nxt) } {
+                    return Ok("原子写");
+                }
+            }
+            Err("原子写一直没成功（这 16 个字节一直在变）".to_string())
+        } else {
+            let cur = unsafe { std::slice::from_raw_parts(at as *const u8, old.len()) };
+            if cur != old {
+                return Err("要改的字节已经被别的程序改过".to_string());
+            }
+            unsafe { std::ptr::copy_nonoverlapping(new.as_ptr(), at as *mut u8, new.len()) };
+            Ok("普通写")
+        }
+    })();
+    unsafe {
+        let _ = VirtualProtect(blk as *const _, 16, prot, &mut prot);
+        let _ = FlushInstructionCache(GetCurrentProcess(), Some(blk as *const _), 16);
+    }
+    r
+}
+
+/// dark_core 启动时（lib.rs，版本对了以后、等任务调度器之前）调：按 ashes.txt 的 mimic / cont 行先改好。
+/// gear::ashes 是私有模块，lib.rs 叫不到 install，所以导出成 C 函数；里面的 panic 自己接住（不能漏出 extern "C"）
+#[unsafe(no_mangle)]
+pub extern "C" fn dr_mimic_install() {
+    if std::panic::catch_unwind(|| {
+        if let Some(def) = super::adef() {
+            if let Some(rows) = def.mimic_rows {
+                install(rows, def.per);
+            }
+        }
+    })
+    .is_err()
+    {
+        log("骨灰：启动时改仿身泪滴的判断出错（进存档时再试）");
+    }
+}
+
 /// 进存档时调（只改一次）：rows = 仿身泪滴专用容器的召唤参数 [lo, hi)，per = 每个容器几行（第一行是银色泪滴）
 pub(super) fn install(rows: (u32, u32), per: u32) {
     if STATE.load(Ordering::Relaxed) != 0 {
@@ -131,18 +213,20 @@ pub(super) fn install(rows: (u32, u32), per: u32) {
             if i32::try_from(rel).is_err() {
                 return Err("申请到的内存离得太远".into());
             }
-            let mut patch = [0x90u8; 9];
+            // 先写好中转，再换入口：cmp（7 字节）换成 jmp rel32 + 2 个 nop，je 不动
+            let old: [u8; 7] = unsafe { std::ptr::read(p as *const [u8; 7]) };
+            if old[..3] != [0x81, s.modrm[0], s.modrm[1]] {
+                return Err(format!("「{}」那处的 cmp 对不上（{old:02x?}）", s.name));
+            }
+            let mut patch = [0x90u8; 7];
             patch[0] = 0xe9;
             patch[1..5].copy_from_slice(&(rel as i32).to_le_bytes());
             unsafe {
                 std::ptr::copy_nonoverlapping(code.as_ptr(), c as *mut u8, code.len());
-                let mut old = PAGE_PROTECTION_FLAGS(0);
-                VirtualProtect(p as *const _, 9, PAGE_EXECUTE_READWRITE, &mut old).map_err(|e| format!("改内存属性：{e}"))?;
-                std::ptr::copy_nonoverlapping(patch.as_ptr(), p as *mut u8, 9);
-                let _ = VirtualProtect(p as *const _, 9, old, &mut old);
-                let _ = FlushInstructionCache(GetCurrentProcess(), Some(p as *const _), 9);
+                let _ = FlushInstructionCache(GetCurrentProcess(), Some(c as *const _), code.len());
             }
-            done.push(format!("{} exe+{:#x}", s.name, p - base));
+            let how = write_code(p, &old, &patch)?;
+            done.push(format!("{} exe+{:#x}（{how}）", s.name, p - base));
         }
         Ok(done.join("、"))
     })();
@@ -181,5 +265,31 @@ mod tests {
         let b = cave(&SITES[1], &[1], 3, 4);
         assert_eq!(&b[..3], &[0x81, 0x79, 0x1c]);
         assert!(13 * (MAX_ROWS + 1) + 28 <= 0x100, "一段放得下");
+    }
+
+    /// 换入口：在同一个对齐的 16 字节里用原子写（cmpxchg16b），只改那几个字节；跨了就普通写；原来的字节对不上不改
+    #[test]
+    fn entry_write() {
+        #[repr(C, align(16))]
+        struct Buf([u8; 48]);
+        let mut b = Buf([0u8; 48]);
+        for (i, x) in b.0.iter_mut().enumerate() {
+            *x = i as u8;
+        }
+        let base = b.0.as_mut_ptr() as usize;
+        let old: Vec<u8> = (7..14).collect();
+        let new = [0xe9, 1, 2, 3, 4, 0x90, 0x90];
+        assert_eq!(write_code(base + 7, &old, &new), Ok("原子写"));
+        assert_eq!(&b.0[7..14], &new);
+        assert_eq!(&b.0[..7], &[0, 1, 2, 3, 4, 5, 6], "前面的不动");
+        assert_eq!(&b.0[14..16], &[14, 15], "后面的不动");
+        let old2: Vec<u8> = (28..35).collect();
+        assert_eq!(write_code(base + 28, &old2, &new), Ok("普通写"), "28..35 跨了 16 字节的边");
+        assert_eq!(&b.0[28..35], &new);
+        assert!(write_code(base + 7, &old, &new).is_err(), "已经改过（字节对不上）");
+        // 两个游戏版本的两处（exe+0x4bc384 / 0x4b7967，2.7.2.0 是 0x4bc464 / 0x4b7a47）：cmp 的 7 个字节都在同一个对齐的 16 字节里
+        for rva in [0x4bc384usize, 0x4b7967, 0x4bc464, 0x4b7a47] {
+            assert!(rva % 16 + 7 <= 16, "{rva:#x}");
+        }
     }
 }

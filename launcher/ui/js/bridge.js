@@ -25,7 +25,7 @@
 
   /* ---------------- 演示（浏览器预览） ---------------- */
   var demo = {
-    type: 'state', version: '0.10.1', busy: false, hasHard: true, randomizerOk: true, mode: 'rand',
+    type: 'state', version: '0.10.1', busy: false, hasHard: true, randomizerOk: true, mode: 'rand', backupMin: 10, backupMins: [5, 10, 15, 30, 60], backupKeep: 5,
     cards: {
       path: { value: 'E:\\SteamLibrary\\steamapps\\common\\ELDEN RING', accent: 'gold', tip: '' },
       rand: { value: '2026-11-07 17:07', accent: 'ok', tip: '随机器输出：2026-11-07 17:07（敌人随机）' },
@@ -37,11 +37,11 @@
   var demoDlg = 0;
   var lv = function (n, s, d) { return { name: n, sub: s, desc: d }; };
   var DEMO_DLG = {
-    '备份存档': { kind: 'msg', title: '暗黑重铸', icon: 'info', text: '已备份到：\nE:\\Darkforge\\存档备份\\2026-11-11_21-30-05\n\n要换回来时点「恢复存档」→「手动选择…」，选这份。', buttons: ['确定'], def: 0, cancel: 0 },
+    '备份存档': { kind: 'msg', title: '暗黑重铸', icon: 'info', text: '已备份到：\nE:\\Darkforge\\存档备份\\2026-11-11_21-30-05\n\n要换回来时点「恢复存档」，选这份。', buttons: ['确定'], def: 0, cancel: 0 },
     '一键重随物品': { kind: 'msg', title: '一键重随物品', icon: 'question', text: '骨灰的位置、职业的开局装备、开局遗物只在第一次启动时抽一次，之后一直固定。\n\n确定后，下次启动时会重新抽一次，之后再固定下来。\n（开局装备、遗物和骨灰只对之后新建的角色生效。）', buttons: ['确定', '取消'], def: 0, cancel: 1 },
     '导出诊断包': { kind: 'msg', title: '暗黑重铸 · 游戏还在运行', icon: 'warn', text: '检测到 eldenring.exe 还在运行：\n\n  进程号 1234，启动于 11-11 21:30:05，没有窗口（后台），无响应\n\n如果游戏其实已经关了，点「是」强制结束这个进程再继续。', buttons: ['是', '否'], def: 1, cancel: 1 },
-    '恢复存档': { kind: 'pick', title: '恢复存档：手动选择备份', icon: '', text: '启动前 = 每次启动游戏前自动存的；恢复前 = 每次恢复前自动存的。\n存档和角色记录一起换回去，那之后的游戏进度会丢失（现在的会先自动备份）。',
-                  items: ['2026-11-11 21:30:05   启动前 · 敌人随机   （存档 1 个 + 角色记录 3 个）', '2026-11-10 23:49:00   启动前 · 无敌人随机   （存档 1 个 + 角色记录 3 个）', '2026-11-09 18:02:11   存档备份   （存档 1 个）'],
+    '恢复存档': { kind: 'pick', title: '恢复存档：手动选择备份', icon: '', text: '定时 = 游戏开着时自动存的（「退出游戏后」那份就是退出时的样子）；启动前 / 恢复前 = 以前的版本自动存的（定时备份攒满 5 份后自动删掉）；存档备份 = 点「备份存档」存的。\n存档和角色记录一起换回去，那之后的游戏进度会丢失。',
+                  items: ['2026-11-11 22:40:12   定时 · 退出游戏后   （存档 1 个 + 角色记录 3 个）', '2026-11-11 22:30:05   定时 · 游戏中   （存档 1 个 + 角色记录 3 个）', '2026-11-11 21:30:05   启动前 · 敌人随机   （存档 1 个 + 角色记录 3 个）', '2026-11-10 23:49:00   启动前 · 无敌人随机   （存档 1 个 + 角色记录 3 个）', '2026-11-09 18:02:11   存档备份   （存档 1 个）'],
                   sel: 0, buttons: ['恢复选中的这份', '取消'], def: 0, cancel: 1 },
     '敌人设置': { kind: 'enemy', title: '暗黑重铸 · 敌人设置', icon: '',
                   elite: { title: '精英怪比例', desc: '敌人随机时，普通敌人里有多少换成精英怪（越往后的地区越多）。', sel: 2, orig: '普通敌人里精英怪的比例：前期 2.5%，……',

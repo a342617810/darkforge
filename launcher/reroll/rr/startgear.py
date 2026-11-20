@@ -31,6 +31,10 @@ KEEPSAKES = 9
 KEEPSAKE_MENU0 = 100300                 # CharMakeMenuListItemParam：遗物 k 的 captionId（GR_MenuText 名字 / GR_LineHelp 说明）
 KEEPSAKE_INIT0 = 2400                   # CharaInitParam：2400 = 无（空模板），2401~2409 = 9 个遗物
 CLASS_MENU = range(100200, 100230)      # CharMakeMenuListItemParam：职业菜单，value + 3000 = CharaInitParam 职业行
+# 开局装备按顺序编号，最多 职业 × 字段 个（每个职业的每个字段最多一件）：编号段这一段只建满到这么多（fill_block）
+START_W_N = len(CLASS_MENU) * len(WEAPON_FIELDS)
+START_P_N = len(CLASS_MENU) * len(ARMOR_FIELDS)
+PLAYER_INIT = (3000, 3199)              # CharaInitParam：职业（3000 + 菜单 value）和建角色画面的预览（3100 + 职业 × 2 + 性别）
 
 
 def lay(ctx, xml):
@@ -49,7 +53,51 @@ def build(ctx):
     sg = ctx.S.get('start_gear') or {}
     if sg.get('enabled', True) and getattr(ctx, 'containers', None):
         start_gear(ctx, lib, il, ml, P_init, P_menu, sg)
+    fix_weapons(ctx, il, P_init)
     ctx.bnd.put('CharaInitParam.param', P_init.serialize())
+
+
+# ---------------------------------------------------------------- 开局武器字段的编号
+def custom_weapons(ctx):
+    """EquipParamCustomWeapon：编号 → (本体 baseWepId, 强化等级 reinforceLv)"""
+    C = erlib.Param(ctx.bnd.get('EquipParamCustomWeapon.param'))
+    return {i: (struct.unpack_from('<i', r, 0)[0], r[8]) for i, r in C.rows.items() if len(r) > 8}
+
+
+def start_weapon(W, custom, v):
+    """职业的开局武器字段 → (本体编号, 强化等级)，不是能用的武器是 (0, 0)。
+    随机器有时写的是定制武器的编号（EquipParamCustomWeapon = 本体 + 战灰：勇者 / 忏悔者的 4401055 / 4407062、占星的 5040），
+    EquipParamWeapon 里没有这一行：按它的本体算（崩溃风险审查 2026-11-19 第 5 条）"""
+    if v <= 0:
+        return 0, 0
+    w = v - v % 10000
+    if w > 0 and w in W.rows:
+        return w, min(v % 100, 25)
+    b, lv = custom.get(v, (0, 0))
+    b -= b % 10000
+    return (b, min(lv, 25)) if b > 0 and b in W.rows else (0, 0)
+
+
+def fix_weapons(ctx, il, P_init):
+    """职业行和建角色画面的预览行（PLAYER_INIT）里还剩下的、参数行不存在的武器编号（换成生成武器的在 start_gear 里已经换好了；
+    没开开局装备、预览行、这类型没有本体的）：定制武器换成它的本体（原版武器），连本体都没有的写 -1，写进报告"""
+    W = erlib.Param(ctx.bnd.get('EquipParamWeapon.param'))
+    custom = custom_weapons(ctx)
+    io = {nm: (off, fc) for nm, fc, off, bp, bits, d in il if not bits}
+    fixed = []
+    for c in sorted(P_init.rows):
+        if not PLAYER_INIT[0] <= c <= PLAYER_INIT[1]:
+            continue
+        for f in WEAPON_FIELDS:
+            off, fc = io[f]
+            v = struct.unpack_from('<' + fc, P_init.rows[c], off)[0]
+            if v <= 0 or ((v - v % 100) in W.rows and v % 100 <= 25):
+                continue
+            w, lv = start_weapon(W, custom, v)
+            struct.pack_into('<' + fc, P_init.rows[c], off, w + lv if w else -1)
+            fixed.append('%d %d → %s' % (c, v, w + lv if w else '空'))
+    if fixed:
+        ctx.report.append('开局武器：%d 处编号不是能用的武器（随机器写的定制武器等），换成它的本体（原版武器）或空着：%s' % (len(fixed), '、'.join(fixed)))
 
 
 # ---------------------------------------------------------------- 开局遗物
@@ -117,8 +165,8 @@ def armor_tier_weights(lib):
     return [sum(lib['armor']['count'][r].values()) if k <= ARMOR_MAX_TIER else 0 for k, r in enumerate(RAR)]
 
 
-def draw(ctx, lib, il, ml, P_init, P_menu, wb, pb, W, any_melee):
-    """抽一份开局装备：[{cls, field, cat, base, tier, seed, maxreq, lvl}]"""
+def draw(ctx, lib, il, ml, P_init, P_menu, wb, pb, W, any_melee, custom):
+    """抽一份开局装备：[{cls, field, cat, base, tier, seed, maxreq, lvl}]（custom：custom_weapons，定制武器按本体算）"""
     rng = ctx.rng
     wl = {t[0]: t for t in lay(ctx, 'EquipParamWeapon.xml')}
     gw = lambda i, f: struct.unpack_from('<' + wl[f][1], W.rows[i], wl[f][2])[0]
@@ -136,9 +184,8 @@ def draw(ctx, lib, il, ml, P_init, P_menu, wb, pb, W, any_melee):
         avail = max_load(ctx, ci['baseEnd']) * START_LOAD
         weapons, same = [], {}
         for f in WEAPON_FIELDS:
-            v = ci.get(f, 0)
-            w = v - v % 10000 if v > 0 else 0
-            if w <= 0 or w not in W.rows:
+            w, lvl = start_weapon(W, custom, ci.get(f, 0))
+            if not w:
                 continue
             t = gw(w, 'wepType')
             if w in same:
@@ -151,7 +198,7 @@ def draw(ctx, lib, il, ml, P_init, P_menu, wb, pb, W, any_melee):
                     used[t] += 1
             same[w] = t
             if by_type.get(t):
-                weapons.append({'field': f, 'orig': w, 'type': t, 'lvl': v % 10000, 'base': rng.choice(by_type[t])})
+                weapons.append({'field': f, 'orig': w, 'type': t, 'lvl': lvl, 'base': rng.choice(by_type[t])})
         wsum = sum(x['base']['weight'] for x in weapons)
         if wsum > avail * 0.75:          # 太重：换成不比原武器重的本体（这类型都比它重就挑最轻的）
             for x in weapons:
@@ -178,6 +225,27 @@ def draw(ctx, lib, il, ml, P_init, P_menu, wb, pb, W, any_melee):
     return plan
 
 
+def fit_load(ctx, il, P_init, plan, wb, pb, extra):
+    """补抽的武器（接在沿用的旧抽签后面）不让职业超出中负重：这个职业已有的装备（含前面补抽的）加上它超过 START_LOAD，
+    就换成同类型里放得下的本体（都放不下取最轻的）。返回调好的 extra"""
+    wbase, pw = {b['id']: b for b in wb}, {b['id']: b['weight'] for b in pb}
+    by_type = defaultdict(list)
+    for b in wb:
+        by_type[b['type']].append(b)
+    done = []
+    for e in extra:
+        ci = pdm.unpack(il, bytes(P_init.rows[e['cls']]))
+        avail = max_load(ctx, ci['baseEnd']) * START_LOAD
+        load = sum(wbase[x['base']]['weight'] if x['cat'] == 0 else pw.get(x['base'], 0.0) for x in plan + done
+                   if x['cls'] == e['cls'] and (x['cat'] == 1 or x['base'] in wbase))
+        lst = by_type[wbase[e['base']]['type']]
+        if load + wbase[e['base']]['weight'] > avail:
+            fit = [b for b in lst if load + b['weight'] <= avail]
+            e = dict(e, base=(ctx.rng.choice(fit) if fit else min(lst, key=lambda b: b['weight']))['id'])
+        done.append(e)
+    return done
+
+
 def main_stat(stats, wtype, seed):
     """开局武器的主补正（最高的那项）放在职业最高的属性上（用户 2026-10-30）：力、技、智、信、感的序号。
     并列时法杖优先智力、圣印记优先信仰，否则按种子挑一个（落魄者全是 10）"""
@@ -193,21 +261,39 @@ def start_gear(ctx, lib, il, ml, P_init, P_menu, sg):
     W = erlib.Param(ctx.bnd.get('EquipParamWeapon.param'))
     Pp = erlib.Param(ctx.bnd.get('EquipParamProtector.param'))
     cls_ids = classes(ml, P_init, P_menu)
+    custom = custom_weapons(ctx)
+    any_melee = bool(sg.get('any_melee', True))
     key = once.sig(*[bytes(P_init.rows[c]) for c in cls_ids])
     plan = once.get(ctx, 'start', key)
     ok_w, ok_p = {b['id'] for b in wb}, {b['id'] for b in pb}
     fresh = not (plan and all((e['base'] in ok_w) if e['cat'] == 0 else (e['base'] in ok_p) for e in plan))
     if fresh:
         with once.own_rng(ctx, 'start'):
-            plan = draw(ctx, lib, il, ml, P_init, P_menu, wb, pb, W, bool(sg.get('any_melee', True)))
+            plan = draw(ctx, lib, il, ml, P_init, P_menu, wb, pb, W, any_melee, custom)
         once.put(ctx, 'start', key, plan)
+    orig = {c: pdm.unpack(il, bytes(P_init.rows[c])) for c in cls_ids}
+    # 沿用的旧抽签里没有随机器写成定制武器的那几格（以前认不出、原样留着）：只给这几格补抽，接在后面（已有的编号不变），记回同一份
+    n_extra = 0
+    if not fresh:
+        have = {(e['cls'], e['field']) for e in plan if e['cat'] == 0}
+        miss = {(c, f) for c in cls_ids for f in WEAPON_FIELDS if (c, f) not in have and start_weapon(W, custom, orig[c].get(f, 0))[0]}
+        if miss:
+            with once.own_rng(ctx, 'start_fix'):
+                extra = fit_load(ctx, il, P_init, plan, wb, pb, [e for e in draw(ctx, lib, il, ml, P_init, P_menu, wb, pb, W, any_melee, custom)
+                                                                 if e['cat'] == 0 and (e['cls'], e['field']) in miss])
+            if extra:
+                plan = plan + extra
+                once.put(ctx, 'start', key, plan)
+                n_extra = len(extra)
+    n_w = sum(1 for e in plan if e['cat'] == 0)
+    if n_w > START_W_N or len(plan) - n_w > START_P_N:
+        raise RuntimeError('开局装备：武器 %d 把、防具 %d 件，超出编号段预留的 %d / %d' % (n_w, len(plan) - n_w, START_W_N, START_P_N))
     wf = json.load(open(os.path.join(ctx.data_dir, 'weapon_fields.json'), encoding='utf-8'))
     origin = [(o, sz) for f, o, sz in wf['own'] if f.startswith('originEquipWep')]
     io = {nm_: (off, fc) for nm_, fc, off, bp, bits, d in il if not bits}
     used = [i for i in W.rows if START_W0 <= i < START_W0 + 500 * 10000] + [i for i in Pp.rows if START_P0 <= i < START_P0 + 1000 * 100]
     if used:
         raise RuntimeError('开局装备的编号 %s 已被占用' % used[:5])
-    orig = {c: pdm.unpack(il, bytes(P_init.rows[c])) for c in cls_ids}
     wtype = {b['id']: b['type'] for b in wb}
     ids = {0: [], 1: []}
     tw = armor_tier_weights(lib)
@@ -226,7 +312,7 @@ def start_gear(ctx, lib, il, ml, P_init, P_menu, sg):
             Pp.add_row(i, bytes(Pp.rows[e['base']]))
         ids[cat].append(i)
         off, fc = io[e['field']]
-        struct.pack_into('<' + fc, P_init.rows[e['cls']], off, i + e['lvl'])
+        struct.pack_into('<' + fc, P_init.rows[e['cls']], off, i + min(e['lvl'] % 100, 25))     # 生成武器不能质变：只留强化等级
         w = cat == 0                         # 武器：补正只从分布最高的 scaling_top_pct% 里抽、至少 min_status 种异常（DLL 生成时管）
         nost = w and wtype.get(e['base']) in NO_STATUS_TYPES     # 法杖、圣印记、弓、盾：-1 = 一个异常都不带
         ctx.start_items.append({'cat': cat, 'id': i, 'tier': e['tier'], 'base': e['base'], 'seed': e['seed'], 'maxreq': e['maxreq'],
@@ -246,12 +332,13 @@ def start_gear(ctx, lib, il, ml, P_init, P_menu, sg):
         tot += sum(weight(Pp, pl, ci[f]) for f in ARMOR_FIELDS if ci.get(f, 0) > 0)
         loads.append(tot / max_load(ctx, ci['baseEnd']))
         parts.append('/'.join(nm('zh', 'WeaponName', e['base']) for e in plan if e['cls'] == c and e['cat'] == 0))
-    n_cls = class_texts(ctx, ml, P_menu, orig, plan, nm)
+    n_cls = class_texts(ctx, ml, P_menu, orig, plan, nm, lambda v: start_weapon(W, custom, v)[0])
     tiers = Counter(RAR_ZH[RAR[e['tier']]] for e in plan if e['cat'] == 1)
     ctx.report.append('开局装备（%s）：%d 个职业，武器 %d 把（%s，本体 %s）、防具 %d 件（%s）；最重的职业占最大负重 %.0f%%；'
-                      '职业介绍里的武器名换了 %d 个职业；生成词条要 dll\\dark_core' % (
+                      '职业介绍里的武器名换了 %d 个职业%s；生成词条要 dll\\dark_core' % (
                           '新抽的' if fresh else '沿用第一次抽的', len(cls_ids), len(ids[0]), RAR_ZH[RAR[WEAPON_TIER]], '；'.join(parts), len(ids[1]),
-                          '、'.join('%s %d' % kv for kv in sorted(tiers.items())), max(loads) * 100 if loads else 0, n_cls))
+                          '、'.join('%s %d' % kv for kv in sorted(tiers.items())), max(loads) * 100 if loads else 0, n_cls,
+                          '；随机器写成定制武器的 %d 格以前没换，这次补抽（接在后面，别的编号不变）' % n_extra if n_extra else ''))
 
 
 def copy_weapon(W, origin, base, i):
@@ -282,6 +369,50 @@ def placeholders(ctx, w_ids, p_ids):
         erlib.write_dcx_file(mp, bytes(mb.data))
 
 
+FILL_P_SLOT = 3                           # 占位防具照一件腿甲复制（protectorCategory 3）
+
+
+def fill_block(ctx):
+    """开局装备编号段里各段（remembrance.segments：开局装备、追忆 / 特殊货币、支线、大蛇狩猎矛、商人、英雄防具）没用上的位置
+    都建上占位行（崩溃风险审查 2026-11-19 第 4 条）。这些编号按顺序 / 按格子分，敌人随机、死亡以上、无敌人随机几个世界和
+    一键重随敌人前后用上的不一样，单机存档却共用：在一个世界拿到的，换个世界读档时参数行不能缺（dll\\dark_core 读档时只改写
+    已有的行，补不出缺的行）。占位行同容器：武器照原版短剑复制（originEquipWep 指自己），文字是同样的占位；防具照第一件
+    编号 10 万以上的腿甲复制（幻化插件算的商店格子 = 腿甲 4300000 + 编号 // 100，落在四家商店外面，不显示、不盖原版，
+    同 containers.protector_donor 的说明）。角色身上有的由 DLL 按角色记录改写；没有记录的就是这件占位品，不会崩。
+    开局装备那段只建到最多用得上的个数（START_W_N / START_P_N）。要在所有往这个编号段放东西的步骤之后：shops.build 最后调"""
+    if not getattr(ctx, 'containers', None):
+        return
+    from . import remembrance
+    segs = remembrance.segments()
+    W = erlib.Param(ctx.bnd.get('EquipParamWeapon.param'))
+    Pp = erlib.Param(ctx.bnd.get('EquipParamProtector.param'))
+    wf = json.load(open(os.path.join(ctx.data_dir, 'weapon_fields.json'), encoding='utf-8'))
+    origin = [(o, sz) for f, o, sz in wf['own'] if f.startswith('originEquipWep')]
+    pl = {t[0]: t for t in lay(ctx, 'EquipParamProtector.xml')}
+    fc, o = pl['protectorCategory'][1], pl['protectorCategory'][2]
+    p_donor = next((i for i in sorted(Pp.rows) if i >= 100000 and struct.unpack_from('<' + fc, Pp.rows[i], o)[0] == FILL_P_SLOT), None)
+    if containers.W_DONOR not in W.rows or p_donor is None:
+        raise RuntimeError('开局装备编号段：缺原版短剑 / 编号 10 万以上的腿甲，建不了占位行')
+    new = {'w': [], 'p': []}
+    for cat, P, first, step in (('w', W, START_W0, 10000), ('p', Pp, START_P0, 100)):
+        for _name, lo, _hi, top in segs[cat]:
+            for k in range(lo, top):
+                i = first + k * step
+                if i in P.rows:
+                    continue
+                if cat == 'w':
+                    copy_weapon(W, origin, containers.W_DONOR, i)
+                else:
+                    Pp.add_row(i, bytes(Pp.rows[p_donor]))
+                new[cat].append(i)
+    ctx.bnd.put('EquipParamWeapon.param', W.serialize())
+    ctx.bnd.put('EquipParamProtector.param', Pp.serialize())
+    placeholders(ctx, new['w'], new['p'])
+    nw, np_ = (sum(top - lo for _n, lo, _h, top in segs[c]) for c in ('w', 'p'))
+    ctx.report.append('开局装备编号段：每段整段建满（武器 %d 个、防具 %d 个，用上的以外 %d / %d 个是占位行），哪个世界拿到的换个世界读档都有这一行' % (
+        nw, np_, len(new['w']), len(new['p'])))
+
+
 CLASS_TEXT_WIDTH = {'zh': 19, 'en': 50}   # 职业介绍一行最多几个字（照随机器的换行）
 
 
@@ -300,10 +431,10 @@ def wrap(toks, sep, width):
     return '\n'.join(lines)
 
 
-def class_texts(ctx, ml, P_menu, orig, plan, nm):
+def class_texts(ctx, ml, P_menu, orig, plan, nm, base_of=lambda v: v - v % 10000):
     """随机器把各职业的开局装备名字写进了职业介绍（GR_LineHelp，「名字，名字，…」）：里面原武器的名字换成新本体的名字
     （生成的武器名字里带着本体名）。原版的介绍是背景文字，对不上名字就不动。结果放 features.json 的 class_text，sc/start.py 写。
-    返回改了几个职业"""
+    base_of：字段的值 → 原武器本体（定制武器按本体）。返回改了几个职业"""
     cap = {}
     for k in CLASS_MENU:
         if k in P_menu.rows:
@@ -326,8 +457,7 @@ def class_texts(ctx, ml, P_menu, orig, plan, nm):
             for e in plan:
                 if e['cls'] != c or e['cat'] != 0:
                     continue
-                v = orig[c][e['field']]
-                old, new = nm(lang, 'WeaponName', v - v % 10000), nm(lang, 'WeaponName', e['base'])
+                old, new = nm(lang, 'WeaponName', base_of(orig[c][e['field']])), nm(lang, 'WeaponName', e['base'])
                 k = next((j for j, t in enumerate(toks) if t == old and j not in done), None)
                 if k is not None and new:
                     toks[k] = new

@@ -43,20 +43,31 @@ def _no_overlap(what, segs, cap):
         raise RuntimeError('%s编号段超出 %d 个：%s 到 %d' % (what, cap, segs[-1][0], segs[-1][2] - 1))
 
 
+def segments():
+    """开局装备编号段里的各段（在段里的位置）：{'w': 武器, 'p': 防具}，每段 (名字, 起, 止, 建满到)，左闭右开。
+    layout_check 核对 起~止 不重叠；startgear.fill_block 把 起~建满到 没用上的位置都建上占位行（各世界编号一致）。
+    开局装备按顺序编号、最多用到 startgear.START_W_N / START_P_N 个，只建到那里；别的段整段建满。往编号段加新的一段只改这里"""
+    from . import serpent, shops, unidentified
+    qw, qp = unidentified.QUEST_GEAR_W, unidentified.QUEST_GEAR_P
+    w = [('开局装备', 0, 500, startgear.START_W_N)] + \
+        [('追忆 / 特殊货币格子 %d~%d' % (lo, hi), off, off + hi - lo + 1) for lo, hi, off in SLOTS] + \
+        [('支线的史诗武器', qw[0], qw[0] + qw[1]), ('大蛇狩猎矛', serpent.SERPENT_OFF, serpent.SERPENT_OFF + 1),
+         ('商人的小极品', shops.MER_OFF, shops.MER_OFF + shops.MER_MAX)]
+    p = [('开局装备', 0, 1000, startgear.START_P_N), ('支线的史诗防具', qp[0], qp[0] + qp[1]),
+         ('英雄防具（第一版，只留编号）', shops.HERO_P_OFF, shops.HERO_P_OFF + len(shops.HERO_OLD)),
+         ('英雄防具商店', shops.HERO_SHOP_OFF, shops.HERO_SHOP_OFF + shops.HERO_SHOP_MAX)]
+    return {k: [s if len(s) == 4 else s + (s[2],) for s in v] for k, v in (('w', w), ('p', p))}
+
+
 def layout_check():
     """开局装备编号段里各段不能重叠，重叠了开了物品随机时会撞号（重随报「编号已被占用」）。
     武器 230000000 起每个 1 万号、到容器的 240000000 为止（1000 个）；防具 29000000 起每个 100 号、到容器的 30000000 为止（10000 个）"""
-    from . import containers, serpent, shops, unidentified
-    qw, qp = unidentified.QUEST_GEAR_W, unidentified.QUEST_GEAR_P
-    _no_overlap('开局武器', [('开局装备', 0, 500)] +
-                [('追忆 / 特殊货币格子 %d~%d' % (lo, hi), off, off + hi - lo + 1) for lo, hi, off in SLOTS] +
-                [('支线的史诗武器', qw[0], qw[0] + qw[1]), ('大蛇狩猎矛', serpent.SERPENT_OFF, serpent.SERPENT_OFF + 1),
-                 ('商人的小极品', shops.MER_OFF, shops.MER_OFF + shops.MER_MAX)],
-                (containers.W0 - startgear.START_W0) // 10000)
-    _no_overlap('开局防具', [('开局装备', 0, 1000), ('支线的史诗防具', qp[0], qp[0] + qp[1]),
-                           ('英雄防具（第一版，只留编号）', shops.HERO_P_OFF, shops.HERO_P_OFF + len(shops.HERO_OLD)),
-                           ('英雄防具商店', shops.HERO_SHOP_OFF, shops.HERO_SHOP_OFF + shops.HERO_SHOP_MAX)],
-                (containers.P0 - startgear.START_P0) // 100)
+    from . import containers
+    segs = segments()
+    if any(not lo <= top <= hi for v in segs.values() for _n, lo, hi, top in v):
+        raise RuntimeError('开局装备编号段：建满的位置超出了这一段')
+    _no_overlap('开局武器', [s[:3] for s in segs['w']], (containers.W0 - startgear.START_W0) // 10000)
+    _no_overlap('开局防具', [s[:3] for s in segs['p']], (containers.P0 - startgear.START_P0) // 100)
 
 
 def slot_index(rid):

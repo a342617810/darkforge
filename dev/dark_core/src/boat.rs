@@ -19,7 +19,7 @@
 //! 骑灵马跑一段就知道灵马多快）；开发工具（dll\dark_dev 的 F9 窗口）写 boat_req.txt：战灰 / 碎片 / 击杀 / 重置。日志开头「唤声船」。
 //! 移动、射线、输入的写法照 dark_wings（飞行）：改位置 + 角色代理按新位置重放、CSPhysWorld::cast_ray、游戏的按键 + 直接读摇杆 / WASD。
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::f32::consts::PI;
 use std::fs;
 use std::sync::{Mutex, OnceLock};
@@ -108,7 +108,10 @@ fn defs() -> Option<&'static Defs> {
 
 pub fn describe() -> String {
     match defs() {
-        Some(d) => format!("唤声船（战灰 {}，蓝 {}）", d.gem, d.fp),
+        Some(d) => {
+            let nr = new_reinf();
+            format!("唤声船（战灰 {}，蓝 {}；重随的强化类型 {} 种，满级 +{}）", d.gem, d.fp, nr.1.len(), nr.0)
+        }
         None => "唤声船（没有 boat.txt，不工作）".into(),
     }
 }
@@ -201,28 +204,13 @@ fn parse_cfg(text: &str) -> (Cfg, Vec<String>) {
                 _ => false,
             },
             _ => {
-                let slot = match k {
-                    "dur_min" => &mut c.dur_min,
-                    "dur_max" => &mut c.dur_max,
-                    "speed" => &mut c.speed,
-                    "boost_speed" => &mut c.boost_speed,
-                    "turn_rate" => &mut c.turn_rate,
-                    "blink_dist" => &mut c.blink_dist,
-                    "blink_cd" => &mut c.blink_cd,
-                    "step_up" => &mut c.step_up,
-                    "snap_down" => &mut c.snap_down,
-                    "fall_speed" => &mut c.fall_speed,
-                    "seat_h" => &mut c.seat_h,
-                    "board_t" => &mut c.board_t,
-                    "unboard_t" => &mut c.unboard_t,
-                    _ => {
-                        bad.push(l.to_string());
-                        continue;
-                    }
+                let Some(s) = slot(&mut c, k) else {
+                    bad.push(l.to_string());
+                    continue;
                 };
                 match f {
                     Some(x) => {
-                        *slot = x;
+                        *s = x;
                         true
                     }
                     None => false,
@@ -240,10 +228,67 @@ fn parse_cfg(text: &str) -> (Cfg, Vec<String>) {
     (c, bad)
 }
 
+/// boat.ini 数值的合理范围（崩溃风险审查第 24 条：以前没有上限，速度 / 瞬移距离填 1e6 会把人写到物理世界外面）
+const LIMITS: [(&str, f32); 13] = [
+    ("dur_min", 300.0),
+    ("dur_max", 300.0),
+    ("speed", 60.0),
+    ("boost_speed", 60.0),
+    ("turn_rate", 3600.0),
+    ("blink_dist", 50.0),
+    ("blink_cd", 60.0),
+    ("step_up", 3.0),
+    ("snap_down", 20.0),
+    ("fall_speed", 100.0),
+    ("seat_h", 3.0),
+    ("board_t", 5.0),
+    ("unboard_t", UNBOARD_MAX),
+];
+
+fn slot<'a>(c: &'a mut Cfg, k: &str) -> Option<&'a mut f32> {
+    Some(match k {
+        "dur_min" => &mut c.dur_min,
+        "dur_max" => &mut c.dur_max,
+        "speed" => &mut c.speed,
+        "boost_speed" => &mut c.boost_speed,
+        "turn_rate" => &mut c.turn_rate,
+        "blink_dist" => &mut c.blink_dist,
+        "blink_cd" => &mut c.blink_cd,
+        "step_up" => &mut c.step_up,
+        "snap_down" => &mut c.snap_down,
+        "fall_speed" => &mut c.fall_speed,
+        "seat_h" => &mut c.seat_h,
+        "board_t" => &mut c.board_t,
+        "unboard_t" => &mut c.unboard_t,
+        _ => return None,
+    })
+}
+
+/// 超出范围的夹到边上（parse_cfg 已经挡掉负数、NaN、无穷大），返回改了哪些
+fn clamp_cfg(c: &mut Cfg) -> Vec<String> {
+    let mut out = Vec::new();
+    for (k, hi) in LIMITS {
+        if let Some(v) = slot(c, k) {
+            if *v > hi {
+                out.push(format!("{k} = {} → {hi}", *v));
+                *v = hi;
+            }
+        }
+    }
+    if c.dur_max < c.dur_min {
+        c.dur_max = c.dur_min;
+    }
+    out
+}
+
 fn load_cfg() -> Cfg {
-    let (c, bad) = parse_cfg(&fs::read_to_string(dir().join(CFG_FILE)).unwrap_or_default());
+    let (mut c, bad) = parse_cfg(&fs::read_to_string(dir().join(CFG_FILE)).unwrap_or_default());
     if !bad.is_empty() {
         log(&format!("唤声船：boat.ini 里看不懂的行（用默认值）：{}", bad.join(" | ")));
+    }
+    let clamped = clamp_cfg(&mut c);
+    if !clamped.is_empty() {
+        log(&format!("唤声船：boat.ini 里超出范围的值（按上限算）：{}", clamped.join(" | ")));
     }
     c
 }
@@ -507,6 +552,10 @@ struct St {
     src: u8,
     /// 骑船的声音（sound.rs，用户 2026-11-11）：上船声什么时候开始放、它多长、循环开始放了没有；None = 没在放
     snd: Option<(Instant, f32, bool)>,
+    /// 物理更新前排下的效果（效果编号, true 挂 / false 摘），下一帧的 FrameBegin（frame）照顺序做
+    fx: Vec<(i32, bool)>,
+    /// 人物结构还没核对好时不上船，这条日志只记一次
+    layout_told: bool,
 }
 
 impl St {
@@ -538,7 +587,16 @@ impl St {
             moved: 0.0,
             src: 0,
             snd: None,
+            fx: Vec::new(),
+            layout_told: false,
         }
+    }
+}
+
+/// 挂 / 摘效果排到下一帧的 FrameBegin（同一帧里同样的只排一次）
+fn fx(st: &mut St, sp: i32, on: bool) {
+    if !st.fx.contains(&(sp, on)) {
+        st.fx.push((sp, on));
     }
 }
 
@@ -583,6 +641,38 @@ fn snd_end(st: &mut St) {
 
 static ST: Mutex<Option<St>> = Mutex::new(None);
 
+/// 重随建的强化类型（affixes.txt 的 reinf 行第 4 列，rr/upgrade.py）和它们的最高等级（rmax 行）。这些类型的强化行一直建到 +25
+/// （+rmax 以上照 +rmax 那行，崩溃风险审查第 10 条），数「连着有几级」会数成 25，生成武器 +5 时唤声船的时长只剩两成。
+/// 新装备系统（gear.rs）的定义是私有的，这里自己读这两种行（启动时 describe 读一次，骑船时不读文件）
+static NEW_REINF: OnceLock<(u32, HashSet<u32>)> = OnceLock::new();
+
+fn parse_reinf(text: &str) -> (u32, HashSet<u32>) {
+    let (mut rmax, mut types) = (0u32, HashSet::new());
+    for l in text.lines() {
+        let l = l.trim_start_matches('\u{feff}').trim_end_matches('\r');
+        let f: Vec<&str> = l.split('\t').collect();
+        match f.as_slice() {
+            ["rmax", n, ..] => rmax = n.parse::<u32>().map_or(0, |v| v.min(25)),
+            ["reinf", _, _, _, t, ..] => {
+                if let Ok(t) = t.parse::<u32>() {
+                    types.insert(t);
+                }
+            }
+            _ => {}
+        }
+    }
+    (rmax, types)
+}
+
+fn new_reinf() -> &'static (u32, HashSet<u32>) {
+    NEW_REINF.get_or_init(|| parse_reinf(&fs::read_to_string(dir().join("affixes.txt")).unwrap_or_default()))
+}
+
+/// 满级：重随建的强化类型照 rmax；原版类型数连着有几级强化行（原版 +25 / 失色 +10）
+fn level_max(rt: u32, rows: u32, nr: &(u32, HashSet<u32>)) -> u32 {
+    if nr.0 > 0 && nr.1.contains(&rt) { nr.0 } else { rows }
+}
+
 /// 放战技那只手的武器：（武器编号, 强化等级, 满级）。双手持握时是握着的那把，单手时是右手（这个战技不是盾牌战技，游戏也用右手的）
 fn weapon_level() -> Option<(i32, u32, u32)> {
     let gdm = unsafe { GameDataMan::instance() }.ok()?;
@@ -595,7 +685,8 @@ fn weapon_level() -> Option<(i32, u32, u32)> {
     let repo = unsafe { SoloParamRepository::instance() }.ok()?;
     let w = repo.get::<EquipParamWeapon>((id / 100 * 100) as u32)?;
     let rt = w.reinforce_type_id().max(0) as u32;
-    let max = (1..=25).take_while(|k| repo.get::<ReinforceParamWeapon>(rt + k).is_some()).count() as u32;
+    let rows = (1..=25).take_while(|k| repo.get::<ReinforceParamWeapon>(rt + k).is_some()).count() as u32;
+    let max = level_max(rt, rows, new_reinf());
     Some((id, ((id % 100) as u32).min(max), max))
 }
 
@@ -710,7 +801,8 @@ fn release(st: &mut St, p: &mut PlayerIns, to_ground: bool) {
         st.last_pos = Some(pos);
     }
     st.lift = 0.0;
-    p.remove_speffect(st.sp);
+    let sp = st.sp;
+    fx(st, sp, false);
     st.mode = Mode::Idle;
     snd_end(st);
     let src: Vec<&str> = [(SRC_PAD, "XInput 手柄"), (SRC_KEY, "键盘 WASD"), (SRC_GAME, "游戏的移动键")].iter().filter(|x| st.src & x.0 != 0).map(|x| x.1).collect();
@@ -725,8 +817,8 @@ fn finish(st: &mut St, p: &mut PlayerIns, why: &str) {
 
 /// 跳船：挂跳船标记（玩家脚本从座位上起跳）和雾，留在座位高度放开
 fn jump_off(st: &mut St, d: &Defs, p: &mut PlayerIns) {
-    p.apply_speffect(d.jump_sp, false);
-    p.apply_speffect(d.blink_sp, false);
+    fx(st, d.jump_sp, true);
+    fx(st, d.blink_sp, true);
     release(st, p, false);
     log(&format!("唤声船：跳下船（骑了 {:.1} 秒）", st.t));
 }
@@ -771,27 +863,28 @@ fn hold(st: &St, p: &mut PlayerIns) {
     m.physics.interpolated_orientation = q;
 }
 
-/// 物理更新前（ChrIns_PrePhysics）：唤声船的击败、开发工具、上船 / 骑船 / 瞬移 / 下船
-pub fn tick() {
+/// 帧开头（FrameBegin）：tick 在物理更新前排下的效果照顺序挂上 / 摘掉；唤声船位置的 Boss 击败（发碎片 / 战灰）、开发工具请求。
+/// 崩溃风险审查第 21 条：物理更新前那个组（ChrIns_PrePhysics）不带 Safe，挂效果、改背包、发货挪到这里，那边只改位置、朝向、重力和动作开关。
+/// 效果晚到下一帧的帧开头才挂，玩家脚本在同一帧的行为更新里看到，和以前一样
+pub fn frame() {
     let Some(d) = defs() else { return };
     let mut g = ST.lock().unwrap_or_else(|e| e.into_inner());
     let st = g.get_or_insert_with(St::new);
     let now = Instant::now();
-    let wall_dt = st.last.map(|t| now.duration_since(t).as_secs_f32()).unwrap_or(0.0).min(0.1);
-    st.last = Some(now);
     st.frames = st.frames.wrapping_add(1);
     let Ok(wcm) = (unsafe { WorldChrMan::instance_mut() }) else { return };
-    if wcm.main_player.is_none() {
-        if st.mode != Mode::Idle {
-            log("唤声船：玩家角色没了（读盘 / 回标题），下船");
-            st.mode = Mode::Idle;
-            st.lift = 0.0;
-        }
-        snd_end(st);
-        st.last_pos = None;
+    let Some(p) = wcm.main_player.as_mut() else {
+        st.fx.clear();
         st.boss_seen.clear();
         st.boss_since = None;
         return;
+    };
+    for (sp, on) in std::mem::take(&mut st.fx) {
+        if on {
+            p.apply_speffect(sp, false);
+        } else {
+            p.remove_speffect(sp);
+        }
     }
     // 战灰发过了就不再看（用户 2026-11-01：每帧的活要挂在用得着的时候）
     if st.frames % 15 == 0 && gear::flag_get(d.flag_gem) != Some(true) {
@@ -801,6 +894,27 @@ pub fn tick() {
     }
     if st.frames % 30 == 0 {
         dev_tick(d);
+    }
+}
+
+/// 物理更新前（ChrIns_PrePhysics）：上船 / 骑船 / 瞬移 / 下船（挂 / 摘效果排给 frame）
+pub fn tick() {
+    let Some(d) = defs() else { return };
+    let mut g = ST.lock().unwrap_or_else(|e| e.into_inner());
+    let st = g.get_or_insert_with(St::new);
+    let now = Instant::now();
+    let wall_dt = st.last.map(|t| now.duration_since(t).as_secs_f32()).unwrap_or(0.0).min(0.1);
+    st.last = Some(now);
+    let Ok(wcm) = (unsafe { WorldChrMan::instance_mut() }) else { return };
+    if wcm.main_player.is_none() {
+        if st.mode != Mode::Idle {
+            log("唤声船：玩家角色没了（读盘 / 回标题），下船");
+            st.mode = Mode::Idle;
+            st.lift = 0.0;
+        }
+        snd_end(st);
+        st.last_pos = None;
+        return;
     }
     let Some(p) = wcm.main_player.as_mut() else { return };
     let p: &mut PlayerIns = p;
@@ -846,6 +960,14 @@ pub fn tick() {
         if hp <= 0 {
             return;
         }
+        // 要写的物理 / 坠落 / 动作开关的位置先核对（崩溃风险审查第 22 条，chrs.rs）；对不上就不上船
+        if !crate::chrs::player_layout_ok(p) {
+            if !st.layout_told {
+                st.layout_told = true;
+                log("唤声船：人物结构没核对通过（或者还没读完图），这次不上船");
+            }
+            return;
+        }
         if fp < d.fp {
             log(&format!("唤声船：蓝不够（{fp} / {}），不上船", d.fp));
             return;
@@ -859,8 +981,9 @@ pub fn tick() {
         f.set_disabled_secondary_actions(true);
         f.set_disabled_movement(true);
         st.sp = if c.wood { d.wood_sp } else { d.boat_sp };
-        p.apply_speffect(st.sp, false);
-        p.apply_speffect(d.blink_sp, false);
+        let sp = st.sp;
+        fx(st, sp, true);
+        fx(st, d.blink_sp, true);
         st.mode = Mode::Ride;
         (st.t, st.vy, st.blink_t, st.dbg_t, st.lift, st.moved, st.src) = (0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0);
         snd_begin(st, now);
@@ -920,8 +1043,8 @@ pub fn tick() {
     st.blink_t = (st.blink_t - dt).max(0.0);
     let board = if c.board_t > 0.0 { st.t / c.board_t } else { 1.0 };
     if st.t >= st.dur {
-        p.apply_speffect(d.stand_sp, false);
-        p.apply_speffect(d.blink_sp, false);
+        fx(st, d.stand_sp, true);
+        fx(st, d.blink_sp, true);
         st.mode = Mode::Unboard;
         st.un_t = 0.0;
         return hold(st, p);
@@ -930,7 +1053,8 @@ pub fn tick() {
         return jump_off(st, d, p);
     }
     if !p.chr_ins.special_effect.entries().any(|e| e.param_id == st.sp) {
-        p.apply_speffect(st.sp, false);
+        let sp = st.sp;
+        fx(st, sp, true);
     }
 
     let (mf, ms, src) = raw_move(&mut st.xi);
@@ -950,7 +1074,7 @@ pub fn tick() {
         let ty = ground_y(t, 3.0, 12.0, p).unwrap_or(foot.1);
         let np = (t.0, ty + st.lift, t.2);
         warp(p, np);
-        p.apply_speffect(d.blink_sp, false);
+        fx(st, d.blink_sp, true);
         st.blink_t = c.blink_cd;
         st.vy = 0.0;
         st.last_pos = Some(np);
@@ -1038,6 +1162,42 @@ mod tests {
         assert_eq!((c.dur_min, c.dur_max), (12.0, 12.0));
         assert_eq!(c.blink_dist, CFG0.blink_dist);
         assert_eq!(bad.len(), 2);
+    }
+
+    /// 满级：重随建的强化类型（行一直建到 +25）照 rmax；原版类型数行；没有 rmax 行时都数行
+    #[test]
+    fn reinforce_max() {
+        let nr = parse_reinf("\u{feff}# x\nrmax\t5\nrmat\t1\t2\t3\t4\nreinf\t0\t0\t0\t10000\nreinf\t1300\t3\t1\t11500\r\nreinfx\t1\t2\t3\t4\n");
+        assert_eq!(nr.0, 5);
+        assert_eq!(nr.1, [10000u32, 11500].into_iter().collect::<HashSet<u32>>());
+        assert_eq!(level_max(10000, 25, &nr), 5, "新类型：行建到 +25 也按 +5 满级");
+        assert_eq!(level_max(11500, 25, &nr), 5);
+        assert_eq!(level_max(0, 25, &nr), 25, "原版普通");
+        assert_eq!(level_max(2200, 10, &nr), 10, "原版失色");
+        assert_eq!(level_max(10000, 25, &parse_reinf("")), 25, "不是重随的模式：照数行");
+        // 随包的 affixes.txt（重随写的）：有的话每种新类型都认得出来，满级不超过 +25
+        let p = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..").join("..").join("dll").join("dark_core").join("affixes.txt");
+        if let Ok(t) = fs::read_to_string(p) {
+            let nr = parse_reinf(&t);
+            assert!(nr.0 <= 25);
+            assert!(nr.1.iter().all(|t| t % 100 == 0), "{:?}", nr.1);
+        }
+    }
+
+    /// 超出范围的夹到上限（1e6 的速度 / 瞬移距离不会把人写出物理世界）；默认值不用夹；每个数值键都有上限
+    #[test]
+    fn cfg_clamped() {
+        let (mut c, bad) = parse_cfg("speed = 1e6\nblink_dist = 999\nseat_h = 50\nunboard_t = 0.3\ndur_min = 1000\n");
+        assert!(bad.is_empty());
+        let out = clamp_cfg(&mut c);
+        assert_eq!((c.speed, c.blink_dist, c.seat_h, c.unboard_t, c.dur_min, c.dur_max), (60.0, 50.0, 3.0, 0.3, 300.0, 300.0));
+        assert_eq!(out.len(), 5, "{out:?}"); // speed、blink_dist、seat_h、dur_min、dur_max（parse 时跟着 dur_min 成了 1000）
+        let mut d = CFG0;
+        assert!(clamp_cfg(&mut d).is_empty());
+        assert_eq!(d, CFG0);
+        for (k, _) in LIMITS {
+            assert!(slot(&mut d, k).is_some(), "{k}");
+        }
     }
 
     /// dll\dark_core\boat.ini（随包带的）和代码里的默认值一致

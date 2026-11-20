@@ -19,6 +19,8 @@
 //!   - ovldrop：超限锻造石的掉落——「死亡」「不可能」里 Boss 每档第一次击败、附近小怪死亡按几率发（参数侧在 rr/overlimit.py）
 //!   - glow：传说武器的属性光效——换武器后光效落到手上，等新武器拿到手再让游戏重挂（用户 2026-11-05）
 //!   - spellbase：法器面板给法球用——左右手拿着的法器里法术补正面板最高的 ÷ 200，给法球（迸发、星群）乘。
+//!   - perf：性能记录——每 5 分钟写一行游戏内存、显存、帧耗时、dark_core 自己的内存和耗时（查久玩越来越卡）。
+//!   - who：角色身份——现在是哪个角色、认准了没有、是不是刚建的，写角色记录的模块都照它（dev\存档与角色记录.md）。
 //! 每个模块的定义文件由重随写在 DLL 旁边（没有就不管这个功能）；日志 dark_core.log。
 //! 认 eldenring.exe 2.7.1.0 / 2.7.2.0（地址表在 ../vendor 的 fromsoftware-rs 副本里），别的版本不工作。
 //! 加新功能：新建一个模块，提供 tick()，在 DllMain 的任务里加一行（出错只记日志、不影响其他功能）。
@@ -55,6 +57,7 @@ mod pickup;
 mod plague;
 mod unseen;
 mod procs;
+mod perf;
 mod prof;
 mod rules;
 mod shots;
@@ -67,6 +70,7 @@ mod slotdiag;
 mod sound;
 mod spellbase;
 mod msghook;
+mod who;
 
 use std::fs;
 use std::panic::{AssertUnwindSafe, catch_unwind};
@@ -175,17 +179,45 @@ fn version_ok() -> bool {
     .is_ok()
 }
 
-/// 跑一个功能的 tick：panic 只记前 3 次日志，不影响别的功能
-fn guarded(name: &'static str, errs: &mut u32, f: fn()) {
-    let t0 = prof::on().then(Instant::now);
+// gear/ashes/mimic.rs：仿身泪滴的判断提前改（自己接住 panic）
+unsafe extern "C" {
+    fn dr_mimic_install();
+}
+
+/// 接住 panic：只记前 3 次日志（任务回调是 vendored shared\src\task.rs 的 extern "C" fn，里面没有 catch_unwind，漏出去的 panic 直接带崩游戏）
+fn caught(name: &'static str, errs: &mut u32, f: fn()) {
     if catch_unwind(AssertUnwindSafe(f)).is_err() {
         *errs += 1;
         if *errs <= 3 {
             log(&format!("{name}：出错（已跳过这一帧）"));
         }
     }
-    if let Some(t0) = t0 {
-        prof::add(name, t0.elapsed());
+}
+
+/// 每个任务组在哪个线程跑（崩溃风险审查 2026-11-19 第 21 条：ChrIns_PrePhysics 不带 Safe，看它是不是和 FrameBegin 同一个线程、
+/// 是不是每帧换线程）。每组记前 4 个不同的线程号，之后不再记
+static FRAME_THREAD: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+
+fn note_thread(group: &'static str, seen: &mut Vec<u32>) {
+    let id = unsafe { windows::Win32::System::Threading::GetCurrentThreadId() };
+    if seen.len() >= 4 || seen.contains(&id) {
+        return;
+    }
+    seen.push(id);
+    let fb = FRAME_THREAD.load(std::sync::atomic::Ordering::Relaxed);
+    log(&format!("任务线程：{group} 在线程 {id}（这一组第 {} 个线程；FrameBegin 在线程 {}）", seen.len(),
+                 if fb == 0 { "还没记".to_string() } else { fb.to_string() }));
+}
+
+/// 跑一个功能的 tick：panic 只记前 3 次日志，不影响别的功能。花的时间一直记（性能记录 perf.rs 每 5 分钟写一行），
+/// 开着帧耗时统计时也给它
+fn guarded(name: &'static str, errs: &mut u32, f: fn()) {
+    let t0 = Instant::now();
+    caught(name, errs, f);
+    let dt = t0.elapsed();
+    perf::add(name, dt);
+    if prof::on() {
+        prof::add(name, dt);
     }
 }
 
@@ -227,6 +259,9 @@ pub unsafe extern "system" fn DllMain(hmodule: u64, reason: u32, _reserved: *mut
         if catch_unwind(castpanel::install).is_err() {
             log("能施法的近战武器显示魔法加成：出错，没改");
         }
+        // 仿身泪滴复制召唤者的两处判断（gear/ashes/mimic.rs）：在游戏跑到召唤那段代码之前改（崩溃风险审查第 23 条：以前进存档时才改，
+        // 读档画面里别的线程可能正好在执行那几个字节）。gear::ashes 是私有模块，所以走 mimic.rs 导出的函数；进存档时那一处照旧调，已经改好就不再动
+        unsafe { dr_mimic_install() };
         let combat = runtime::init();
         msghook::start(); // 取文字挂钩：装备文字、确认框、幻化菜单图标
         // 加载器注入得很早：任务调度器可能还没建好，每秒重试（最多 10 分钟）
@@ -244,11 +279,19 @@ pub unsafe extern "system" fn DllMain(hmodule: u64, reason: u32, _reserved: *mut
         };
         log(&format!("dark_core 已加载：{}；{}；{}；{}；{}（{combat}）；{}；{}；{}；{}；{}；{}；{}；{}；{}；{}；{}；{}；{}；{}；{}；{}；{}；{}；{}；{scaling}", arena::describe(), foefx::describe(), festive::describe(), gear::describe(), runtime::describe(),
                      rules::describe(), procs::describe(), boat::describe(), attrstack::describe(), skillmult::describe(), spellbase::describe(), hpunify::describe(), ovldrop::describe(), fusion::describe(), nightmare::describe(), curses::describe(), notes::describe(), plague::describe(), wishstone::describe(), shopstage::describe(), clash::describe(), bossmode::describe(), glow::describe(), runebank::describe()));
-        let mut errs = [0u32; 33];
+        // 34..=38：帧统计、帧耗时统计、玩家角色、唤声船（帧开头）、难度屏障（帧开头）
+        let mut errs = [0u32; 39];
+        let mut th_fb = Vec::new();
         task.run_recurring(
             move |_: &FD4TaskData| {
-                prof::frame();
-                chrs::refresh_players();      // 这一帧的玩家角色（rules::is_foe 跳过它们，联机计划 13.2 G8）
+                FRAME_THREAD.store(unsafe { windows::Win32::System::Threading::GetCurrentThreadId() }, std::sync::atomic::Ordering::Relaxed);
+                note_thread("FrameBegin", &mut th_fb);
+                // 帧统计不计时（算进模块耗时的话，它自己花的时间会落到刚开始的这一帧里），只接住 panic（崩溃风险审查第 3 条）
+                caught("性能记录", &mut errs[34], perf::frame);
+                caught("帧耗时统计", &mut errs[35], prof::frame);
+                guarded("玩家角色", &mut errs[36], chrs::refresh_players); // 这一帧的玩家角色（rules::is_foe 跳过它们，联机计划 13.2 G8）
+                // 现在是哪个角色、认准了没有、是不是刚建的（who.rs）：最先跑，新装备、骨灰、Boss 难度这一帧都照它
+                guarded("角色身份", &mut errs[33], who::tick);
                 // 联机时记玩家放出的子弹（远程命中归属，联机计划 13.7）：放在积木引擎、咒痕前面；不在会话里什么都不读
                 guarded("联机子弹记录", &mut errs[30], shots::tick);
                 guarded("庆典油脂", &mut errs[0], festive::tick);
@@ -274,6 +317,10 @@ pub unsafe extern "system" fn DllMain(hmodule: u64, reason: u32, _reserved: *mut
                 guarded("暗黑商店分阶段解锁提示", &mut errs[18], shopstage::tick);
                 guarded("相杀", &mut errs[19], clash::tick);
                 guarded("高难度 Boss 改版", &mut errs[20], bossmode::tick);
+                // 唤声船、难度屏障在物理更新前（ChrIns_PrePhysics）排下的事在这里做：挂 / 摘效果、发碎片 / 战灰、开发工具请求、
+                // 放圆顶子弹、禁止传送（崩溃风险审查第 21 条：那个组不带 Safe，只留必须在物理前写的位置、朝向、重力）。放在 Boss 改版后面：屏障要不要这一帧刚定
+                guarded("唤声船（帧开头）", &mut errs[37], boat::frame);
+                guarded("难度屏障（帧开头）", &mut errs[38], barrier::frame);
                 guarded("传说光效重挂", &mut errs[21], glow::tick);
                 guarded("法球发射点测试", &mut errs[22], orbshot::tick);
                 guarded("骨灰诊断", &mut errs[24], ashdiag::tick);
@@ -293,23 +340,51 @@ pub unsafe extern "system" fn DllMain(hmodule: u64, reason: u32, _reserved: *mut
             CSTaskGroupIndex::FrameBegin,
         );
         // 碾压：动作更新完、物理和伤害判定之前清翻滚的无敌位（FrameBegin 清了会被动作事件重新设上）
-        let mut err_pp = 0u32;
+        let (mut err_pp, mut th_pp) = (0u32, Vec::new());
         task.run_recurring(
-            move |_: &FD4TaskData| guarded("碾压（物理前）", &mut err_pp, runtime::pre_physics),
+            move |_: &FD4TaskData| {
+                note_thread("碾压（ChrIns_PrePhysicsSafe）", &mut th_pp);
+                guarded("碾压（物理前）", &mut err_pp, runtime::pre_physics)
+            },
             CSTaskGroupIndex::ChrIns_PrePhysicsSafe,
         );
-        // 唤声船：改位置要在物理更新前（同 dark_wings 的飞行）
-        let mut err_boat = 0u32;
-        task.run_recurring(move |_: &FD4TaskData| guarded("唤声船", &mut err_boat, boat::tick), CSTaskGroupIndex::ChrIns_PrePhysics);
-        // 「死亡」以上难度和这次加载的世界对不上时的屏障（bossmode 定要不要）：推回圈里同样要在物理更新前
-        let mut err_bar = 0u32;
-        task.run_recurring(move |_: &FD4TaskData| guarded("难度屏障", &mut err_bar, barrier::tick), CSTaskGroupIndex::ChrIns_PrePhysics);
+        // 唤声船：改位置要在物理更新前（同 dark_wings 的飞行）；挂效果、发货、开发请求排到下一帧的 FrameBegin（boat::frame）
+        let (mut err_boat, mut th_boat) = (0u32, Vec::new());
+        task.run_recurring(
+            move |_: &FD4TaskData| {
+                note_thread("唤声船（ChrIns_PrePhysics）", &mut th_boat);
+                guarded("唤声船", &mut err_boat, boat::tick)
+            },
+            CSTaskGroupIndex::ChrIns_PrePhysics,
+        );
+        // 「死亡」以上难度和这次加载的世界对不上时的屏障（bossmode 定要不要）：推回圈里同样要在物理更新前；圆顶子弹、禁止传送、开发请求在 barrier::frame
+        let (mut err_bar, mut th_bar) = (0u32, Vec::new());
+        task.run_recurring(
+            move |_: &FD4TaskData| {
+                note_thread("难度屏障（ChrIns_PrePhysics）", &mut th_bar);
+                guarded("难度屏障", &mut err_bar, barrier::tick)
+            },
+            CSTaskGroupIndex::ChrIns_PrePhysics,
+        );
         // 见切减速 / 影步停住的敌人：转身同样放慢（改朝向也要在物理更新前；没有减速中的敌人就什么都不做）
         // 玩家自己的动作速度（时隙、巧手、寸劲、致命舞……）：动画更新前写（帧开头写的会被游戏重算掉，runtime::pre_behavior）
-        let mut err_pb = 0u32;
-        task.run_recurring(move |_: &FD4TaskData| guarded("玩家动作速度", &mut err_pb, runtime::pre_behavior), CSTaskGroupIndex::ChrIns_PreBehavior);
-        let mut err_turn = 0u32;
-        task.run_recurring(move |_: &FD4TaskData| guarded("减速敌人的转身", &mut err_turn, rules::turn_hold), CSTaskGroupIndex::ChrIns_PrePhysics);
+        let (mut err_pb, mut th_pb) = (0u32, Vec::new());
+        task.run_recurring(
+            move |_: &FD4TaskData| {
+                note_thread("玩家动作速度（ChrIns_PreBehavior）", &mut th_pb);
+                guarded("玩家动作速度", &mut err_pb, runtime::pre_behavior)
+            },
+            CSTaskGroupIndex::ChrIns_PreBehavior,
+        );
+        // 只写敌人的朝向（live! 只收 Active 的角色），没有别的调用，留在物理更新前
+        let (mut err_turn, mut th_turn) = (0u32, Vec::new());
+        task.run_recurring(
+            move |_: &FD4TaskData| {
+                note_thread("减速敌人的转身（ChrIns_PrePhysics）", &mut th_turn);
+                guarded("减速敌人的转身", &mut err_turn, rules::turn_hold)
+            },
+            CSTaskGroupIndex::ChrIns_PrePhysics,
+        );
     });
     1
 }

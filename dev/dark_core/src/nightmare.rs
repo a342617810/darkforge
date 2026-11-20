@@ -312,7 +312,8 @@ fn name(d: &Def, k: usize) -> [String; 2] {
 
 /// ovldrop 用：这个角色是魇化精英（它的超限锻造石在这里掉，普通小怪的几率不算）
 pub fn is_elite(addr: usize) -> bool {
-    ST.lock().ok().is_some_and(|g| g.as_ref().is_some_and(|s| s.elites.contains_key(&addr)))
+    // 锁中毒（以前哪一帧 panic 在持锁时）也照样读：.ok() 会一直是空的，魇化精英判定就失效了（崩溃风险审查第 28 条）
+    ST.lock().unwrap_or_else(|e| e.into_inner()).as_ref().is_some_and(|s| s.elites.contains_key(&addr))
 }
 
 /// 夺得一次第 k 种：魇火（这一档的稀有度）+ 次数 +1，提示升级 / 开新刻印位
@@ -390,7 +391,7 @@ pub fn ui_state() -> Option<UiState> {
     let d = def()?;
     let counts: Vec<u32> = (0..d.fams.len()).map(|k| count_of(d, k)).collect();
     let unlocked = counts.iter().filter(|&&c| c > 0).count() as u32;
-    let embers = ST.lock().ok().and_then(|g| g.as_ref().map(|s| s.embers.clone())).unwrap_or_default();
+    let embers = ST.lock().unwrap_or_else(|e| e.into_inner()).as_ref().map(|s| s.embers.clone()).unwrap_or_default();
     Some(UiState {
         fams: d.fams.iter().zip(&counts).map(|(f, &c)| (f.0.clone(), f.1, c, d.level(c))).collect(),
         open: d.open_slots(unlocked).min(d.slot_at.len()),
@@ -545,7 +546,8 @@ fn make_elite_with(d: &Def, st: &mut St, c: &mut eldenring::cs::ChrIns, addr: us
     let k1 = (st.roll() % n) as usize;
     let double = two.unwrap_or_else(|| st.tier.map_or(0.0, |t| d.tiers[t].2));
     let mut fams = vec![k1];
-    if two_ok && st.chance(double) {
+    // 只有一种词条时不带第二条（n - 1 = 0 取余会 panic）
+    if two_ok && n > 1 && st.chance(double) {
         let k2 = (k1 + 1 + (st.roll() % (n - 1)) as usize) % n as usize;
         fams.push(k2);
     }
@@ -562,7 +564,11 @@ fn make_elite_with(d: &Def, st: &mut St, c: &mut eldenring::cs::ChrIns, addr: us
 
 /// 按给定的词条序号把这个敌人魇化（房主抽的 / 客机收到房主广播的）
 fn make_elite_fams(d: &Def, st: &mut St, c: &mut eldenring::cs::ChrIns, addr: usize, fams: Vec<usize>) {
-    let k1 = fams[0];
+    // 房主广播来的词条可能是空的 / 越界的（版本不同）：不魇化
+    let Some(&k1) = fams.first() else { return };
+    if fams.iter().any(|&k| k >= d.fams.len()) {
+        return;
+    }
     let color = d.fams[k1].1.min(3);
     let (hp, max) = (c.modules.data.hp, c.modules.data.max_hp);
     for sp in elite_sps(d, &fams) {
@@ -778,7 +784,8 @@ pub fn tick() {
             let max = c.modules.data.max_hp;
             if hp != h0 {
                 el.fix = None;
-            } else if max != m0 && m0 > 0 {
+            } else if max != m0 && m0 > 0 && max > 0 {
+                // max > 0：clamp(1.0, max) 在最大血量是 0 时会 panic（崩溃风险审查第 28 条）
                 if !crate::coop::client_skip("魇化精英的按比例补血") {
                     c.modules.data.hp = ((h0 as f64 / m0 as f64) * max as f64).round().clamp(1.0, max as f64) as i32;
                 }

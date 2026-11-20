@@ -287,9 +287,11 @@ def build(ctx):
             B.add_row(int(new), bytes(row))
             used[int(new) // P].add(int(new) % 1000)
             n_rows += 1
-    # 战灰：能装的武器类型照 skill_gems.json 的 mount_bits（开放分组），属性只有标准
+    # 战灰：能装的武器类型照 skill_gems.json 的 mount_bits（开放分组），属性只有标准。
+    # 动作包没做成的（skipped）战灰行和文字也照建、只是不上架（崩溃风险审查 2026-11-19 第 4 条）：以前拿到的还在存档里，缺了行读档会出问题；
+    # 装在原武器以外的武器上判定找不到（打不出伤害），但不会崩
     mount0 = Lg['canMountWep_Dagger'][1]
-    gem_skills = [s for s in skills if s['gem'] and gems_on]
+    gem_skills = [s for s in d['skills'] if s['gem'] and gems_on]
     gems = []
     for k, s in enumerate(gem_skills):
         if s['gem'] in G.rows or s['sid'] not in A.rows:
@@ -306,7 +308,8 @@ def build(ctx):
                      ('mountWepTextId', s['mount_text']), ('rarity', GEM_RARITY), ('spEffectId0', -1), ('spEffectId1', -1), ('spEffectId2', -1)):
             put(Lg, g, f, v)
         G.add_row(s['gem'], bytes(g))
-        gems.append(s['gem'])
+        if s in skills:
+            gems.append(s['gem'])
     for n, Pm in (('EquipParamGem', G), ('BehaviorParam_PC', B)):
         ctx.bnd.put(n + '.param', Pm.serialize())
 
@@ -344,14 +347,16 @@ def build(ctx):
             dd.update(ents)
             mb.put(fmg, erlib.write_fmg(hdr, sorted(dd.items())))
         erlib.write_dcx_file(mp, bytes(mb.data))
-    ctx.skill_gems = gems
-    ctx.skill_gem_info = [{'gem': s['gem'], 'weapons': list(s['weapons'])} for s in gem_skills]   # 暗黑商店分阶段解锁：跟着武器本体的区域（rr/darkshop.py）
+    ctx.skill_gems = gems                       # 上架的（darkshop.ash_shop）：没做成的不在里面
+    ctx.skill_gem_info = [{'gem': s['gem'], 'weapons': list(s['weapons'])} for s in gem_skills if s in skills]   # 暗黑商店分阶段解锁：跟着武器本体的区域（rr/darkshop.py）
     ctx.features['skill_gems'] = {'gems': gems, 'free': sorted(ctx.free_skills)}
     if gems_on and (ctx.S.get('skill_gems') or {}).get('open_vanilla', True):
         opened = open_vanilla(ctx, d)
         kinds = Counter(z for _i, z in opened)
         ctx.report.append('原版战灰放开 %d 个：%s' % (len(opened), '、'.join('%s %d 个' % (z, n) for z, n in kinds.most_common())))
+    unsold = [s['zh'] for s in gem_skills if s not in skills]
     ctx.report.append('专属战技：%d 个的判定在共享层（换号的判定行复制 %d 行；%s），生成武器配别家的专属战技不再换行为变体；'
-                      '战灰 %d 个（%d~%d，按原武器开放到所有近战 / 盾 / 弓，战灰商店卖）：%s%s' % (
+                      '战灰 %d 个（%d~%d，按原武器开放到所有近战 / 盾 / 弓，战灰商店卖）：%s%s%s' % (
                           len(ctx.free_skills), n_rows, anim_msg, len(gems), min(gems, default=0), max(gems, default=0),
-                          '、'.join(s['zh'] for s in gem_skills), '；没做：%s' % '、'.join(skipped) if skipped else ''))
+                          '、'.join(s['zh'] for s in gem_skills if s in skills), '；没做：%s' % '、'.join(skipped) if skipped else '',
+                          '（其中 %d 个战灰照建、不上架，以前拿到的还在）' % len(unsold) if unsold else ''))

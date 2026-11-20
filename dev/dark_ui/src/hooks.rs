@@ -3,10 +3,10 @@
 //! （SetCursorPos / ClipCursor 拦掉）。界面自己读手柄用原来的 XInputGetState（read_pad）。
 //! 键鼠、光标这部分照 dll\dark_dev（已经在游戏里验证过）；手柄是新加的
 use std::ffi::c_void;
-use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, AtomicIsize, AtomicUsize, Ordering};
+use std::sync::{Mutex, OnceLock};
 
-use hudhook::mh::{MH_EnableHook, MhHook};
+use hudhook::mh::{MH_ApplyQueued, MH_EnableHook, MH_STATUS, MhHook};
 use hudhook::windows::Win32::Foundation::{HWND, LPARAM, LRESULT, POINT, RECT, WPARAM};
 use hudhook::windows::Win32::Graphics::Gdi::ScreenToClient;
 use hudhook::windows::Win32::UI::WindowsAndMessaging::{CallWindowProcW, DefWindowProcW, GWLP_WNDPROC, GetCursorPos, SetWindowLongPtrW, WM_CHAR, WNDPROC};
@@ -36,28 +36,26 @@ unsafe extern "system" fn clip_cursor(rect: *const RECT) -> BOOL {
     unsafe { f(rect) }
 }
 
-fn hook(addr: *mut c_void, detour: *mut c_void, slot: &AtomicUsize) -> bool {
-    match unsafe { MhHook::new(addr, detour) } {
-        Ok(h) => {
-            slot.store(h.trampoline() as usize, Ordering::Relaxed);
-            unsafe { MH_EnableHook(addr) }.ok().is_ok()
-        }
-        Err(_) => false,
-    }
+/// 建钩子、排进启用队列（install 最后一起启用）；建成了才写 slot（跳板），建不成 slot 不动。返回建成的目标地址
+fn hook(addr: *mut c_void, detour: *mut c_void, slot: &AtomicUsize) -> Option<*mut c_void> {
+    let h = unsafe { MhHook::new(addr, detour) }.ok()?;
+    slot.store(h.trampoline() as usize, Ordering::Relaxed);
+    unsafe { h.queue_enable() }.ok()?;
+    Some(addr)
 }
 
-fn hook_cursor() -> usize {
-    let Ok(user32) = (unsafe { GetModuleHandleA(s!("user32.dll")) }) else { return 0 };
-    let mut n = 0;
+fn hook_cursor() -> Vec<*mut c_void> {
+    let Ok(user32) = (unsafe { GetModuleHandleA(s!("user32.dll")) }) else { return Vec::new() };
+    let mut done = Vec::new();
     for (name, detour, slot) in [
         (s!("SetCursorPos"), set_cursor_pos as *mut c_void, &SET_CURSOR_POS),
         (s!("ClipCursor"), clip_cursor as *mut c_void, &CLIP_CURSOR),
     ] {
         if let Some(addr) = unsafe { GetProcAddress(user32, name) } {
-            n += hook(addr as *mut c_void, detour, slot) as usize;
+            done.extend(hook(addr as *mut c_void, detour, slot));
         }
     }
-    n
+    done
 }
 
 /// 游戏窗口（窗口消息带来的）
@@ -93,7 +91,8 @@ static IME_OFF: AtomicBool = AtomicBool::new(false);
 static IME_PREV: AtomicIsize = AtomicIsize::new(0);
 
 /// 接在窗口过程最前面（用户 2026-11-09「用拼音搜索」）：打字时把窗口的输入法摘掉，玩家开着中文输入法字母也直接进搜索框，打完还原。
-/// 输入法的调用要在窗口所在的线程，所以放在这里。半个字符（emoji）不往下传（hudhook 处理 WM_CHAR 时会 panic）
+/// 输入法的调用要在窗口所在的线程，所以放在这里。半个字符（emoji）不往下传（原版 hudhook 处理 WM_CHAR 时会 panic；
+/// dev\vendor\hudhook 已经改成丢掉，不打字时也不会崩，这里照旧拦着）
 unsafe extern "system" fn ime_proc(h: HWND, msg: u32, w: WPARAM, l: LPARAM) -> LRESULT {
     let typing = TYPING.load(Ordering::Relaxed);
     if typing != IME_OFF.load(Ordering::Relaxed) {
@@ -191,16 +190,16 @@ unsafe extern "system" fn get_device_data<const K: usize>(this: *mut c_void, cb:
 }
 
 /// 挂 DirectInput 设备的两个读取函数：自己建一个鼠标设备拿函数地址（A / W 两套接口各一次，地址一样的只挂一次）
-fn hook_dinput() -> usize {
+fn hook_dinput() -> Vec<*mut c_void> {
     use hudhook::windows::core::GUID;
     const IID_W: GUID = GUID::from_u128(0xBF798031_483A_4DA2_AA99_5D64ED369700);
     const IID_A: GUID = GUID::from_u128(0xBF798030_483A_4DA2_AA99_5D64ED369700);
     const SYS_MOUSE: GUID = GUID::from_u128(0x6F1D2B60_D5A0_11CF_BFC7_444553540000);
-    let Ok(dinput) = (unsafe { GetModuleHandleA(s!("dinput8.dll")) }) else { return 0 };
-    let Some(create) = (unsafe { GetProcAddress(dinput, s!("DirectInput8Create")) }) else { return 0 };
+    let Ok(dinput) = (unsafe { GetModuleHandleA(s!("dinput8.dll")) }) else { return Vec::new() };
+    let Some(create) = (unsafe { GetProcAddress(dinput, s!("DirectInput8Create")) }) else { return Vec::new() };
     let create: unsafe extern "system" fn(*mut c_void, u32, *const GUID, *mut *mut c_void, *mut c_void) -> i32 = unsafe { std::mem::transmute(create) };
     let hinst = unsafe { GetModuleHandleA(None) }.map(|h| h.0).unwrap_or(std::ptr::null_mut());
-    let mut done: Vec<usize> = Vec::new();
+    let mut done: Vec<*mut c_void> = Vec::new();
     for (k, iid) in [IID_W, IID_A].iter().enumerate() {
         let mut di: *mut c_void = std::ptr::null_mut();
         if unsafe { create(hinst, 0x0800, iid, &mut di, std::ptr::null_mut()) } < 0 || di.is_null() {
@@ -214,8 +213,9 @@ fn hook_dinput() -> usize {
                 (unsafe { vfn(dev, VT_GET_DATA) }, if k == 0 { get_device_data::<0> as *mut c_void } else { get_device_data::<1> as *mut c_void }, &DEV_DATA[k]),
             ];
             for (addr, detour, slot) in targets {
-                if !done.contains(&addr) && hook(addr as *mut c_void, detour, slot) {
-                    done.push(addr);
+                let addr = addr as *mut c_void;
+                if !done.contains(&addr) {
+                    done.extend(hook(addr, detour, slot));
                 }
             }
             let rel: unsafe extern "system" fn(*mut c_void) -> u32 = unsafe { std::mem::transmute(vfn(dev, VT_RELEASE)) };
@@ -224,7 +224,7 @@ fn hook_dinput() -> usize {
         let rel: unsafe extern "system" fn(*mut c_void) -> u32 = unsafe { std::mem::transmute(vfn(di, VT_RELEASE)) };
         unsafe { rel(di) };
     }
-    done.len()
+    done
 }
 
 // ------------------------------------------------------------------ 手柄（XInput）
@@ -255,12 +255,15 @@ unsafe extern "system" fn xinput_get_state(user: u32, st: *mut XState) -> u32 {
     r
 }
 
-/// 挂 xinput1_4.dll 的 XInputGetState；返回挂上没有（没挂上也记下原函数，界面照样能读手柄，只是挡不住游戏）
-fn hook_xinput() -> bool {
-    let Ok(x) = (unsafe { GetModuleHandleA(s!("xinput1_4.dll")) }) else { return false };
-    let Some(addr) = (unsafe { GetProcAddress(x, s!("XInputGetState")) }) else { return false };
-    XGET.store(addr as usize, Ordering::Relaxed);
-    hook(addr as *mut c_void, xinput_get_state as *mut c_void, &XGET)
+/// 挂 xinput1_4.dll 的 XInputGetState；返回建成的钩子（没挂上也记下原函数，界面照样能读手柄，只是挡不住游戏）。
+/// XGET 只在还是 0 时写原函数：已经是跳板时再写入口地址，入口挂着我们的钩子，xinput_get_state 就调回自己、栈溢出
+fn hook_xinput() -> Option<*mut c_void> {
+    let Ok(x) = (unsafe { GetModuleHandleA(s!("xinput1_4.dll")) }) else { return None };
+    let addr = unsafe { GetProcAddress(x, s!("XInputGetState")) }? as *mut c_void;
+    if XGET.compare_exchange(0, addr as usize, Ordering::Relaxed, Ordering::Relaxed).is_err() {
+        return None;
+    }
+    hook(addr, xinput_get_state as *mut c_void, &XGET)
 }
 
 /// 界面自己读手柄：第一个连着的
@@ -276,7 +279,16 @@ pub fn read_pad() -> Option<XState> {
     })
 }
 
-/// 挂所有钩子：(光标, 键鼠, 手柄)
+/// 挂所有钩子：(光标, 键鼠, 手柄)。只挂一次：hudhook 重建画面管线时 initialize 会再跑，第二次直接返回第一次的结果
+/// （再挂一遍 MH_CreateHook 报「已经挂过」，XGET 会指回挂着钩子的入口）。
+/// 5 个钩子先建好排队，最后一次 MH_ApplyQueued 一起启用：MinHook 每次启用都要冻结进程里别的线程，启动头几秒别的 mod 也在挂钩子，
+/// 冻一次比冻五次稳。一起启用失败（可能只启用了前几个）就逐个补启用，已经启用的返回 MH_ERROR_ENABLED，也算挂上
 pub fn install() -> (usize, usize, bool) {
-    (hook_cursor(), hook_dinput(), hook_xinput())
+    static DONE: OnceLock<(usize, usize, bool)> = OnceLock::new();
+    *DONE.get_or_init(|| {
+        let (cursor, dinput, xinput) = (hook_cursor(), hook_dinput(), hook_xinput());
+        let all = unsafe { MH_ApplyQueued() } == MH_STATUS::MH_OK;
+        let on = |t: &&*mut c_void| all || matches!(unsafe { MH_EnableHook(**t) }, MH_STATUS::MH_OK | MH_STATUS::MH_ERROR_ENABLED);
+        (cursor.iter().filter(on).count(), dinput.iter().filter(on).count(), xinput.iter().any(|t| on(&t)))
+    })
 }

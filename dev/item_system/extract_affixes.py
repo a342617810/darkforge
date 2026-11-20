@@ -165,9 +165,11 @@ SLOT_BIT = {'head': 1, 'body': 2, 'arm': 4, 'leg': 8}
 #     stack：add 事件加一层、clear 清零、consume 等当前动作做完再清零，max 上限、timeout 秒没加层清零，fx 每层的效果，
 #            stamina / hp：每次加层的加减；log：写 dark_core.log 的名字
 #   rarities：只在这些稀有度出；keystone：规则改变器（护符放进 KEYSTONE_GROUP，游戏本身不让同组护符一起装）
+#   own_group：护符自己一个组（OWN_GROUP 起，比 KEYSTONE_GROUP 优先），和其他护符都不冲突（无形，用户 2026-11-19）
 #   while / stack 挂的效果写 effectEndurance=-1（不限时，引擎负责摘）：限时的效果快到期时状态图标会一直闪（用户 2026-10-28 报的）
 #   老的 CUSTOM 条目也能写 rows / logic（比如霸王的图标、光效）
 KEYSTONE_GROUP = 11190
+OWN_GROUP = 11191       # own_group 的护符从这里起各占一个组，要小于 TIER_GROUP
 ICON_ATK, ICON_STAM = 20406, 20410
 # 人物身上的光效（SpEffectVfxParam，原版的；用户 2026-10-28 要加）：引擎每 0.5 秒续一次效果，持续挂的选没有起手特效的，免得一直闪
 VFX_CALM = 5352        # 腌制龟颈肉（精力恢复，绿）
@@ -387,9 +389,11 @@ RULE_AFFIXES = [
          rows={'buff': lambda v: dict(iconId=ICON_POISE, vfxId=VFX_POISE, effectEndurance=-1.0, saAttackPowerRate=1 + v / 100)},
          logic=[dict(type='stack', add=['guard_hit'], consume=['attack'], max=1, timeout=3.0, fx='buff')]),
     # 血魔法（bd设计.md 3.5）：专注换成血量，低血量更强，打倒敌人回血
-    dict(key='dr_blood_pact', suffix=['Blood Pact', '血契'], slots=('talisman',), icon=18390, vals=(150, 150, 150, 150), rarities=('Legendary',),
-         keystone=True, zh='使用魔法、祷告与战技时，不再消耗专注值，改为消耗血量（专注值消耗量的%s％）',
-         en='Sorceries, incantations and skills no longer cost FP; they cost HP instead (%s%% of the FP cost)',
+    # 用户 2026-11-19「血契传说挡位消耗血量改为专注值的300% 其余缩放」：150 → 300；随后「算了改成500吧 说明也改一下 不用百分比了 用5倍」：
+    # 500（只出传说，其他档同比例也是 500），说明写「专注值消耗量的5倍」（text_val：说明里的数字 = v / 100，规则行仍是 fp_to_hp=500）
+    dict(key='dr_blood_pact', suffix=['Blood Pact', '血契'], slots=('talisman',), icon=18390, vals=(500, 500, 500, 500), rarities=('Legendary',),
+         keystone=True, zh='使用魔法、祷告与战技时，不再消耗专注值，改为消耗血量（专注值消耗量的%s倍）',
+         en='Sorceries, incantations and skills no longer cost FP; they cost HP instead (%s× the FP cost)', text_val=lambda v: v / 100,
          logic=[dict(type='while', fp_to_hp=lambda v: v)]),
     # 用户 2026-11-03：传说提升到 50％（以前 6 / 9 / 12 / 16），去掉战技那一份，只管魔法、祷告；
     # 2026-11-18「血涌的触发条件改到25%血以下」（以前血量低于一半）
@@ -778,9 +782,10 @@ RULE_AFFIXES = [
     # 积木引擎按攻击判定挂 l_r … h_l 四行（rules.rs 的 while hit）；这四行的减伤由 dll\dark_core clash.rs 按武器改（clash.txt）；
     # 不被打断、火花在 DR_DamageLevel（DR_AnyOn clash_*）
     # 无形（用户 2026-11-06「能不能加个词条实现黑夜魔法的效果 不会被读指令」）：这里只要一个标记，逻辑在玩家脚本（sc/hks.py AFFIX_UNSEEN）和 dark_core unseen.rs。
-    # 同日用户「只管远程箭和法术道具 近战不屏蔽」「喝药灵药也不拦截」。只出传说、进规则改变器组：不加伤害，但敌人不再抢攻、闪避，改的是整个战斗的规则
+    # 同日用户「只管远程箭和法术道具 近战不屏蔽」「喝药灵药也不拦截」。只出传说：不加伤害，但敌人不再抢攻、闪避，改的是整个战斗的规则。
+    # 2026-11-19 用户「无形护符设定为和其他护符都不冲突」：不进规则改变器的共用组，自己一个组（own_group）
     dict(key='dr_unseen', suffix=['Unseen', '无形'], slots=('talisman',), icon=18150, vals=(0, 0, 0, 0), rarities=('Legendary',),
-         keystone=True, zh='能让敌人难以察觉你的施法，也不会对你的箭矢、法术和投掷道具作出反应',
+         keystone=True, own_group=True, zh='能让敌人难以察觉你的施法，也不会对你的箭矢、法术和投掷道具作出反应',
          en='Enemies can barely read your casts, and do not react to your arrows, spells or thrown items',
          logic=[]),
     dict(key='dr_clash', suffix=['Clash', '相杀'], slots=('arm', 'talisman'), icon=18290, vals=(60, 60, 60, 60), rarities=('Legendary',),
@@ -2213,7 +2218,8 @@ class Extract:
         armor_w = armor_w[len(armor_w) // 2]
         like = gear[RIME_LIKE]
         groups = {getf(self.AC, row, 'accessoryGroup') for row in self.rows['EquipParamAccessory'].values()}
-        if KEYSTONE_GROUP in groups or KEYSTONE_GROUP in {getf(self.AC, row, 'accessoryGroup') for row in self.Pv['EquipParamAccessory'].rows.values()}:
+        pv_groups = {getf(self.AC, row, 'accessoryGroup') for row in self.Pv['EquipParamAccessory'].rows.values()}
+        if KEYSTONE_GROUP in groups or KEYSTONE_GROUP in pv_groups:
             raise RuntimeError('规则改变器的护符组 %d 已经有人用了' % KEYSTONE_GROUP)
         for c in RULE_AFFIXES:
             rars = c.get('rarities', RAR)
@@ -2224,7 +2230,7 @@ class Extract:
             slots = [s for s in c['slots'] if s in SLOT_BIT]
             f = dict(zh=c['zh'].replace('%s', '#'), en=c['en'].replace('%s', '#').replace('%%', '%'), suffix=list(c['suffix']), group='新词条',
                      sp={}, vals={}, text={}, tal={}, weight={'armor': armor_w if slots else 0, 'talisman': RIME_WEIGHT if tal else 0},
-                     slots=sum(SLOT_BIT[s] for s in slots), keystone=bool(c.get('keystone')))
+                     slots=sum(SLOT_BIT[s] for s in slots), keystone=bool(c.get('keystone')) and not c.get('own_group'))
             made = defaultdict(dict)                    # 行名 → 稀有度 → 编号 / 编号列表
             for k, r_ in enumerate(RAR):
                 if r_ not in rars:
@@ -2233,16 +2239,24 @@ class Extract:
                 f['sp'][r_] = self.spec_row(dict(iconId=-1), pin='sp/%s/%s' % (c['key'], r_))
                 self.make_rows(c, r_, v, made)
                 self.mark_fields(c, f['sp'][r_], made, r_, v)
-                args = tuple(fmt(x) for x in v) if isinstance(v, tuple) else (fmt(v),) * c['zh'].count('%s')
+                tv = c.get('text_val', lambda x: x)       # 说明里的数字可以换算（血契：500 → 「5倍」）
+                args = tuple(fmt(x) for x in tv(v)) if isinstance(v, tuple) else (fmt(tv(v)),) * c['zh'].count('%s')
                 # 数值是 0 的稀有度用没有数字的那句（同 CUSTOM 的 zh0；疫病传说不加抗性）
                 zero = 'zh0' in c and v == 0
                 f['text'][r_] = {'zh': c['zh0'], 'en': c['en0']} if zero else {'zh': c['zh'] % args, 'en': c['en'] % args}
                 f['vals'][r_] = NUM.findall(f['text'][r_]['zh'])
                 if tal:                                 # 护符模板（照血热的模板，换效果、图标、组；规则改变器共用一个组）
                     t = bytearray(self.rows['EquipParamAccessory'][like['tal'][r_]])
-                    g = KEYSTONE_GROUP if c.get('keystone') else TIER_GROUP
-                    while g in groups and not c.get('keystone'):
-                        g += 1
+                    if c.get('own_group'):              # 自己一个组：和其他护符（包括别的规则改变器）都不冲突
+                        g = OWN_GROUP
+                        while g in groups or g in pv_groups:
+                            g += 1
+                        if g >= TIER_GROUP:
+                            raise RuntimeError('单独组的护符太多了（%d 起到 %d 前用完）' % (OWN_GROUP, TIER_GROUP))
+                    else:
+                        g = KEYSTONE_GROUP if c.get('keystone') else TIER_GROUP
+                        while g in groups and not c.get('keystone'):
+                            g += 1
                     groups.add(g)
                     tid = self.pin('EquipParamAccessory', 'tal/%s/%s' % (c['key'], r_), self.free_acc)
                     for fld, val in (('refId', f['sp'][r_]), ('iconId', c['icon']), ('accessoryGroup', g)):
@@ -2259,7 +2273,7 @@ class Extract:
                 f['runtime']['hks'] = {k: [i for r in RAR for i in one(made[name].get(r, -1))] for k, name in c['hks'].items()}
             gear[c['key']] = f
             self.report.append('积木词条 %s（%s%s%s）：%s；规则 %s' % (
-                c['suffix'][1], '、'.join(c['slots']), '，仅' + '/'.join(rars) if len(rars) < len(RAR) else '', '，规则改变器' if c.get('keystone') else '',
+                c['suffix'][1], '、'.join(c['slots']), '，仅' + '/'.join(rars) if len(rars) < len(RAR) else '', ('，规则改变器' + ('（单独护符组）' if c.get('own_group') else '')) if c.get('keystone') else '',
                 ' / '.join(f['text'][r]['zh'] for r in RAR if r in f['text']), [r['type'] for r in rules]))
 
     def custom_shared(self, weapon):

@@ -7,7 +7,7 @@ TEXT0 + 编号那条文字、3 秒后熄灭这 7 个标记，dark_core 等它们
 暗黑商店分阶段解锁（rr/darkshop.py，用户 2026-11-04「每次解锁时提示“暗黑商店已经可以购买新物品” 用魇火那个提示」）：键 shop，放最后。
 要在 nightmare.build、curses.build 之后。"""
 from .common import *  # noqa: F401,F403
-from . import curses as cs, darkshop, nightmare as nm
+from . import containers, curses as cs, darkshop, nightmare as nm
 
 # 8 位，编号 1~255（dev\event_flags\说明.md；sc/notes.py 要求连号）。原来是 93093~93099 七位（最多 127 条），
 # 2026-11-16 加联机赠送的三条后放不下，挪到扫过没人用的 92560~92567（只在显示时临时点亮，挪了不影响存档）
@@ -72,6 +72,9 @@ def build(ctx):
         rows.append(('arena coop helper', '星光碎片不够：这次试炼你只能帮忙，不拿奖励', 'Not enough Starlight Shards: you can help in this trial but get no rewards'))
         rows.append(('arena coop down', '你倒下了：这次试炼给你的奖励会收回', 'You fell. The rewards this trial gave you will be taken back'))
         rows.append(('arena coop lost', '和房主断开了：斗技场试炼结束，奖励保留', 'Lost the host. The Colosseum Trial is over and you keep your rewards'))
+    # 死亡惩罚（用户 2026-11-19，dark_core 的 gear/deathloss.rs）：复活后提示。放最后，不动前面的编号
+    if getattr(ctx, 'containers', None) and containers.death_pct(ctx.S) > 0:
+        rows.append(('death loss', '死亡时遗失了部分未鉴定物品', 'Some unidentified items were lost upon death'))
     if len(rows) >= 1 << len(BITS):
         raise RuntimeError('原版提示：%d 条，%d 个标记放不下' % (len(rows), len(BITS)))
     ctx.notes = rows

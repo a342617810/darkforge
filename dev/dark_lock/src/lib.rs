@@ -18,8 +18,12 @@
 //! 格子左上的锁图标（背包、仓库）：
 //!   - OPEN_FILE（游戏读界面文件）读到 02_020_inventory / 03_050_itembox.gfx 时，用 gfx::patch 往格子元件里加一个
 //!     矢量锁 RngLock，把 MemoryFile 的数据指针换成改好的（磁盘上的文件不动，不管是原版还是别的 mod 的界面文件）；
-//!   - BIND（格子绑定子元素）前用游戏的 ResolvePath 把 RngLock 解析进我们自己分配的元素包装（0x60 字节，不释放），默认隐藏；
-//!   - REFRESH（格子按数据刷新）后按数据 +0x50 的物品实例句柄是否锁定设置可见。
+//!   - BIND（格子绑定子元素）前用游戏的 ResolvePath 把 RngLock 解析进栈上的临时元素包装，原函数之后设成隐藏；
+//!   - REFRESH（格子按数据刷新）后从格子自己的根元素包装（格子 +0，BIND 里游戏把根元素复制到这里）再解析一次 RngLock，
+//!     按数据 +0x50 的物品实例句柄是否锁定设置可见。
+//!   临时包装用完照游戏自己的做法析构（BIND 里同样的「解析 → 设可见 → 析构」）：包装里只有 +0x28 起的值对象（GFx::Value，持有元素的引用）
+//!   要析构（VAL_DTOR）。以前每次 BIND 泄漏一个 0x60 字节的包装（还一直拿着元素的引用），格子地址也一直记着（崩溃风险审查 2026-11-19 第 26 条）。
+//! 游戏脚本覆盖包这次没加载（启动器在 DLL 旁边放 no_menu_text.txt）：文字 4190~4196 不在，不加「锁定 / 送给」（第 17 条；锁图标照常）。
 //! 武器补正格加宽（dark_core 把补正字母换成数字后三位数放不下，用户 2026-10-29）：同一个 OPEN_FILE 读到
 //!   02_055_detailstatus_weapon1 / 03_030_comparison_equip_weapon1.gfx 时用 gfx::widen_scaling 把补正那几格加宽。
 //! 认 eldenring.exe 2.7.1.0（1.17.1）和 2.7.2.0（1.17.2）：按各函数开头的字节认版本，都对不上就什么都不做，只在 dark_lock.log 里记一行。
@@ -60,6 +64,7 @@ struct Rvas {
     refresh: usize,     // 物品格子按数据刷新 (格子, 数据*)
     resolve: usize,     // 元素包装 ResolvePath (根元素*, 输出包装*, 名字) -> 输出包装*
     setvis: usize,      // 元素包装设可见 (包装*, bool)
+    val_dtor: usize,    // 元素包装 +0x28 的值对象析构 (包装 + 0x28)：BIND 里临时包装用完就调它（bind + 0x53 那条 call，matches 里核对）
     /// FINALIZE 开头 16 字节（末尾是调 __chkstk 的 call，偏移随版本变；其他函数的开头各版本一样）
     finalize_head: [u8; 16],
 }
@@ -82,6 +87,7 @@ static VERSIONS: [Rvas; 2] = [
         refresh: 0x900610,
         resolve: 0x74b140,
         setvis: 0x734190,
+        val_dtor: 0xd81600,
         finalize_head: [0x40, 0x55, 0x56, 0x57, 0x41, 0x56, 0x41, 0x57, 0xb8, 0x10, 0x33, 0x00, 0x00, 0xe8, 0x8e, 0xf6],
     },
     // 1.17.2：界面代码整体后移 0x4B0，读文件 / 虚表那一段后移 0x16F0 / 0x22B0
@@ -102,13 +108,14 @@ static VERSIONS: [Rvas; 2] = [
         refresh: 0x900ac0,
         resolve: 0x74b5f0,
         setvis: 0x734640,
+        val_dtor: 0xd82cf0,
         finalize_head: [0x40, 0x55, 0x56, 0x57, 0x41, 0x56, 0x41, 0x57, 0xb8, 0x10, 0x33, 0x00, 0x00, 0xe8, 0x0e, 0x09],
     },
 ];
 
 impl Rvas {
     /// 核对用的（RVA, 开头字节）
-    fn checks(&self) -> [(usize, &[u8]); 13] {
+    fn checks(&self) -> [(usize, &[u8]); 14] {
         [
             (self.open_file, &[0x40, 0x55, 0x53, 0x56, 0x57, 0x41, 0x54, 0x41, 0x56, 0x41, 0x57, 0x48, 0x8d, 0x6c, 0x24, 0xd9]),
             (self.bind, &[0x48, 0x8b, 0xc4, 0x48, 0x89, 0x50, 0x10, 0x55, 0x48, 0x8d, 0x68, 0xa1, 0x48, 0x81, 0xec, 0x90]),
@@ -123,6 +130,8 @@ impl Rvas {
             (self.text_dtor, &[0x48, 0x89, 0x4c, 0x24, 0x08, 0x57, 0x48, 0x83, 0xec, 0x30, 0x48, 0xc7, 0x44, 0x24, 0x20, 0xfe]),
             (self.result2, &[0x48, 0x89, 0x4c, 0x24, 0x08, 0x53, 0x48, 0x83, 0xec, 0x30, 0x48, 0xc7, 0x44, 0x24, 0x28, 0xfe]),
             (self.call_fin, &[0xe8, 0x4e, 0x17, 0xe9, 0xff]), // call FINALIZE：两个版本的相对偏移一样
+            // BIND 开头把根元素复制进格子 +0（mov rdi,rdx; mov rbx,rcx; call 复制）：REFRESH 时从格子 +0 解析 RngLock 靠的就是它
+            (self.bind + 0x23, &[0x48, 0x8b, 0xfa, 0x48, 0x8b, 0xd9, 0xe8, 0xe2, 0xaf, 0xe4, 0xff]),
         ]
     }
 }
@@ -146,6 +155,7 @@ type OpenFileFn = unsafe extern "C" fn(usize, *const u8, i32, i32) -> usize;
 type CellFn = unsafe extern "C" fn(usize, usize, usize, usize) -> usize;
 type ResolveFn = unsafe extern "C" fn(usize, *mut u8, *const u8, usize) -> usize;
 type SetVisFn = unsafe extern "C" fn(*mut u8, u8);
+type ValDtorFn = unsafe extern "C" fn(*mut u8);
 
 static DIR: OnceLock<PathBuf> = OnceLock::new();
 static BASE: AtomicUsize = AtomicUsize::new(0);
@@ -157,8 +167,11 @@ static POPUP_LOGS: AtomicUsize = AtomicUsize::new(0);
 static ORIG_OPEN: AtomicUsize = AtomicUsize::new(0);
 static ORIG_BIND: AtomicUsize = AtomicUsize::new(0);
 static ORIG_REFRESH: AtomicUsize = AtomicUsize::new(0);
-/// 格子 → 它的 RngLock 元素包装
-static CELL_LOCKS: Mutex<Option<HashMap<usize, usize>>> = Mutex::new(None);
+/// 经过 BIND 的格子（REFRESH 只给这些解析 RngLock：格子 +0 的根元素包装是 BIND 里填的）。只记地址，格子换了同一个地址就是同一项
+static CELL_SEEN: Mutex<Option<std::collections::HashSet<usize>>> = Mutex::new(None);
+/// 这次游戏脚本覆盖包没加载（DLL 旁边有 no_menu_text.txt，启动器写的）：「锁定 / 送给」的文字不在，不加这两种选项
+static NO_MENU_TEXT: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+const NO_MENU_TEXT_FILE: &str = "no_menu_text.txt";
 /// 改过的界面文件：（长度, FNV 哈希）→ 改好的字节（MovieDef 会一直用这个指针，所以永不释放）；None = 不用改
 /// 界面文件的改写函数（gfx::patch 加锁图标 / gfx::widen_scaling 加宽补正格）
 type GfxPatch = fn(&[u8]) -> Result<Option<Vec<u8>>, String>;
@@ -314,7 +327,41 @@ fn with_locked<R>(f: impl FnOnce(&mut HashMap<Key, String>) -> R) -> R {
             .unwrap_or_default();
         text.lines().filter_map(parse_line).collect()
     });
+    prune_fresh(map);
     f(map)
+}
+
+// ---- dark_core 的角色身份（who.rs）：认准了一个刚建的角色（游戏时间不到 3 分钟）就清掉那个格子以前的锁定
+// （用户 2026-11-19「收拢」：锁定名单只按格子记，新角色会接着用这个格子以前那个角色的锁定）。dark_core 也会改文件，
+// 这里清内存里的、再存一次，免得下次存名单时把旧的写回去
+type WhoFreshFn = unsafe extern "C" fn(*mut i32) -> u32;
+static WHO_FRESH: AtomicUsize = AtomicUsize::new(0);
+static FRESH_SEEN: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+
+fn who_fresh() -> Option<(u32, i32)> {
+    if WHO_FRESH.load(Ordering::Relaxed) == 0 {
+        let name: Vec<u16> = "dark_core.dll\0".encode_utf16().collect();
+        let m = unsafe { GetModuleHandleW(windows::core::PCWSTR(name.as_ptr())) }.ok()?;
+        let f = unsafe { windows::Win32::System::LibraryLoader::GetProcAddress(m, windows::core::s!("dr_who_fresh")) }?;
+        WHO_FRESH.store(f as usize, Ordering::Relaxed);
+    }
+    let f = unsafe { std::mem::transmute::<usize, WhoFreshFn>(WHO_FRESH.load(Ordering::Relaxed)) };
+    let mut slot = -1;
+    let seq = unsafe { f(&mut slot) };
+    Some((seq, slot))
+}
+
+fn prune_fresh(map: &mut HashMap<Key, String>) {
+    let Some((seq, slot)) = who_fresh() else { return };
+    if seq == 0 || FRESH_SEEN.swap(seq, Ordering::Relaxed) == seq || slot < 0 {
+        return;
+    }
+    let before = map.len();
+    map.retain(|k, _| k.0 != slot);
+    if map.len() != before {
+        save_locked(map);
+        log(&format!("格子 {slot} 是刚建的角色：清掉这个格子以前的 {} 条锁定", before - map.len()));
+    }
 }
 
 fn save_locked(map: &HashMap<Key, String>) {
@@ -562,7 +609,7 @@ unsafe extern "C" fn popup_hook(a: usize, b: usize, info: usize, ctx: usize, e: 
 }
 
 unsafe extern "C" fn finalize_hook(builder: usize, out: usize, x: usize, y: usize) -> usize {
-    if IN_POPUP.with(|c| c.get()) > 0 {
+    if IN_POPUP.with(|c| c.get()) > 0 && !NO_MENU_TEXT.load(Ordering::Relaxed) {
         if let Some(key) = *CURRENT.lock().unwrap() {
             if let Err(e) = std::panic::catch_unwind(|| unsafe { add_lock_item(builder, key) }) {
                 log(&format!("加选项出错：{e:?}"));
@@ -681,21 +728,37 @@ unsafe extern "C" fn open_file_hook(opener: usize, path: *const u8, flags: i32, 
 #[repr(C, align(16))]
 struct Elem([u8; 0x60]);
 
-unsafe extern "C" fn bind_hook(cell: usize, root: usize, x: usize, y: usize) -> usize {
-    // 根元素是按值传进来的临时对象，原函数结尾会析构它，所以要在调原函数之前解析
-    let w = Box::leak(Box::new(Elem([0; 0x60]))).0.as_mut_ptr();
+/// 在 root（元素包装）下解析 RngLock，放进栈上的临时包装 e（ResolvePath 在输出包装上从头构造，不看原来的内容）
+unsafe fn resolve_lock(root: usize, e: &mut Elem) -> *mut u8 {
+    let w = e.0.as_mut_ptr();
     let name = [gfx::LOCK_NAME.as_bytes(), b"\0"].concat();
     unsafe {
         let resolve: ResolveFn = std::mem::transmute(addr(rv().resolve));
         resolve(root, w, name.as_ptr(), 0);
     }
-    let orig: CellFn = unsafe { std::mem::transmute(ORIG_BIND.load(Ordering::Relaxed)) };
-    let r = unsafe { orig(cell, root, x, y) };
+    w
+}
+
+/// 设可见，然后照游戏的做法析构临时包装：只有 +0x28 的值对象要析构（放掉对元素的引用），前面的部分没有要释放的
+unsafe fn set_vis_and_drop(w: *mut u8, show: bool) {
     unsafe {
         let setvis: SetVisFn = std::mem::transmute(addr(rv().setvis));
-        setvis(w, 0);
+        setvis(w, show as u8);
+        let dtor: ValDtorFn = std::mem::transmute(addr(rv().val_dtor));
+        dtor(w.add(0x28));
     }
-    CELL_LOCKS.lock().unwrap().get_or_insert_with(HashMap::new).insert(cell, w as usize);
+}
+
+unsafe extern "C" fn bind_hook(cell: usize, root: usize, x: usize, y: usize) -> usize {
+    // 根元素是按值传进来的临时对象，原函数结尾会析构它，所以要在调原函数之前解析；原函数之后设成隐藏、析构
+    let mut e = Elem([0; 0x60]);
+    let w = unsafe { resolve_lock(root, &mut e) };
+    let orig: CellFn = unsafe { std::mem::transmute(ORIG_BIND.load(Ordering::Relaxed)) };
+    let r = unsafe { orig(cell, root, x, y) };
+    unsafe { set_vis_and_drop(w, false) };
+    if let Ok(mut g) = CELL_SEEN.lock() {
+        g.get_or_insert_with(Default::default).insert(cell);
+    }
     r
 }
 
@@ -732,15 +795,15 @@ mod tests {
 unsafe extern "C" fn refresh_hook(cell: usize, data: usize, x: usize, y: usize) -> usize {
     let orig: CellFn = unsafe { std::mem::transmute(ORIG_REFRESH.load(Ordering::Relaxed)) };
     let r = unsafe { orig(cell, data, x, y) };
-    if data != 0 {
-        let w = CELL_LOCKS.lock().unwrap().as_ref().and_then(|m| m.get(&cell).copied());
-        if let Some(w) = w {
-            let h = unsafe { *((data + DATA_HANDLE) as *const u32) };
-            let show = is_locked(h);
-            unsafe {
-                let setvis: SetVisFn = std::mem::transmute(addr(rv().setvis));
-                setvis(w as *mut u8, show as u8);
-            }
+    let seen = data != 0 && CELL_SEEN.lock().is_ok_and(|g| g.as_ref().is_some_and(|s| s.contains(&cell)));
+    if seen {
+        let h = unsafe { *((data + DATA_HANDLE) as *const u32) };
+        let show = is_locked(h);
+        // 格子 +0 是它的根元素包装（BIND 开头游戏复制进来的，REFRESH 自己也在用）：从它再解析一次，用完析构，不留着
+        let mut e = Elem([0; 0x60]);
+        unsafe {
+            let w = resolve_lock(cell, &mut e);
+            set_vis_and_drop(w, show);
         }
     }
     r
@@ -785,6 +848,13 @@ fn matches(base: usize, v: &Rvas) -> Result<(), String> {
     if vt0 != base + v.memfile_vt0 {
         return Err(format!("MemoryFile 虚表对不上（{:#x}）", vt0.wrapping_sub(base)));
     }
+    // BIND 里析构临时包装的那条：lea rcx,[rbp+17h]（临时包装 + 0x28）; call 值对象析构
+    let at = base + v.bind + 0x4f;
+    let b = unsafe { std::slice::from_raw_parts(at as *const u8, 9) };
+    let tgt = (at + 9).wrapping_add(i32::from_le_bytes([b[5], b[6], b[7], b[8]]) as isize as usize);
+    if b[..5] != [0x48, 0x8d, 0x4d, 0x17, 0xe8] || tgt != base + v.val_dtor {
+        return Err(format!("BIND 里值对象析构的调用对不上（{}）", hex(b)));
+    }
     Ok(())
 }
 
@@ -822,6 +892,10 @@ pub unsafe extern "system" fn DllMain(hmodule: u64, reason: u32, _reserved: *mut
     match install() {
         Ok(v) => log(&format!("dark_lock 已加载（eldenring.exe {}）：物品弹出菜单里加「锁定 / 解锁」，背包 / 仓库格子显示锁图标", v.version)),
         Err(e) => log(&format!("dark_lock 不工作：{e}")),
+    }
+    if dir().join(NO_MENU_TEXT_FILE).exists() {
+        NO_MENU_TEXT.store(true, Ordering::Relaxed);
+        log("这次启动游戏脚本覆盖包没有加载（有 no_menu_text.txt）：菜单文字不在，物品菜单里不加「锁定 / 送给」（锁图标照常）");
     }
     1
 }

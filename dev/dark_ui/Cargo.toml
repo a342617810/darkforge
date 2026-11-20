@@ -16,7 +16,8 @@ required-features = ["preview"]
 preview = ["dep:png"]
 
 [dependencies]
-hudhook = "0.9.3"
+# hudhook 用本地改过的副本（dev\vendor\hudhook，改了什么见 dev\vendor\README-dark_reforged.txt）
+hudhook = { path = "../vendor/hudhook" }
 bcdec_rs = "0.2.1"
 miniz_oxide = "0.8"
 png = { version = "0.17", optional = true }

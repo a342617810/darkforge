@@ -68,6 +68,8 @@ def build(ctx):
     if ml.get('enabled', True):
         merchant_loot(ctx, x, ml)
     ctx.bnd.put('ShopLineupParam.param', x['P'].serialize())
+    # 开局装备编号段到这里都分完了（开局装备、支线、追忆、大蛇狩猎矛、英雄防具、商人的小极品）：没用上的位置建占位行，各世界编号一致
+    startgear.fill_block(ctx)
 
 
 def kind(x, row):

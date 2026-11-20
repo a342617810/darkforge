@@ -391,6 +391,14 @@
           '<div class="pick"><button class="pick-b' + (ei === 'on' ? ' on' : '') + '" data-enemyinfo="on">开</button>' +
           '<button class="pick-b' + (ei === 'off' ? ' on' : '') + '" data-enemyinfo="off">关</button></div>');
       }
+      if (c.key === 'save') {          // 定时备份（用户 2026-11-19：代替启动前 / 恢复前备份，默认 10 分钟，设置里能改；dfl\backup.py）
+        var bm = (S && S.backupMin) || 10, mins = (S && S.backupMins) || [5, 10, 15, 30, 60], keep = (S && S.backupKeep) || 5;
+        html += row('定时备份间隔（分钟）', '游戏开着时定时把存档和角色记录存成压缩包（没变就不存），退出游戏后再存一份，只留最近 ' + keep +
+            ' 份。改了马上生效。',
+          '<div class="pick">' + mins.map(function (m) {
+            return '<button class="pick-b' + (m === bm ? ' on' : '') + '" data-bkmin="' + m + '" title="每 ' + m + ' 分钟">' + m + '</button>';
+          }).join('') + '</div>');
+      }
       if (c.key === 'update') {
         var ac = store('autocheck') !== 'off';
         html += row('自动检查更新', '启动器开着时，每 5 分钟在后台联网看一下有没有新版本（打开时先看一次），有的话右上角的齿轮按钮上出红点，左下角也会提示。不会自己下载，要你点了才更新。',
@@ -410,6 +418,14 @@
         var v = b.getAttribute('data-enemyinfo');
         if (S) S.enemyInfo = v;
         bridge.post('enemyinfo', { value: v });
+        renderCats();
+      });
+    });
+    $$('#rows [data-bkmin]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var v = +b.getAttribute('data-bkmin');
+        if (S) S.backupMin = v;
+        bridge.post('backupint', { value: v });
         renderCats();
       });
     });

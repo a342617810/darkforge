@@ -25,13 +25,13 @@
 use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Mutex, OnceLock};
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
 use eldenring::cs::{
     AttackElementCorrectParam, CSEventFlagMan, CalcCorrectGraph, ChrInsExt, EquipInventoryData, EquipParamAccessory, EquipParamGoods,
-    EquipParamProtector, EquipParamWeapon, GameDataMan, GameMan, ReinforceParamWeapon,
+    EquipParamProtector, EquipParamWeapon, GameDataMan, ReinforceParamWeapon,
     ItemLotParam_map, PlayerGameData, ShopLineupParam, SoloParam, SoloParamRepository, WorldChrMan,
 };
 use fromsoftware_shared::FromStatic;
@@ -41,6 +41,7 @@ use crate::{dir, log};
 
 mod ashes;
 mod batch;
+mod deathloss;
 mod devgive;
 mod gift;
 mod overlimit;
@@ -201,6 +202,8 @@ struct Items {
     dirid: Option<DirId>,
     /// 掉落池（pool 行，gear/batch.rs）：鉴定 / 许愿做某类某档时按几率换成固定物品
     pools: Vec<batch::Pool>,
+    /// 死亡惩罚（deathloss 行，gear/deathloss.rs）：真死了扣掉背包里未鉴定道具的百分比；0 = 不扣
+    deathloss: f64,
 }
 
 /// 定向鉴定：请求标记、类型序号写进的标记（第一个、几位）、稀有度写进的标记（第一个、几位；5 = 全部）、
@@ -712,6 +715,8 @@ fn parse_items(text: &str) -> Option<Items> {
             }
             ("deliver", 4..) => (d.deliver_lot, d.deliver_rows, d.deliver_flag) = (f[1].parse().ok()?, f[2].parse().ok()?, f[3].parse().ok()?),
             ("identify", 2..) => d.identify_flag = f[1].parse().ok()?,
+            // 看不懂当没有（别的定义照用）
+            ("deathloss", 2..) => d.deathloss = f[1].parse::<f64>().ok().filter(|v| v.is_finite() && *v > 0.0).map_or(0.0, |v| v.min(100.0)),
             // 掉落池一行看不懂只丢这一行（别的定义照用）
             ("pool", 7..) => d.pools.extend(batch::Pool::parse(&f)),
             ("dirident", 9..) => {
@@ -2627,6 +2632,10 @@ impl Pending {
 struct St {
     who: Option<(i32, String)>,
     frames: u32,
+    /// 进存档时接过来的记录是哪来的（格子的文件 / 旧记录里的一份）、几件；没接（格子里没有这个名字的）是 None。刚建的角色要把它挪开
+    inherit: Option<(String, usize)>,
+    /// 已经按「刚建的角色」处理过的身份编号（who::fresh）
+    fresh_gen: Option<u64>,
     /// 这个角色的记录：(类, 容器序号) → 配方
     recs: HashMap<(usize, u32), Rec>,
     /// 容器第一次改之前，自己留的字段的样子
@@ -2670,6 +2679,8 @@ struct St {
     unsell: HashMap<(usize, u32), i32>,
     /// 词条数值随机：身上的随机词条挂的占位行（gear/valfx.rs）
     val: valfx::ValSt,
+    /// 死亡惩罚：看血量认真死了没有、欠着没扣的、复活后要提示的（gear/deathloss.rs）
+    death: deathloss::DeathSt,
 }
 
 /// 别的模块（唤声船的碎片 / 战灰）和装备回收要发的东西：（掉落表类别, 编号, 个数），一行一格；新装备系统没在发货时借发货表发
@@ -2938,7 +2949,21 @@ pub(super) fn rec_set_aside(path: &std::path::Path, name: &str) -> bool {
     if old.is_empty() || old == name {
         return false;
     }
-    let Some(dir) = path.parent().map(|p| p.join(OLD_DIR)) else { return false };
+    let dst = rec_aside_copy(path);
+    log(&format!(
+        "角色记录：{} 原来是「{old}」的，现在要写「{name}」的；原来那份{}",
+        path.display(),
+        dst.as_ref().map_or("另存失败（照样写新的）".to_string(), |p| format!("另存到 {}", p.display()))
+    ));
+    dst.is_some()
+}
+
+/// 把 path 复制到 旧记录\<文件名>_<时间>.txt（不管是谁的；刚建的角色挪开同名旧角色的记录也用它）；没有这个文件或复制失败返回 None
+pub(super) fn rec_aside_copy(path: &std::path::Path) -> Option<PathBuf> {
+    if !path.is_file() {
+        return None;
+    }
+    let dir = path.parent()?.join(OLD_DIR);
     let stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or("record");
     let t: String = crate::now_text().chars().filter(|c| c.is_ascii_digit()).collect();
     let mut dst = dir.join(format!("{stem}_{t}.txt"));
@@ -2947,14 +2972,27 @@ pub(super) fn rec_set_aside(path: &std::path::Path, name: &str) -> bool {
         k += 1;
         dst = dir.join(format!("{stem}_{t}_{k}.txt"));
     }
-    let ok = fs::create_dir_all(&dir).and_then(|_| fs::copy(path, &dst)).is_ok();
-    log(&format!(
-        "角色记录：{} 原来是「{old}」的，现在要写「{name}」的；原来那份{} {}",
-        path.display(),
-        if ok { "另存到" } else { "另存失败（照样写新的）：" },
-        dst.display()
-    ));
-    ok
+    fs::create_dir_all(&dir).and_then(|_| fs::copy(path, &dst)).ok().map(|_| dst)
+}
+
+/// 刚建的角色：这个格子以前的锁定（锁定名单只按格子记）清掉。dark_lock 自己内存里的那份经 dr_who_fresh 知道、也会清
+fn lock_clear_slot(slot: i32) {
+    let p = data_dir().join(LOCK_FILE);
+    let Ok(text) = fs::read_to_string(&p) else { return };
+    let mut gone = 0;
+    let keep: Vec<&str> = text
+        .lines()
+        .filter(|l| {
+            let mine = !l.starts_with('#') && l.split('\t').next().and_then(|s| s.trim_start_matches('\u{feff}').parse::<i32>().ok()) == Some(slot);
+            gone += mine as usize;
+            !mine
+        })
+        .collect();
+    if gone == 0 {
+        return;
+    }
+    let ok = fs::write(&p, keep.join("\n") + "\n").is_ok();
+    log(&format!("锁定名单：格子 {slot} 是刚建的角色，清掉这个格子以前的 {gone} 条锁定{}", if ok { "" } else { "（写不进去）" }));
 }
 
 /// path 里不是 name 的记录：到 旧记录 里找同一个文件名开头（同一格子）、角色名是 name 的，最新的一份 → (路径, 内容)
@@ -3029,9 +3067,21 @@ fn rec_text(name: &str, recs: &HashMap<(usize, u32), Rec>, sold: &[Option<Rec>],
     out
 }
 
+/// 记录要等身份认准（who.rs：人物进到世界里、「格子 + 名字」稳定约 1 秒）才写（用户 2026-11-19「改」「收拢」：
+/// 建新角色时游戏报的格子号还是上一个角色的、名字已经是新角色的，以前进存档那一刻就把新角色的开局装备写进了上一个角色的格子；
+/// 三份诊断包里这种临时的格子号都只出现在「人物还没生成」时，真正的格子号在人物出现之前就换好了）。在那之前要写的先欠着，
+/// 认准后补写（tick 里）；换了角色就作废（那份是上一个身份的）。旧记录（rec_set_aside）留作第二道保险
+static REC_OWED: AtomicBool = AtomicBool::new(false);
+
 fn rec_save(who: &(i32, String), st: &St) {
     if who.1.is_empty() {
         log("新装备系统：角色名是空的，不写记录（免得把这个格子的记录覆盖掉）");
+        return;
+    }
+    if !crate::who::is_confirmed(who) {
+        if !REC_OWED.swap(true, Ordering::Relaxed) {
+            log(&format!("新装备系统：格子 {}「{}」还没进到世界里，记录先不写，人物出现、稳定后再写", who.0, who.1));
+        }
         return;
     }
     let p = rec_path(who.0);
@@ -3369,15 +3419,19 @@ fn on_load(d: &'static Defs, st: &mut St, who: &(i32, String), pgd: &PlayerGameD
     unsell_tick(st, None); // 上一个角色锁定的改回能卖，这个角色的稳定后再按它的名单改
     let text = rec_read(&format!("{REC_PREFIX}{}.txt", who.0)).unwrap_or_default();
     let mut loaded = rec_load(&text, &who.1);
+    let mut from = rec_path(who.0).display().to_string();
     if loaded.is_none() {
         // 这一格的记录是别的角色的（或者没有）：到 旧记录 里找这个角色以前被挪开的那份
         if let Some((p, t)) = rec_find_aside(&rec_path(who.0), &who.1) {
             loaded = rec_load(&t, &who.1);
+            from = p.display().to_string();
             if let Some(l) = &loaded {
                 log(&format!("新装备系统：格子 {} 的记录不是「{}」的，从 {} 找回 {} 件（回购 {} 件）", who.0, who.1, p.display(), l.0.len(), l.1.len()));
             }
         }
     }
+    // 接过来的（同格子同名的记录）：如果这是刚建的角色（认准时才知道），start_fresh 把它挪开
+    st.inherit = loaded.as_ref().map(|l| l.0.len() + l.1.len() + l.2.len()).filter(|&n| n > 0).map(|n| (from, n));
     let (recs, sold, shop) = loaded.unwrap_or_default();
     st.recs = recs;
     // 武器商店上一批：先留着（容器照记录重建，稳定后在背包 / 仓库里的算买走了、记进记录），这次进存档重新摆货
@@ -3430,6 +3484,44 @@ fn on_load(d: &'static Defs, st: &mut St, who: &(i32, String), pgd: &PlayerGameD
         }
     ));
     texts_fresh();
+}
+
+/// 刚建的角色（who.rs：认准时游戏时间不到 3 分钟；用户 2026-11-19「收拢」「按游戏时间认」）：不接格子里原来的记录
+/// （同格子同名的旧角色的，或者从旧记录里找回的同名的）。原来格子里那份复制进 旧记录、记录清空，开局装备的参数行和文字照全局
+/// 那份（建角色界面看到的）重写，再把身上的开局装备记进来、写记录。骨灰同样（ashes::start_fresh）；这个格子的锁定名单清掉
+fn start_fresh(d: &'static Defs, st: &mut St, who: &(i32, String), pgd: &PlayerGameData) {
+    lock_clear_slot(who.0);
+    ashes::start_fresh(who);
+    let Some((from, n)) = st.inherit.take() else {
+        log(&format!("新装备系统：格子 {}「{}」是刚建的角色，格子里没有要接的记录", who.0, who.1));
+        return;
+    };
+    let path = rec_path(who.0);
+    // 接的是这个格子的文件（同名）：复制一份进旧记录再盖掉；接的是旧记录里的一份：它本来就在那里，格子的文件写的时候照常另存
+    let kept = if from == path.display().to_string() { rec_aside_copy(&path) } else { None };
+    st.recs.clear();
+    st.sold.clear();
+    st.shop_prev.clear();
+    st.bb_dirty = d.items.buyback.is_some();
+    let starts = start_recs(d);
+    let mut bad = 0;
+    for r in starts {
+        if write_row(d, st, r).is_err() {
+            bad += 1;
+        }
+        write_texts(d, r);
+    }
+    texts_fresh();
+    log(&format!(
+        "新装备系统：格子 {}「{}」是刚建的角色，不接 {from} 里的 {n} 件{}；开局装备照建角色时的那份重写 {} 件{}",
+        who.0,
+        who.1,
+        kept.map_or(String::new(), |p| format!("（原来那份复制到 {}）", p.display())),
+        starts.len() - bad,
+        if bad > 0 { format!("（{bad} 件失败）") } else { String::new() }
+    ));
+    record_start(d, st, who, pgd);
+    rec_save(who, st); // 身上没有要记的开局装备时 record_start 不写：这里写一次，盖掉格子里的旧记录
 }
 
 /// 开局装备 / 追忆换的武器（items.txt 的 start 行）：身上 / 仓库里有、记录里还没有的，记下现在这一份
@@ -4544,25 +4636,31 @@ pub fn tick() {
             // 回到主菜单：开局装备换回全局那份（建新角色时看到、拿到的是这次抽的）
             (st.start_rows, st.start_tries, st.start_wait) = (false, 0, 0);
         }
+        if REC_OWED.swap(false, Ordering::Relaxed) {
+            log("新装备系统：回到主菜单时角色还没进到世界里，它欠着的记录不写");
+        }
         st.who = None;
         st.frames = 0;
+        st.death = Default::default(); // 死亡惩罚欠着的不带到下一个角色
         return;
     }
-    let Some(slot) = unsafe { GameMan::instance() }.ok().map(|g| g.save_slot).filter(|s| *s >= 0) else { return };
-    let len = pgd.character_name.iter().position(|&c| c == 0).unwrap_or(pgd.character_name.len());
-    let who = (slot, String::from_utf16_lossy(&pgd.character_name[..len]));
-    if who.1.is_empty() {
-        // 进存档的头几帧角色名还没读进来：等有了名字再按记录重建。以前用空名字也算进存档，记录头对不上就当没有、
-        // 再把开局装备按空名字写回去，把这个格子的记录覆盖掉了（生成的装备读档后全变回没改写的样子，用户 2026-10-28 报的）
-        return;
-    }
+    // 身份照 who.rs（格子 + 角色名；格子号是负的、名字还没读进来的那几帧照旧：以前用空名字也算进存档，把这个格子的记录
+    // 按空名字覆盖掉了，用户 2026-10-28 报的）
+    let Some(who) = crate::who::current() else { return };
     if st.who.as_ref() != Some(&who) {
+        if REC_OWED.swap(false, Ordering::Relaxed) {
+            // 上一个身份没认准就换了（多半是建新角色时那个临时的格子号）：它欠着的记录不写
+            log(&format!("新装备系统：{} 没进到世界里就换成了格子 {}「{}」，它欠着的记录不写", st.who.as_ref().map_or("（没有）".to_string(), |w| format!("格子 {}「{}」", w.0, w.1)), who.0, who.1));
+        }
         st.who = Some(who.clone());
         st.frames = 0;
+        st.death = Default::default();
         on_load(d, st, &who, pgd);
         return;
     }
     texts_tick(d, st);
+    // 死亡惩罚：放在「人物不在场就返回」前面（死亡画面后读图时也要接着看）
+    deathloss::tick(d, st, pgd);
     // 人物不在场（主菜单、建新角色、读图）：这时背包里可能已经是别的角色——建新角色时格子号还是上一个存档的，名字也可能一样，
     // 认不出换了人（2026-11-01 用户：格子 7 的角色读着时回主菜单建了新角色，回购拿新角色的背包一比，把上一个角色的 132 件
     // 当成卖掉、挤掉，记录就丢了；开局装备也记错了格子）。不碰记录、不数背包，回来后重新数、不跟离开前的比；稳定帧数只数在场的
@@ -4571,6 +4669,15 @@ pub fn tick() {
         return;
     }
     st.frames = st.frames.saturating_add(1);
+    // 刚建的角色（who.rs 认准时游戏时间不到 3 分钟）：不接格子里原来的记录。要在补写前面（不然先把接过来的写回去）
+    if let Some(g) = crate::who::fresh(&who).filter(|&g| st.fresh_gen != Some(g)) {
+        st.fresh_gen = Some(g);
+        start_fresh(d, st, &who, pgd);
+    }
+    if crate::who::is_confirmed(&who) && REC_OWED.swap(false, Ordering::Relaxed) {
+        log(&format!("新装备系统：格子 {}「{}」已经进到世界里，补写记录", who.0, who.1));
+        rec_save(&who, st);
+    }
     deliver_check(d, st, pgd, &who);
     gift::tick(d, st, pgd, &who); // 联机装备赠送（gear/gift.rs）：先认刚到的赠送，再开新的一批；要在回购之前（送走的不进回购商店）
     if st.pending.is_none() && st.frames >= 60 {
@@ -4700,6 +4807,24 @@ pub fn tick() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// 刚建的角色挪开旧记录：rec_aside_copy 不管名字都复制进 旧记录（没有文件时不复制）
+    #[test]
+    fn aside_copy_any_name() {
+        let dir = std::env::temp_dir().join(format!("dr_rec_copy_{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        let p = dir.join("items_0.txt");
+        assert!(rec_aside_copy(&p).is_none(), "没有文件");
+        fs::write(&p, "name\tD\nw\t1\t0\t100\n").unwrap();
+        let a = rec_aside_copy(&p).expect("同名也复制");
+        let b = rec_aside_copy(&p).expect("同一秒再复制一份");
+        assert_ne!(a, b);
+        assert!(a.starts_with(dir.join(OLD_DIR)) && a.file_name().unwrap().to_string_lossy().starts_with("items_0_"));
+        assert_eq!(fs::read_to_string(&a).unwrap(), "name\tD\nw\t1\t0\t100\n");
+        assert_eq!(rec_find_aside(&p, "D").map(|x| x.1), Some("name\tD\nw\t1\t0\t100\n".to_string()));
+        let _ = fs::remove_dir_all(&dir);
+    }
 
     /// 角色记录：写别的角色前把旧的另存到 旧记录\，读档时按「同一格子 + 角色名」找回最新那份；格子 1 不会拿到格子 10 的
     #[test]

@@ -77,13 +77,73 @@ def tool():
     return TOOL_DIR, ''
 
 
+def msb_ok(blob):
+    """地图文件（DCX）是不是完整的：压缩数据和头里写的一样长、能解开、解开的长度对、开头是 MSB。写到一半被打断的半截文件、空文件都不算。
+    解压要的 oo2core 找不到时（离线做固定地图）只看长度"""
+    try:
+        dcs = blob.index(b'DCS\0')
+        usize, csize = struct.unpack_from('>II', blob, dcs + 4)
+        dca = blob.find(b'DCA\0', 0, 0x100)
+        start = dca + struct.unpack_from('>I', blob, dca + 4)[0] if dca >= 0 else dcs + 12
+        if csize <= 0 or len(blob) < start + csize:
+            return False
+        try:
+            raw = erlib.dcx_decompress(blob)
+        except FileNotFoundError:
+            return True
+        return len(raw) == usize and raw[:4] == b'MSB '
+    except Exception:
+        return False
+
+
+def read_cache(path):
+    """读缓存的地图（cache\\graces / arena / bossarena / lostarena 共用）：没有或者坏了（不完整）返回 None，坏的删掉，当没有缓存重做
+    （崩溃风险审查 2026-11-19 第 8 条：以前文件在就用，写到一半被打断的半截文件会一直被复用）"""
+    if not os.path.isfile(path):
+        return None
+    blob = open(path, 'rb').read()
+    if msb_ok(blob):
+        return blob
+    try:
+        os.remove(path)
+    except OSError:
+        pass
+    return None
+
+
+def write_cache(path, blob):
+    """写缓存的地图：先写临时文件再换上去（os.replace），中途被打断只留下 .tmp，不会留半截的缓存。
+    写不了（杀毒软件占着之类）就不缓存，下次重做，不影响这次的结果"""
+    tmp = path + '.tmp'
+    try:
+        with open(tmp, 'wb') as f:
+            f.write(blob)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp, path)
+    except OSError:
+        try:
+            os.remove(tmp)
+        except OSError:
+            pass
+
+
+def checked_output(path, what):
+    """msbtool / msbport 写出的地图：读进来并检查完整（不完整抛 RuntimeError，不进缓存也不进覆盖包）"""
+    out = open(path, 'rb').read()
+    if not msb_ok(out):
+        raise RuntimeError('%s 写出的地图不完整' % what)
+    return out
+
+
 def add_parts(src, key):
     """在 src 这张图上加 key 的部件（msbtool clone，按顺序），返回新地图的字节；按来源内容缓存。失败抛 RuntimeError"""
     raw = open(src, 'rb').read()
     h = hashlib.sha1(raw + repr(SPEC[key]).encode()).hexdigest()[:20]
     cached = os.path.join(CACHE_DIR, '%s_%s.msb.dcx' % (key, h))
-    if os.path.isfile(cached):
-        return open(cached, 'rb').read()
+    hit = read_cache(cached)
+    if hit is not None:
+        return hit
     d, why = tool()
     if not d:
         raise RuntimeError(why)
@@ -94,14 +154,14 @@ def add_parts(src, key):
         r = subprocess.run(args, cwd=d, capture_output=True, text=True, timeout=300, creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
         if r.returncode != 0 or not r.stdout.strip().endswith('ok'):
             raise RuntimeError('msbtool clone %s 失败：%s' % (new, (r.stdout + r.stderr).strip()[-200:]))
-    out = open(work[-1], 'rb').read()
+    out = checked_output(work[-1], 'msbtool clone')
     for p in work:
         os.remove(p)
     os.makedirs(CACHE_DIR, exist_ok=True)
-    for old in os.listdir(CACHE_DIR):                 # 同一个赐福只留最新的一份
+    for old in os.listdir(CACHE_DIR):                 # 同一个赐福只留最新的一份（上次中途打断留下的 .tmp 也删）
         if old.startswith(key + '_'):
             os.remove(os.path.join(CACHE_DIR, old))
-    open(cached, 'wb').write(out)
+    write_cache(cached, out)
     return out
 
 
