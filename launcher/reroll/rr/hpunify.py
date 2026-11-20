@@ -160,7 +160,8 @@ def build(ctx):
     dlc_b = int(c['dlc_band_from'])
     goal_b = {s: med[g] * boss_mult[min(g, len(boss_mult) - 1)] if g in med else None for s, g in ((False, gb[0]), (True, gb[1]))}
     # 斗技场试炼（rr/arena.py）的敌人也按这里的算法挂高难度倍率（n / an 行）：把要用的留给它
-    ctx.hpu_calc = dict(sp_of=sp_of, k_mob=k_mob, goal_b=goal_b, dlc_b=dlc_b, lo=lo, hi=hi)
+    # mob_goal / dlc_from：小怪本体、DLC 的目标（斗技场死亡以上照 lock_tiers 选本体 / DLC 目标时换算用，用户 2026-11-20）
+    ctx.hpu_calc = dict(sp_of=sp_of, k_mob=k_mob, goal_b=goal_b, dlc_b=dlc_b, lo=lo, hi=hi, mob_goal=goal, dlc_from=dlc_from)
 
     def tness(nid, b):
         return 1.0 if nid in neutral else van(nid) / med[b]
@@ -228,7 +229,7 @@ def build(ctx):
         def asp_of(k):
             j = round(math.log(min(akmax, max(1.0, k))) / math.log(step))
             return None if j == 0 else abase + j - 1
-        ctx.hpu_calc.update(k_atk=k_atk, asp_of=asp_of)
+        ctx.hpu_calc.update(k_atk=k_atk, asp_of=asp_of, atk_goal=a_goal)
         a_ent, a_npc, a_t = {}, {}, {}
         for kind, key, t in U['mobs']:
             sp = asp_of(k_atk(t))

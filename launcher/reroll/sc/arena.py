@@ -61,8 +61,8 @@ SHOW_SECS = 3.0
 # 类型 32 显示的是 GR_MenuText 331315（STALEMATE，中文版写 DRAW；2026-11-10 用户游戏里看到的，以前以为是 VICTORY 331314）。
 # 只有联机竞技场打平会用到它，那里也会显示成 TRIAL COMPLETE
 BANNER_TYPE, BANNER_TEXT = 32, 331315
-# 各竞技场的敌人强度（确认框里写，用户 2026-11-10）：0 王城、1 盖利德、2 宁姆格福
-STRENGTH = {0: ('幽影之地后期', 'late Realm of Shadow'), 1: ('王城', 'Leyndell, Royal Capital'), 2: ('利耶尼亚', 'Liurnia of the Lakes')}
+# 各竞技场的敌人强度（确认框里写，用户 2026-11-10）：0 王城、1 盖利德、2 宁姆格福。王城 2026-11-20 起是本体最高的一档（rr/arena.py tiers，以前幽影之地后期）
+STRENGTH = {0: ('法姆亚兹拉、圣树', 'Crumbling Farum Azula and the Haligtree'), 1: ('王城', 'Leyndell, Royal Capital'), 2: ('利耶尼亚', 'Liurnia of the Lakes')}
 RUN_ZH = '斗技场试炼：%d 波（%d 个星光碎片）'
 RUN_EN = 'Colosseum Trial: %d waves (%d Starlight Shard%s)'
 

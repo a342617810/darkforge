@@ -149,6 +149,9 @@ struct Def {
     cat: [f32; 3],
     /// (当前档标记起点, 档数, 普通是第几档)
     diff: Option<(u32, usize, usize)>,
+    /// 死亡以上的奖励（lockrew 行）：(稀有度, 难度档)；试炼开始时是这几档，三个竞技场的未鉴定物品都用这个稀有度
+    /// （用户 2026-11-20「死亡以上的竞技场的奖励统一为幽影地传说」）
+    lockrew: Option<(usize, Vec<usize>)>,
     dmult: Vec<[f32; 4]>,
     /// 场次（1 起）→ (波数, 碎片, 全部打完多给几件, 全部打完退还几个碎片)
     runs: Vec<(usize, u32, u32, u32)>,
@@ -339,6 +342,9 @@ fn parse(text: &str) -> Option<Def> {
             "items" => (d.items_e, d.items_b, d.ash_b) = (n(1)?, n(2)?, n(3)?),
             "cat" => d.cat = [n(1)? as f32, n(2)? as f32, n(3)? as f32],
             "diff" => d.diff = Some((n(1)?, n(2)? as usize, n(3)? as usize)),
+            "lockrew" => {
+                d.lockrew = Some(((n(1)? as usize).min(4), f.get(2).map(|t| t.split(',').filter_map(|v| v.trim().parse().ok()).collect()).unwrap_or_default()))
+            }
             "dmult" => {
                 let k = n(1)? as usize;
                 if d.dmult.len() <= k {
@@ -982,12 +988,20 @@ fn roll_item(d: &Def, tier: usize, st: &mut St) -> (i32, usize) {
 
 /// 这一波的未鉴定物品：(稀有度, 件数)。第 j 个同类波（精英波 / Boss 波分开数）给 items × j × 倍率（用户 2026-11-10：
 /// 宁姆格福第 1 波 2 件史诗、第 2 波 1 件传说 + 骨灰、第 3 波 4 件史诗、第 4 波 2 件传说 + 骨灰，往后线性外推）
-fn wave_items(d: &Def, c: &Colo, lineup: &[Vec<usize>], wave: usize) -> (usize, u32) {
+fn wave_items(d: &Def, c: &Colo, lineup: &[Vec<usize>], wave: usize, diff: usize) -> (usize, u32) {
     let is_boss = |w: &Vec<usize>| w.iter().any(|&m| c.parts[m].boss);
     let boss = is_boss(&lineup[wave]);
     let j = lineup[..=wave].iter().filter(|w| is_boss(w) == boss).count() as u32;
     let base = if boss { d.items_b } else { d.items_e };
-    (c.tiers[boss as usize], base * j * c.scale.max(1))
+    (rew_tiers(d, c, diff)[boss as usize], base * j * c.scale.max(1))
+}
+
+/// 这个竞技场的未鉴定物品稀有度 [精英波, Boss 波]：试炼开始时的难度是 lockrew 的档（死亡以上）就都用 lockrew 的稀有度，否则照 rew 行
+fn rew_tiers(d: &Def, c: &Colo, diff: usize) -> [usize; 2] {
+    match &d.lockrew {
+        Some((t, ds)) if ds.contains(&diff) => [*t, *t],
+        _ => c.tiers,
+    }
 }
 
 fn roll_ash(d: &Def, c: &Colo, diff: usize, st: &mut St) -> usize {
@@ -1681,7 +1695,7 @@ fn wave_reward(d: &Def, st: &mut St, r: &mut Run) {
         let j = abs.div_ceil(2);
         let cap = d.endless.as_ref().map_or(10, |e| e.cap);
         let n = ((if boss { d.items_b } else { d.items_e }) * j * c.scale.max(1)).min(cap);
-        let tier = c.tiers[boss as usize];
+        let tier = rew_tiers(d, c, r.diff)[boss as usize];
         let mut got = Vec::new();
         for _ in 0..n {
             let (id, cat) = roll_item(d, tier, st);
@@ -1693,7 +1707,7 @@ fn wave_reward(d: &Def, st: &mut St, r: &mut Run) {
     }
     let boss = r.lineup[r.wave].iter().any(|&m| c.parts[m].boss);
     let n_ash = if boss { d.ash_b } else { 0 };
-    let (tier, n_items) = wave_items(d, c, &r.lineup, r.wave);
+    let (tier, n_items) = wave_items(d, c, &r.lineup, r.wave, r.diff);
     let mut got = Vec::new();
     let mut rolls: Vec<(i32, usize, usize, &str)> = (0..n_items).map(|_| {
         let (id, cat) = roll_item(d, tier, st);
@@ -1701,9 +1715,10 @@ fn wave_reward(d: &Def, st: &mut St, r: &mut Run) {
     }).collect();
     if r.wave + 1 == r.waves {
         // 全部打完多给的：Boss 波的稀有度
+        let bt = rew_tiers(d, c, r.diff)[1];
         for _ in 0..r.bonus * c.scale.max(1) {
-            let (id, cat) = roll_item(d, c.tiers[1], st);
-            rolls.push((id, cat, c.tiers[1], "全部打完多给："));
+            let (id, cat) = roll_item(d, bt, st);
+            rolls.push((id, cat, bt, "全部打完多给："));
         }
     }
     if r.wave + 1 == r.waves && r.refund > 0 {
@@ -3123,10 +3138,18 @@ part\t1\t11\ts\t45013011\t99300111\t6\tc4191_9003\npart\t1\t12\ts\t45013012\t993
         }
         // 第 j 个同类波 × j：精英波 2 / 4 件史诗，Boss 波 1 / 2 件传说
         let lu = vec![vec![2, 5, 7], vec![0], vec![3, 6], vec![1]];
-        assert_eq!(wave_items(&d, c, &lu, 0), (2, 2));
-        assert_eq!(wave_items(&d, c, &lu, 1), (3, 1));
-        assert_eq!(wave_items(&d, c, &lu, 2), (2, 4));
-        assert_eq!(wave_items(&d, c, &lu, 3), (3, 2));
+        assert_eq!(wave_items(&d, c, &lu, 0, 0), (2, 2));
+        assert_eq!(wave_items(&d, c, &lu, 1, 0), (3, 1));
+        assert_eq!(wave_items(&d, c, &lu, 2, 0), (2, 4));
+        assert_eq!(wave_items(&d, c, &lu, 3, 0), (3, 2));
+        // 死亡以上（lockrew 的档）：稀有度都换成 lockrew 的，件数不变；别的档照旧
+        let dl = parse(&format!("{SAMPLE}lockrew\t4\t6,7\n")).unwrap();
+        assert_eq!(dl.lockrew, Some((4, vec![6, 7])));
+        let cl = &dl.colos[0];
+        assert_eq!(wave_items(&dl, cl, &lu, 0, 6), (4, 2));
+        assert_eq!(wave_items(&dl, cl, &lu, 1, 7), (4, 1));
+        assert_eq!(wave_items(&dl, cl, &lu, 1, 2), (3, 1), "死亡以下照 rew 行");
+        assert_eq!(rew_tiers(&d, c, 6), c.tiers, "没有 lockrew 行：照 rew 行");
     }
 
     /// 无尽试炼：endless 行；出场顺序：偶数波 Boss、先挑这一场没出过的、都出过了挑最久没出场的；粪金龟一场只出一次

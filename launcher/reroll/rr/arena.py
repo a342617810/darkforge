@@ -4,8 +4,9 @@
 每打完一波就放进背包，途中死了收回这次给的（用户 2026-11-10）。只在开了敌人随机时做（精英从随机器的精英池里抽，强度用随机器的缩放效果）。
 这里（重随）：
 - 每个竞技场一份敌人池（按这一局的种子定，once.rng_for）：Boss bosses 个（不同模型；排除追忆 Boss、多阶段、两人共用击败标记的、
-  随机器标了不能放 / 不死 / 友方的、体型 3），精英 elite_kinds 种 × elite_copies 个（随机器的精英池：普通敌人里属于精英族的，
-  同 enemypreset.py 的 late_elite）。DLC 的只进王城（而且随机器开了 DLC）。
+  随机器标了不能放 / 不死 / 友方的、体型 3；按原来所在的地区分池，见 BOSS_REGIONS / boss_pools），精英 elite_kinds 种 × elite_copies 个
+  （随机器的精英池：普通敌人里属于精英族的，同 enemypreset.py 的 late_elite）。DLC 的只进池子里有 dlc 的竞技场（王城；而且随机器开了 DLC）。
+- 死亡以上（难度里标 lock 的档）三个竞技场的奖励统一成 lock_reward_tier（幽影之地传说），arena.txt 的 lockrew 行。
 - 红 / 蓝粪金龟（打死回一次红露滴 / 蓝露滴的那种，原版野外的；用户 2026-11-15「副本里的精英有20%的概率是红蓝粪金龟」）：
   每种 scarab_copies 个，dark_core 排出场时精英波每个精英位 scarab_pct% 换成它（红蓝各半，一波里至少留一个真精英）。
   血量照原版 + 随机器的缩放（不加精英的地区血量），不魇化；会逃跑钻地，不算进「这一波打完」。
@@ -16,7 +17,7 @@
 - 按波次挂的效果（用户 2026-11-17「给任意指定波数敌人挂自定义效果」）：settings 的 wave_fx 每条规则 = 哪个竞技场、哪种场次、第几波、
   哪种敌人、几率、挂哪些效果包（rr/foefx.py 的通用敌人效果包；规则里也能直接写 fx，做成包 arena_rule<第几条>）→ arena.txt 的 wfx 行，
   dark_core 出场时按规则挂（foefx.rs）。每波血量加成也走同一个模块。
-竞技场：0 王城（m45_00，DLC 后期强度）、1 盖利德（m45_01，王城）、2 宁姆格福（m45_02，利耶尼亚）。
+竞技场：0 王城（m45_00，本体最高强度；2026-11-20 以前是 DLC 后期）、1 盖利德（m45_01，王城）、2 宁姆格福（m45_02，利耶尼亚）。
 （2026-11-10 以前把 m45_01 当成宁姆格福、m45_02 当成盖利德，用户游戏里从宁姆格福的雕像进去是盖利德的竞技场）"""
 from .common import *  # noqa: F401,F403
 from . import once
@@ -47,6 +48,23 @@ ENDLESS_REQ, ENDLESS_HAS0, ENDLESS_LOCAL, ENDLESS_SP = 92596, 92597, 2607, 73199
 CLASSES_BOSS = ('Boss', 'MinorBoss', 'Miniboss', 'NightMiniboss', 'Evergaol')
 BAD_BOSS_TAGS = {'noplace', 'norandom', 'immortal', 'friendly', 'uniquearena', 'scalephase', 'npcpart', 'size:3', 'excludemultiphase'}
 DLC_MAP_PREFIX = ('m20', 'm21', 'm22', 'm25', 'm28', 'm40', 'm41', 'm42', 'm43', 'm61')
+# Boss 按原来所在的地区分池（用户 2026-11-20「不同竞技场的boss池不一样」，同日改成「盖里德给盖里德池 雪原以后的给王城池子」）：
+# 地区按随机器 annotations.txt 的 Areas（地图 → 区域文字，同 dev\item_system\build_curse_regions.py）。(键, 中文, 区域文字的开头)；
+# 认不出的本体 Boss 算 other，DLC 的（is_dlc）算 dlc。settings 的 boss_pools[x] = 竞技场 x 用哪些地区
+BOSS_REGIONS = [
+    ('limgrave', '宁姆格福', ('Limgrave', 'Stormhill', 'Stormveil', 'Stranded Graveyard', 'Chapel of Anticipation', 'Roundtable')),
+    ('weeping', '啜泣半岛', ('Weeping Peninsula',)),
+    ('liurnia', '利耶尼亚', ('Liurnia', 'Raya Lucaria', 'Academy of Raya Lucaria', 'Caria Manor', 'Bellum Highway', 'Moonlight Altar', 'Ruin-Strewn Precipice')),
+    ('altus', '亚坛高原', ('Altus Plateau', 'Old Altus Tunnel', 'Altus Tunnel', 'Divine Tower of East Altus', 'Divine Tower of West Altus', 'Capital Outskirts')),
+    ('caelid', '盖利德', ('Caelid', 'Divine Tower of Caelid', 'Dragonbarrow', "Greyoll's Dragonbarrow", 'Redmane', 'Sellia')),
+    ('leyndell', '王城', ('Leyndell', 'Subterranean Shunning-Grounds', 'Ashen')),
+    ('gelmir', '格密尔火山', ('Mt. Gelmir', 'Volcano Manor')),
+    ('mountaintops', '巨人山顶', ('Mountaintops', 'Forbidden Lands', 'Flame Peak')),
+    ('underground', '地下世界', ('Siofra', 'Ainsel', 'Nokron', 'Nokstella', 'Deeproot', 'Lake of Rot', 'Uhl', 'Grand Cloister')),
+    ('snowfield', '雪原 / 圣树 / 蒙格温', ('Consecrated Snowfield', 'Hidden Path to the Haligtree', 'Mohgwyn', 'Haligtree', "Miquella's Haligtree", 'Elphael')),
+    ('farum', '法姆亚兹拉', ('Crumbling Farum Azula', 'Farum Azula', 'Stone Platform', 'Elden Throne')),
+]
+REGION_ZH = dict([(k, z) for k, z, _p in BOSS_REGIONS] + [('other', '本体其他'), ('dlc', '幽影之地')])
 # 精英池里不要龙（用户 2026-11-10）：敌人参数族 = 模型号。飞龙 / 辉石龙 c450x、古龙 c451x、龙王 c4520、熔岩土龙 c4910 / c5920、尖峰飞龙 c5580
 # （龙人士兵 c4650、龙树守卫 c3250 不是龙，照常）
 DRAGON_FAMILIES = {4500, 4501, 4502, 4503, 4510, 4511, 4520, 4910, 5580, 5920}
@@ -100,7 +118,15 @@ GEN_REGION_MAP = 'm14_00_00_00'
 # 第一次出场的事件不变
 GEN_ENT0, GEN_REG0, GEN_REQ0, GEN_EV0 = 3700, 3901, 2900, 5300
 GEN_PARAMS = dict(max_num=1, limit=-1, min_gen=1, max_gen=1, min_iv=0.0, max_iv=0.0, initial=1)
-DEFAULT = dict(enabled=True, tiers=[31, 13, 8], bosses=8, elite_kinds=4, elite_families=0, exclude_models=[], variants=1, elite_copies=4, elite_per_wave=2, scarab_pct=20, scarab_copies=4,
+# tiers：王城竞技场死亡以下用本体最高的一档 20（用户 2026-11-20；以前 31 = 幽影之地后期）。
+# lock_tiers：死亡以上的高难度倍率按这一档选本体 / DLC 的目标（血量、攻击力；align_hp），默认还是以前的 [31, 13, 8]，死亡以上的强度不变
+# （只改死亡以下；不分开的话王城竞技场死亡以上会从 DLC 的目标掉到本体的）。
+# boss_pools：各竞技场的 Boss 来自哪些地区（BOSS_REGIONS 的键 + other / dlc）。lock_reward_tier：死亡以上（难度里标 lock 的档）
+# 三个竞技场的未鉴定物品统一用这个稀有度（4 = 幽影之地传说；用户 2026-11-20），-1 = 照 reward_tiers
+DEFAULT = dict(enabled=True, tiers=[20, 13, 8], lock_tiers=[31, 13, 8], bosses=8,
+               boss_pools=[['snowfield', 'farum', 'dlc'], ['caelid', 'leyndell', 'gelmir', 'mountaintops', 'underground', 'other'],
+                           ['limgrave', 'weeping', 'liurnia', 'altus']],
+               lock_reward_tier=4, elite_kinds=4, elite_families=0, exclude_models=[], variants=1, elite_copies=4, elite_per_wave=2, scarab_pct=20, scarab_copies=4,
                cost=[1, 2, 3], waves=[2, 4, 8],
                items_elite=2, items_boss=1, ash_boss=1, clear_bonus=[1, 2, 4], refund=[0, 1, 2], elite_two=[0, 0, 10, 15, 20, 30, 40, 50],
                reward_tiers=[[4, 4], [3, 4], [2, 3]], reward_scale=[2, 1, 1], hp_every=2, hp_step=0.1, wave_fx=[],
@@ -191,6 +217,31 @@ def is_dlc(e):
     return e['src_map'].startswith(DLC_MAP_PREFIX) or e['map'].startswith(DLC_MAP_PREFIX) or e['part'][:2] == 'c5'
 
 
+def read_areas(path):
+    """随机器 annotations.txt 的 Areas：{地图: Counter(区域文字)}（没有这个文件返回空表）"""
+    out = defaultdict(Counter)
+    if not os.path.isfile(path):
+        return out
+    t = open(path, encoding='utf-8').read()
+    if '\nAreas:\n' not in t:
+        return out
+    for block in re.split(r'\n- Name: ', t.split('\nAreas:\n', 1)[1]):
+        tx, mp = re.search(r'\n  Text: (.+)', block), re.search(r'\n  Maps: (.+)', block)
+        if tx and mp:
+            for m in mp.group(1).split():
+                out[m][tx.group(1).split(' - ')[0].strip()] += 1
+    return out
+
+
+def boss_region(e, areas):
+    """Boss 原来所在的地区（BOSS_REGIONS 的键；DLC 的 dlc，本体认不出的 other）"""
+    if is_dlc(e):
+        return 'dlc'
+    regs = areas.get(e['map'])
+    top = regs.most_common(1)[0][0] if regs else ''
+    return next((k for k, _z, keys in BOSS_REGIONS if any(top.startswith(x) for x in keys)), 'other')
+
+
 def build(ctx):
     """敌人池 + 敌人参数副本；ctx.arena = def_lines 用的数据（没做就 None）"""
     ctx.arena = None
@@ -211,6 +262,7 @@ def build(ctx):
         return
     dlc_on = 'dlc' in rand_options(rd)
     ents = read_enemy_txt(enemy_txt)
+    areas = read_areas(diste(rd, 'Base', 'annotations.txt'))   # 没有就不按地区分池（同以前：本体都进，DLC 只进王城）
     npc = ep.vanilla_npc(rd, os.path.join(HERE, 'cache'))
     fams = elite_families(ctx.data_dir)
     tiers = ep.target_tiers()
@@ -278,10 +330,12 @@ def build(ctx):
     for x, m in enumerate(COLOS):
         rng = once.rng_for(ctx, 'arena', x)
         tgt = int(c['tiers'][x])
-        dlc_ok = dlc_on and x == 0
+        pools = c.get('boss_pools') or []
+        pool = set(pools[x]) if areas and x < len(pools) and pools[x] else None
+        dlc_ok = dlc_on and ('dlc' in pool if pool is not None else x == 0)
         F = flag_base(x)
-        # Boss 候选：每个模型一只（按这一局的种子洗过的顺序）
-        pick_b = [k for k in sorted(boss_all) if dlc_ok or not is_dlc(ents[k])]
+        # Boss 候选：这个竞技场的地区里的（boss_pools），每个模型一只（按这一局的种子洗过的顺序）
+        pick_b = [k for k in sorted(boss_all) if (dlc_ok or not is_dlc(ents[k])) and (pool is None or boss_region(ents[k], areas) in pool)]
         rng.shuffle(pick_b)
         boss_c, models = [], set()
         for k in pick_b:
@@ -355,8 +409,10 @@ def build(ctx):
             variants.append(parts)
         # 血量对齐按参数行做一次（几批共用的行不重复加）
         bank = list({p['npc']: p for parts in variants for p in parts}.values())
-        colos.append(dict(x=x, map=m, tier=tgt, flag=F, parts=variants[0], variants=variants, bank=bank, warp=F + WARP_ENT,
-                          pool=(len(boss_c), len(fam_order))))
+        lt = c.get('lock_tiers') or []
+        colos.append(dict(x=x, map=m, tier=tgt, lock_tier=int(lt[x]) if x < len(lt) else tgt, flag=F, parts=variants[0], variants=variants, bank=bank, warp=F + WARP_ENT,
+                          pool=(len(boss_c), len(fam_order)),
+                          regions=Counter(boss_region(ents[k], areas) for k in boss_c) if pool is not None else None))
     hp_msg = align_hp(ctx, colos, N, S_sp, npc)
     ctx.bnd.put('NpcParam.param', N.serialize())
     # 每 hp_every 波敌人血量 +hp_step（用户 2026-11-10「每两波 敌人血量提升10%」）：效果行，dark_core 出场时挂
@@ -420,6 +476,12 @@ def build(ctx):
         '每个部件一个生成器，复活用，照抄 %s 的 %d）' % (
             added, ARENA_NPC0, len(boss_all), len(elite_all), len(scarab_all[0]), len(scarab_all[1]), float(c['scarab_pct']), GEN_SRC_MAP, GEN_SRC_GEN))
     for co in colos:
+        rg = co.get('regions')
+        ctx.report.append('  %s 的 Boss 池（%d 种）：%s%s' % (
+            COLO_ZH[co['x']], co['pool'][0],
+            '、'.join('%s %d' % (REGION_ZH.get(r, r), n) for r, n in sorted(rg.items(), key=lambda kv: -kv[1])) if rg is not None
+            else '不按地区分（随机器没有 annotations.txt：本体都进，DLC 只进王城）',
+            '；比一批要的 %d 个少，每批都是这几只' % int(c['bosses']) if co['pool'][0] < int(c['bosses']) else ''))
         for v, parts in enumerate(co['variants']):
             seen = set()
             ctx.report.append('  %s 第 %d 批：%s' % (COLO_ZH[co['x']], v + 1, '、'.join(
@@ -608,16 +670,19 @@ def align_hp(ctx, colos, N, S_sp, npc_of):
             N.rows[p['npc']] = bytes(row)
             got[p['kind']].append(tgt)
             if calc:                               # 死亡 / 不可能：同 hpunify 的小怪 / Boss 算法
+                # 本体 / DLC 的目标按 lock_tiers 选（王城竞技场死亡以下降到本体最高档，死亡以上照旧用 DLC 的目标）；倍率仍对着现在的血量 / 攻击力算
+                TL = co.get('lock_tier', T)
+                bL = ctx.band_idx(TL)
                 if p['kind'] == 'e':
-                    k = calc['k_mob'](T)
+                    k = relock(calc['k_mob'](T), calc.get('mob_goal'), calc.get('dlc_from'), T, TL)
                 else:
-                    g = calc['goal_b'].get(b >= calc['dlc_b'])
+                    g = calc['goal_b'].get(bL >= calc['dlc_b'])
                     k = g * min(calc['hi'], max(calc['lo'], t_own)) / tgt if g and tgt > 0 else None
                 sp = calc['sp_of'](k) if k else None
                 if sp is not None:
                     extra.append('n %d %d' % (p['npc'], sp))
                 if 'asp_of' in calc:
-                    asp = calc['asp_of'](calc['k_atk'](T))
+                    asp = calc['asp_of'](relock(calc['k_atk'](T), calc.get('atk_goal'), calc.get('dlc_from'), T, TL))
                     if asp is not None:
                         extra.append('an %d %d' % (p['npc'], asp))
         msg.append('%s 精英加 %d（中位 %d）、Boss 中位 %d（档 %d × %g）' % (
@@ -626,6 +691,15 @@ def align_hp(ctx, colos, N, S_sp, npc_of):
         ctx.hpu_lines.extend(extra)
         msg.append('高难度倍率 %d 行' % len(extra))
     return '；'.join(msg)
+
+
+def relock(k, goals, dlc_from, t, tl):
+    """高难度倍率 k（对着 t 档算的，本体 / DLC 按 t 选目标）换成按 tl 选目标：× 目标(tl) ÷ 目标(t)。
+    t、tl 同属本体或同属 DLC、缺数据时不变（王城竞技场：死亡以下 20 档 = 本体，死亡以上照旧按 31 档 = DLC 的目标）"""
+    if not k or not goals or dlc_from is None or (t >= dlc_from) == (tl >= dlc_from):
+        return k
+    a, b = goals.get(t >= dlc_from), goals.get(tl >= dlc_from)
+    return k * b / a if a and b else k
 
 
 def note_rows(c):
@@ -665,6 +739,10 @@ def def_lines(ctx):
     if ctx.features.get('difficulty') and ts:
         from .hpunify import CUR0
         out.append('diff\t%d\t%d\t%d' % (CUR0, len(ts), dif.normal_index(ts)))
+    lt, lock_all = int(c.get('lock_reward_tier', -1)), endless_tiers(ctx)
+    if lt >= 0 and lock_all:
+        # lockrew <稀有度> <死亡以上的难度档,…>：试炼开始时是这几档，三个竞技场的未鉴定物品都用这个稀有度（用户 2026-11-20「死亡以上的竞技场的奖励统一为幽影地传说」）
+        out.append('lockrew\t%d\t%s' % (min(lt, 4), ','.join(str(i) for i, _f in lock_all)))
     for d, mm in enumerate(c['difficulty_mult']):
         out.append('dmult\t%d\t%s' % (d, '\t'.join('%g' % v for v in mm)))
     for d, v in enumerate(c['elite_two']):
