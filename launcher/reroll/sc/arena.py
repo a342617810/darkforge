@@ -36,8 +36,10 @@ LEAVE_TEXT = 20000009        # 原版「离开」
 COOP_SESSION, COOP_HOST, COOP_TEXT, HOST_TEXT0 = 92570, 92571, TALK_TEXT0 + 4, TALK_TEXT0 + 60
 CONFIRM_GID, DIALOG_GID, MENU_GID = 2147399100, 2147399101, 2147399102   # 加进雕像脚本的状态机
 WARP_EVENT0 = 1040490872     # 公共事件：传进竞技场 X = 1040490872~874（不存档的块；870 / 871 原版提示、880 音效、881~959 / 961~999 Boss 奖励，dev\event_flags\说明.md）
-EV_ASK, EV_NOTE, EV_LEAVE0, EV_RESPAWN0, EV_BANNER, EV_PART0 = 2700, 2701, 2702, 2704, 2706, 2800      # 竞技场地图里的事件编号（F + …；离开、复活点按雕像序号 +v）
-EV_READY0, EV_ENGAGE0, MAX_PARTS = 2850, 2900, 50        # 部件 k 的就绪、开打事件（F + … + k）
+EV_ASK, EV_NOTE, EV_LEAVE0, EV_RESPAWN0, EV_BANNER = 2700, 2701, 2702, 2704, 2706      # 竞技场地图里的事件编号（F + …；离开、复活点按雕像序号 +v）
+# 部件 k 的事件、就绪、开打事件（F + … + k）。以前是 2800 / 2850 / 2900、最多 50 个部件；用户 2026-11-19「精英64种 boss32种先试试负载」
+# 池子做大到 100 个（出场、死亡标记 F + 2400 / 2500 + k 也只排得下 100 个），挪到 5000 起（原版竞技场的事件只用 2200~2300）
+EV_PART0, EV_READY0, EV_ENGAGE0, MAX_PARTS = 5000, 5100, 5200, 100
 # 联机时每台电脑各管各的（同 scripts.py 的 NO_SYNC，原版很多事件第一条就是它）：竞技场里我们加的事件都关掉网络同步
 NO_SYNC = emevd.ins(2000, 2, ('u8', 0))
 FLOOR = 'h001000'            # 竞技场地面的碰撞部件（三张图都有）

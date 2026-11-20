@@ -675,6 +675,8 @@ struct St {
     end_resend: Option<(Packet, Vec<u64>, Instant, Instant)>,
     /// 生成器实验的记录
     genw: GenWatch,
+    /// 进场后等敌人都读进来再记一行（竞技场下标, 进场的时间）：池子做大（用户 2026-11-19「先试试32种敌人和boss」）看读图快慢、内存
+    load_watch: Option<(usize, Instant)>,
 }
 
 static ST: Mutex<Option<St>> = Mutex::new(None);
@@ -736,7 +738,80 @@ impl St {
             done: Vec::new(),
             end_resend: None,
             genw: GenWatch::default(),
+            load_watch: None,
         }
+    }
+}
+
+/// 进场后最多等敌人读进来多久（到时还没全读进来也记一行）
+const LOAD_WATCH: Duration = Duration::from_secs(20);
+
+#[repr(C)]
+#[derive(Default)]
+struct ProcMem {
+    cb: u32,
+    page_faults: u32,
+    peak_working_set: usize,
+    working_set: usize,
+    quota_peak_paged: usize,
+    quota_paged: usize,
+    quota_peak_nonpaged: usize,
+    quota_nonpaged: usize,
+    pagefile: usize,
+    peak_pagefile: usize,
+    private: usize,
+}
+
+#[repr(C)]
+#[derive(Default)]
+struct SysMem {
+    len: u32,
+    load: u32,
+    total_phys: u64,
+    avail_phys: u64,
+    total_page: u64,
+    avail_page: u64,
+    total_virtual: u64,
+    avail_virtual: u64,
+    avail_ext: u64,
+}
+
+#[link(name = "kernel32")]
+unsafe extern "system" {
+    fn K32GetProcessMemoryInfo(h: isize, c: *mut ProcMem, cb: u32) -> i32;
+    fn GlobalMemoryStatusEx(s: *mut SysMem) -> i32;
+}
+
+/// 「游戏内存 x GB（工作集 y GB），系统可用 z GB」，同性能记录的写法（提交的私有内存）
+fn mem_note() -> String {
+    let gb = |b: u64| format!("{:.2} GB", b as f64 / (1u64 << 30) as f64);
+    let mut p = ProcMem { cb: size_of::<ProcMem>() as u32, ..ProcMem::default() };
+    let mut s = SysMem { len: size_of::<SysMem>() as u32, ..SysMem::default() };
+    let game = if unsafe { K32GetProcessMemoryInfo(-1, &mut p, p.cb) } != 0 {
+        format!("游戏内存 {}（工作集 {}）", gb(p.private as u64), gb(p.working_set as u64))
+    } else {
+        "游戏内存读不到".to_string()
+    };
+    let sys = if unsafe { GlobalMemoryStatusEx(&mut s) } != 0 { format!("，系统可用 {}", gb(s.avail_phys)) } else { String::new() };
+    game + &sys
+}
+
+/// 进场以后：竞技场的敌人都读进来了（或者等了 LOAD_WATCH）记一行，看池子大了读图慢不慢
+fn load_watch_tick(d: &Def, st: &mut St, wcm: &WorldChrMan, in_ci: Option<usize>, now: Instant) {
+    let Some((ci, at)) = st.load_watch else { return };
+    if in_ci != Some(ci) {
+        st.load_watch = None;
+        return;
+    }
+    let c = &d.colos[ci];
+    let ents: HashSet<u32> = c.parts.iter().map(|p| p.ent).collect();
+    let n = present(wcm, &ents);
+    let waited = now - at;
+    if n >= ents.len() || waited >= LOAD_WATCH {
+        st.load_watch = None;
+        let models: HashSet<&str> = c.parts.iter().map(|p| p.name.split('_').next().unwrap_or("")).collect();
+        log(&format!("竞技场：进场后 {:.1} 秒，竞技场的敌人读进来 {n} / {} 个（{} 种模型）{}；{}", waited.as_secs_f32(), ents.len(), models.len(),
+                     if n < ents.len() { "，没等齐" } else { "" }, mem_note()));
     }
 }
 
@@ -2365,17 +2440,23 @@ fn body(d: &Def, st: &mut St, now: Instant) -> bool {
     }
     dev_req(d, st, wcm, now);
     gen_tick(d, st, wcm, now);
+    load_watch_tick(d, st, wcm, in_ci, now);
     let mut inside = false;
     match st.run.take() {
         Some(mut r) => {
             let in_arena = in_ci == Some(r.ci);
             inside = in_arena;
+            let going = (r.phase == Phase::Going).then_some(r.at);
             let go_on = if matches!(r.role, Role::Client { .. }) {
                 client_step(d, st, &mut r, in_arena, hp, revived, wcm, now)
             } else {
                 lead_step(d, st, &mut r, in_arena, hp, revived, wcm, now)
             };
             if go_on {
+                if let Some(t0) = going.filter(|_| r.phase != Phase::Going) {
+                    log(&format!("竞技场：从开始到进场 {:.1} 秒；{}", (now - t0).as_secs_f32(), mem_note()));
+                    st.load_watch = Some((r.ci, now));
+                }
                 st.run = Some(r);
             } else {
                 run_over(d, st, r, now);

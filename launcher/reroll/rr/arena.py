@@ -61,8 +61,9 @@ STATUES = {
 BANNER = 2604                         # 竞技场里的标记：F + 2604 = 放「TRIAL COMPLETE」大字幕（最后一波打完，sc/arena.py 的事件放）
 RUN = 2620                            # 竞技场里的标记：F + 2620 + 雕像序号 = 试炼进行中（dark_core 进场后点亮；这时死了把复活点设到那个雕像旁）
 # 联机（联机计划 13.13）：F + 2605 开打（dark_core 等各台电脑都就绪了点亮，事件打开 AI、关掉无敌）、F + 2606 本机死了（dark_core 点亮，
-# 复活点照设，不靠事件里的 10000）、F + 2640 + k 部件 k 读进来了（事件点亮，dark_core 看）
-ENGAGE, MYDEAD, READY = 2605, 2606, 2640
+# 复活点照设，不靠事件里的 10000）、F + 2800 + k 部件 k 读进来了（事件点亮，dark_core 看；以前是 2640 + k，
+# 池子做大到 100 个部件（用户 2026-11-19「精英64种 boss32种先试试负载」）以后会撞到 2700 起的请求标记，挪到 2800）
+ENGAGE, MYDEAD, READY = 2605, 2606, 2800
 # 无尽模式的生成器实验（用户 2026-11-17「开始之前无尽模式的生成器实验吧」；settings 的 generator_test 写竞技场名字才做，默认不做）：
 # 前五轮在那个竞技场照抄一个精英部件当模板（F + 3910），配一个生成器（F + 3900）；出生点区域从原版学院 m14 照抄（学院的
 # 「レナラの子供たち_ジェネレートポイントA01」14002900）。开发工具 F9 按钮经 dark_core 点亮请求标记，竞技场的事件听着去叫生成器；
@@ -79,7 +80,8 @@ GEN_REGION_MAP = 'm14_00_00_00'
 # 生成器 k 的出生点从第 k 个开始排（几只一起叫不挤在一处）。生成器实体 F + 3700 + k、请求标记 F + 2700 + k、事件 F + 2950 + k。
 # 2026-11-19 实测：开场不生（initial 0）的话，生成器没叫过的敌人事件启用了也不出来（第 1 波两只都没出、一只没排到的 Boss 自己被放了出来）。
 # 第七轮（现在）：开场就生 1 只（第三轮的模板就是这样，读图时是站在原位的普通敌人），出场照旧走事件，只有复活用生成器叫
-GEN_ENT0, GEN_REG0, GEN_REQ0, GEN_EV0 = 3700, 3901, 2700, 2950
+# 2026-11-19 池子做大到 100 个部件：请求标记挪到 F + 2900 + k、事件挪到 F + 5300 + k（原版竞技场的事件只用 2200~2300）
+GEN_ENT0, GEN_REG0, GEN_REQ0, GEN_EV0 = 3700, 3901, 2900, 5300
 GEN_AT = [(-6.0, -12.0), (6.0, -12.0), (0.0, -14.0), (-10.0, -3.0), (10.0, -3.0), (0.0, -5.0)]   # 出生点（同 sc/arena.py 的坐标系：竞技场中心、玩家出生点朝 −z）
 GEN_PARAMS = dict(max_num=1, limit=-1, min_gen=1, max_gen=1, min_iv=0.0, max_iv=0.0, initial=1)
 DEFAULT = dict(enabled=True, tiers=[31, 13, 8], bosses=8, elite_kinds=4, elite_copies=4, elite_per_wave=2, scarab_pct=20, scarab_copies=4,
@@ -274,6 +276,18 @@ def build(ctx):
             kinds.append(k)
             if len(kinds) >= int(c['elite_kinds']):
                 break
+        # 族不够 elite_kinds 种（用户 2026-11-19「精英64种」，本体只有 36 个精英族）：同一族里敌人参数不同的（武器、招式不同）再补，
+        # 部件名也不重复（dark_core 排出场按部件名分种类）。同族的模型一样，不多占读图
+        if len(kinds) < int(c['elite_kinds']):
+            used_npc, used_part = {npc[k] for k in kinds}, {ents[k]['part'] for k in kinds}
+            for k in pick_e:
+                if npc[k] in used_npc or ents[k]['part'] in used_part or tier_of(k) is None or ents[k]['part'] not in part_names(vdir, ents[k]['src_map']):
+                    continue
+                used_npc.add(npc[k])
+                used_part.add(ents[k]['part'])
+                kinds.append(k)
+                if len(kinds) >= int(c['elite_kinds']):
+                    break
         scarabs = []                          # [(0 红 / 1 蓝, 来源)]：每种挑一只，复制 scarab_copies 个
         if float(c['scarab_pct']) > 0:
             for col, pool in enumerate(scarab_all):
@@ -338,9 +352,9 @@ def build(ctx):
                                  spawn=SPAWN, dead=DEAD, ask=ASK, leave=LEAVE, run=RUN, banner=BANNER, note_bits=NOTE_BITS, note_n=NOTE_N, note_text0=NOTE_TEXT0,
                                  ready=READY, engage=ENGAGE, mydead=MYDEAD,
                                  notes=note_rows(c))
-    ctx.report.append('斗技场试炼：' + '；'.join('%s（强度 %d）Boss %d 个、精英 %d 种 × %d、粪金龟 %d 只' % (
+    ctx.report.append('斗技场试炼：' + '；'.join('%s（强度 %d）Boss %d 个、精英 %d 种 × %d、粪金龟 %d 只，共 %d 种模型' % (
         COLO_ZH[co['x']], co['tier'], sum(p['kind'] == 'b' for p in co['parts']), len({p['src'] for p in co['parts'] if p['kind'] == 'e'}),
-        int(c['elite_copies']), sum(p['kind'] == 's' for p in co['parts'])) for co in colos) +
+        int(c['elite_copies']), sum(p['kind'] == 's' for p in co['parts']), len({p['model'] for p in co['parts']})) for co in colos) +
         '（敌人参数副本 %d 行，%d 起；Boss 池 %d、精英池 %d、红 / 蓝粪金龟 %d / %d；精英位 %g%% 换成粪金龟）' % (
             added, ARENA_NPC0, len(boss_all), len(elite_all), len(scarab_all[0]), len(scarab_all[1]), float(c['scarab_pct'])))
     for co in colos:
