@@ -2030,16 +2030,13 @@ fn compose_cap(lib: &Lib, rec: &Rec, lang: usize, info_cap: usize) -> [String; 3
             if *atk > 0 {
                 lines.push(if zh { format!("强攻：基础攻击力＋{atk}％") } else { format!("Assault: base attack +{atk}%") });
             }
-            let n0 = lines.len();
             lines.extend(
                 res.iter()
                     .filter(|&&s| s > 0)
                     .filter_map(|s| lib.res.iter().flat_map(|x| x.1.pool.iter()).find(|p| p.0 == *s).map(|p| p.2[lang].clone())),
             );
-            // 常驻效果（法杖 / 圣印记的流派加成、盾牌抗性）是原版效果：两只手拿着带同一个效果的武器只算一次（用户 2026-11-05「不能叠加的都标明」）
-            if lines.len() > n0 {
-                lines.push(if zh { "同名效果不叠加（双持时）" } else { "Identical effects do not stack (when dual-wielding)" }.to_string());
-            }
+            // 常驻效果（法杖 / 圣印记的流派加成、盾牌抗性）：双持时同名效果会重复生效（2026-11-20 实机确认，保留这个行为），
+            // 以前这里补的「同名效果不叠加（双持时）」与实际不符，已删（见更新日志 2026-11-05 那条）
             if let Some(x) = sp {
                 lines.push(x.text[lang].clone());
             }
