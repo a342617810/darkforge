@@ -6,6 +6,8 @@
 //! CHECK_AFTER 秒后游戏还没挂回来就自己挂上（记在 ours，不拿着那把武器了就摘掉）。结果写日志（开头「传说光效」）。
 //! 身上有别的挂在武器上的光效（原版油脂、附魔祷告、战技的附魔……，光效行 effectType 1 / 2）时不动光效：摘掉再挂上会把那些附魔顶掉
 //! （用户 2026-11-05「这样修会把岩石剑之类的附魔效果顶掉」），等附魔没了再重挂。
+//! 附魔结束时也重挂（用户 2026-11-19「传说武器涂完油脂后原本的属性光效消失的问题 也不会补挂」）：武器附魔的光效同一时间只显示一个，
+//! 油脂挂上时把传说光效的光效换掉，油脂结束后游戏不换回来（效果行还在身上）。拿着传说武器时看到附魔从有到没有，ENCHANT_END_AFTER 后重挂。
 //! 开发工具（F9「传说光效测试」）写 glow_req.txt：「重挂」马上做一次（不等换武器）、「查」记一行现在拿的武器和身上的光效。
 //! 定义：affixes.txt 的 glow 行「glow<TAB>属性<TAB>效果编号」（重随写）；没有就什么都不做。每 3 帧看一次左右手武器编号
 
@@ -22,6 +24,9 @@ use crate::{dir, log};
 const EVERY: u32 = 3;
 /// 换武器后等多久再重挂：换武器的动作大约 0.5~0.9 秒，新模型在中途拿到手上
 const REBIND_AFTER: Duration = Duration::from_millis(1000);
+/// 附魔（油脂、附魔祷告、战技的附魔）结束后等多久重挂：武器附魔的光效同一时间只显示一个，油脂挂上时光效被它换掉，
+/// 油脂结束后游戏不会把传说光效的光效再挂回去（效果还在身上，只是看不见；用户 2026-11-19「传说武器涂完油脂后原本的属性光效消失」）
+const ENCHANT_END_AFTER: Duration = Duration::from_millis(300);
 /// 摘掉后等多久看游戏有没有挂回来
 const CHECK_AFTER: Duration = Duration::from_millis(300);
 /// 一次进游戏日志最多记几行（换武器很频繁）
@@ -37,8 +42,10 @@ struct St {
     n: u32,
     /// 上次看到的（左手武器, 右手武器, 持握方式）
     key: Option<(i32, i32, u32)>,
-    /// 换了武器的时间（等 REBIND_AFTER 再重挂）
-    changed_at: Option<Instant>,
+    /// 该重挂的时间、为什么（换了武器：REBIND_AFTER 后；附魔结束：ENCHANT_END_AFTER 后，换武器的优先）
+    due: Option<(Instant, &'static str)>,
+    /// 上次看时（拿着传说武器）身上有没有附魔：有 → 没有 就是附魔结束了
+    enchanted: bool,
     /// 摘掉了、等着看游戏挂不挂回来的光效
     pending: Vec<(i32, Instant)>,
     /// 游戏没挂回来、自己挂上的光效
@@ -69,7 +76,7 @@ pub fn describe() -> String {
     if d.is_empty() {
         return "传说光效重挂：没有定义".into();
     }
-    format!("传说光效重挂：{} 种光效，换武器 {:.1} 秒后重挂", d.len(), REBIND_AFTER.as_secs_f32())
+    format!("传说光效重挂：{} 种光效，换武器 {:.1} 秒后、附魔结束 {:.1} 秒后重挂", d.len(), REBIND_AFTER.as_secs_f32(), ENCHANT_END_AFTER.as_secs_f32())
 }
 
 fn say(st: &mut St, line: String) {
@@ -103,7 +110,8 @@ pub fn tick() {
     let Some(p) = wcm.main_player.as_mut() else {
         // 没有角色（标题画面、读档中）：从头来，自己挂的游戏读档时都清了
         st.key = None;
-        st.changed_at = None;
+        st.due = None;
+        st.enchanted = false;
         st.pending.clear();
         st.ours.clear();
         st.waiting = None;
@@ -155,14 +163,25 @@ pub fn tick() {
     let key = (lid, rid, style);
     if st.key != Some(key) {
         if st.key.is_some() {
-            st.changed_at = Some(now);
+            st.due = Some((now + REBIND_AFTER, "换了武器"));
         }
         st.key = Some(key);
     }
+    // 附魔结束（拿着传说武器时才看）：光效被附魔换掉后游戏不会自己换回来，重挂一次；正在等换武器的重挂就交给它
+    if held.is_empty() {
+        st.enchanted = false;
+    } else {
+        let now_ench = enchant!().is_some();
+        if st.enchanted && !now_ench && st.due.is_none() && st.waiting.is_none() {
+            st.due = Some((now + ENCHANT_END_AFTER, "附魔结束"));
+        }
+        st.enchanted = now_ench;
+    }
     let manual = req.as_deref().is_some_and(|r| r.contains("重挂"));
-    if manual || st.changed_at.is_some_and(|t| now.duration_since(t) >= REBIND_AFTER) {
-        st.changed_at = None;
-        st.waiting = (!held.is_empty()).then_some((if manual { "开发工具要求" } else { "换了武器" }, false));
+    let due = st.due.filter(|d| now >= d.0);
+    if manual || due.is_some() {
+        st.due = None;
+        st.waiting = (!held.is_empty()).then_some((if manual { "开发工具要求" } else { due.map_or("换了武器", |d| d.1) }, false));
     }
     if let Some((why, told)) = st.waiting {
         if held.is_empty() {
