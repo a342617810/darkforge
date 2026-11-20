@@ -862,7 +862,9 @@ AFFIX_UNSEEN = [
 # 雷电羊球（战技类型 113，动作段 a713）按住战技键一直滚（用户 2026-11-09）。原版连段：40010（ComboEnd 状态）带窗口效果 100052，窗口里再按战技 = 再放一次 ComboEnd
 # （GetSwordArtsRequestNew 的 COMBO_1：SetSwordArtsPointInfo(R2) + W_SwordArtsOneShotComboEnd，能自己接自己）。这里把「再按」换成「按着」，第一下 OneShot（40000）没有这个窗口，
 # 能移动取消时接过去。放在 ArtsCommonFunction 的翻滚之后：受击、换武器、翻滚照样能打断，又抢在移动取消之前（不然推着摇杆就断了）。
-# 只有按下第一下消耗专注值（第一下走 L2 的费用，接着滚走 R2 的费用，rr/tweaks.py lightning_ram 把 R2 改成 0），所以这里不看专注值
+# 只有按下第一下消耗专注值（第一下走 L2 的费用，接着滚走 R2 的费用，rr/tweaks.py lightning_ram 把 R2 改成 0），所以这里不看专注值。
+# 精力要看（用户 2026-11-20「雷电羊球没精力了还能造成伤害」）：每一下的攻击扣精力（行为 18 / 25），原版没精力时再按接不上；
+# 这里按着就接，精力 ≤ 0 也照接、攻击照样出伤害。现在精力 ≤ 0 不再接，这一下滚完就停（雷云化身同）
 # 雷云化身（类型 226，动作段 a826，用户 2026-11-09「也和雷电羊球一样改造」）：这一段没有连段动作（40010 不存在，放 ComboEnd 没有动作），OneShot 状态也不能自己接自己，
 # 所以按着时播到能移动取消（或播完）先回待机，下一帧在 Idle_onUpdate 里重放（DR_CloudReplay）。动作开头先数几帧，免得开头的取消窗口马上重放。
 # 原版「持续发动」在窗口 100285 里松手走 40001（短突刺），按着走完整的飞行，这一段照旧。费用同雷电羊球：第一下走 L2，重放走 R2（rr/tweaks.py 改成 0）
@@ -874,7 +876,7 @@ function DR_CloudReplay()
     local again = DR_CloudAgain
     DR_CloudAgain = FALSE
     DR_CloudFrames = 0
-    if again == FALSE or c_SwordArtsID ~= 226 or env(ActionDuration, ACTION_ARM_L2) <= 0 then
+    if again == FALSE or c_SwordArtsID ~= 226 or env(ActionDuration, ACTION_ARM_L2) <= 0 or env(GetStamina) <= 0 then
         return FALSE
     end
     SetSwordArtsPointInfo(ACTION_ARM_R2, TRUE)
@@ -886,7 +888,7 @@ end
 function DR_RamHold()
     local on = DR_RamOn
     DR_RamOn = FALSE
-    if on == FALSE or env(ActionDuration, ACTION_ARM_L2) <= 0 then
+    if on == FALSE or env(ActionDuration, ACTION_ARM_L2) <= 0 or env(GetStamina) <= 0 then
         return FALSE
     end
     if c_SwordArtsID == 226 then

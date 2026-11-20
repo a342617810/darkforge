@@ -252,6 +252,13 @@ pub(crate) fn own_ranged(coop_on: bool, last_fire: Option<Instant>, now: Instant
     !coop_on || last_fire.is_some_and(|t| now.saturating_duration_since(t) <= OWN_RANGED_REACH)
 }
 
+/// 要不要全场找身上带命中 / 子弹标记的角色（不在游戏距离列表里的也认）：连击值刚涨过（近战），或者 OWN_RANGED_REACH 内刚射击 / 施法 / 投掷 / 调香过。
+/// 箭不一定涨连击值（见 own_ranged），以前只看连击值：不在距离列表里、又在 EXTRA_RANGE 外的目标被箭打中认不出来
+/// （用户 2026-11-20 弓箭猎印挂不上二阶段满月女王：浮在空中、离得远）
+fn hit_scan_on(self_hit: bool, self_hit_at: Option<Instant>, last_fire: Option<Instant>, now: Instant) -> bool {
+    self_hit || self_hit_at.is_some() || last_fire.is_some_and(|t| now.saturating_duration_since(t) <= OWN_RANGED_REACH)
+}
+
 /// 算不算敌人：阵营号不是友方、不是自己的阵营，也不是玩家角色（chrs::is_player；联机计划 13.2 G8，入侵者、队友都不算）
 pub(crate) fn is_foe(c: &ChrIns, my_team: u8) -> bool {
     !FRIENDLY_TEAMS.contains(&c.team_type) && c.team_type != my_team && !crate::chrs::is_player(c)
@@ -2939,11 +2946,11 @@ pub fn tick() {
         let mut marked = HashSet::new();
         let mut hit_now: HashMap<&'static str, HashSet<usize>> = HashMap::new();
         // 不在游戏距离列表里的角色（拉塔恩：打他的时候一直不在列表里，2026-11-01 诊断），距离按物理位置算（只认同一个大区的，见下面 dist_of）：
-        //   - 身上有命中 / 子弹标记的：这一下连击值刚到、还没判完时扫（还在等子弹标记的也带上），按打中了它算；
+        //   - 身上有命中 / 子弹标记的：这一下连击值刚到、还没判完时扫（还在等子弹标记的也带上），或者刚射击 / 施法 / 投掷过（hit_scan_on），按打中了它算；
         //   - 每 EXTRA_EVERY 帧扫一遍，EXTRA_RANGE 米内活着的敌对角色记下来，每帧都当周围的敌人（千钧压架势、光环等对它也生效）
         let mut extra = Vec::new();
         let mut live_n = 0;
-        let hit_scan = self_hit || eng.self_hit_at.is_some();
+        let hit_scan = hit_scan_on(self_hit, eng.self_hit_at, eng.last_fire, now);
         let refresh = eng.scan_wait % EXTRA_EVERY == 0;
         if hit_scan || refresh || !eng.extra_foes.is_empty() {
             let listed: HashSet<usize> = around.iter().map(|e| e.chr_ins.as_ptr() as usize).collect();
@@ -3751,6 +3758,18 @@ mod tests {
         assert!(!own_ranged(true, None, t), "联机、自己没放过远程：不算（队友的箭）");
         assert!(own_ranged(true, Some(t), ms(3000)), "3 秒前射的箭刚到：算");
         assert!(!own_ranged(true, Some(t), ms(6000)), "6 秒前放的：不算");
+    }
+
+    /// 全场找命中标记：连击值刚涨过，或者刚射过箭（箭不一定涨连击值，二阶段满月女王不在距离列表里、在 20 米外）
+    #[test]
+    fn hit_scan_after_shot() {
+        let t = Instant::now();
+        let ms = |n: u64| t + Duration::from_millis(n);
+        assert!(!hit_scan_on(false, None, None, t), "什么都没做：不扫");
+        assert!(hit_scan_on(true, None, None, t), "连击值这一帧在身上");
+        assert!(hit_scan_on(false, Some(t), None, ms(100)), "连击值刚涨、还没判完");
+        assert!(hit_scan_on(false, None, Some(t), ms(3000)), "3 秒前射的箭还在飞：扫");
+        assert!(!hit_scan_on(false, None, Some(t), ms(6000)), "6 秒前射的：不扫");
     }
 
     use super::*;
