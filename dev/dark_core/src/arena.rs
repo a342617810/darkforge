@@ -796,7 +796,18 @@ fn mem_note() -> String {
     game + &sys
 }
 
-/// 进场以后：竞技场的敌人都读进来了（或者等了 LOAD_WATCH）记一行，看池子大了读图慢不慢
+/// 这个角色在 ChrSet 条目里的状态字节（按字节读，不当枚举用）：0 没读进来、1 正在建、2 / 4 在场（游戏里稳定在场的是 4）、5 正在拆。
+/// 条目不指回它就 None
+fn load_status(c: &eldenring::cs::ChrIns) -> Option<u8> {
+    let e = c.chr_set_entry.as_ptr() as *const u8;
+    if e.is_null() || unsafe { (e as *const usize).read() } != c as *const _ as usize {
+        return None;
+    }
+    Some(unsafe { e.add(std::mem::offset_of!(eldenring::cs::ChrSetEntry<eldenring::cs::ChrIns>, chr_load_status)).read() })
+}
+
+/// 进场以后：竞技场的敌人都真的读进来了（ChrSet 条目状态 2 / 4），或者等了 LOAD_WATCH，记一行。
+/// 2026-11-19 98 只、57 种模型那次：条目都在（以前这里按条目数记成 98 / 98），实际 41 只一直是 0（没读进来），出场的看不见
 fn load_watch_tick(d: &Def, st: &mut St, wcm: &WorldChrMan, in_ci: Option<usize>, now: Instant) {
     let Some((ci, at)) = st.load_watch else { return };
     if in_ci != Some(ci) {
@@ -804,15 +815,38 @@ fn load_watch_tick(d: &Def, st: &mut St, wcm: &WorldChrMan, in_ci: Option<usize>
         return;
     }
     let c = &d.colos[ci];
-    let ents: HashSet<u32> = c.parts.iter().map(|p| p.ent).collect();
-    let n = present(wcm, &ents);
-    let waited = now - at;
-    if n >= ents.len() || waited >= LOAD_WATCH {
-        st.load_watch = None;
-        let models: HashSet<&str> = c.parts.iter().map(|p| p.name.split('_').next().unwrap_or("")).collect();
-        log(&format!("竞技场：进场后 {:.1} 秒，竞技场的敌人读进来 {n} / {} 个（{} 种模型）{}；{}", waited.as_secs_f32(), ents.len(), models.len(),
-                     if n < ents.len() { "，没等齐" } else { "" }, mem_note()));
+    let by_ent: HashMap<u32, &Part> = c.parts.iter().map(|p| (p.ent, p)).collect();
+    let mut stat: HashMap<u32, Option<u8>> = HashMap::new();
+    for s in wcm.chr_sets.iter().flatten() {
+        for ch in s.characters() {
+            if by_ent.contains_key(&ch.event_entity_id) {
+                stat.insert(ch.event_entity_id, load_status(ch));
+            }
+        }
     }
+    let loaded = stat.values().filter(|s| matches!(s, Some(2) | Some(4))).count();
+    let waited = now - at;
+    if loaded < c.parts.len() && waited < LOAD_WATCH {
+        return;
+    }
+    st.load_watch = None;
+    let mut hist: Vec<(String, usize)> = Vec::new();
+    for s in stat.values() {
+        let key = s.map_or("对不上".to_string(), |v| v.to_string());
+        match hist.iter_mut().find(|h| h.0 == key) {
+            Some(h) => h.1 += 1,
+            None => hist.push((key, 1)),
+        }
+    }
+    hist.sort();
+    let missing: Vec<String> = c.parts.iter().filter(|p| !matches!(stat.get(&p.ent), Some(Some(2)) | Some(Some(4))))
+        .map(|p| format!("{}{} {}（{}）", if p.boss { "B" } else if p.scarab { "S" } else { "E" }, p.k, p.name,
+                         stat.get(&p.ent).map_or("没有条目".to_string(), |s| s.map_or("对不上".to_string(), |v| format!("状态 {v}")))))
+        .collect();
+    let models: HashSet<&str> = c.parts.iter().map(|p| p.name.split('_').next().unwrap_or("")).collect();
+    log(&format!("竞技场：进场后 {:.1} 秒，竞技场的敌人真的读进来 {loaded} / {} 个（{} 种模型；状态 {}）{}；{}", waited.as_secs_f32(), c.parts.len(), models.len(),
+                 hist.iter().map(|(k, n)| format!("{k}×{n}")).collect::<Vec<_>>().join(" "),
+                 if missing.is_empty() { String::new() } else { format!("，没读进来的 {} 个：{}", missing.len(), missing.join("、")) }, mem_note()));
 }
 
 /// 出场顺序：偶数波（第 1、3…波）精英 per 个，奇数波 Boss 一个（整场不重复）；哪种用完了就用另一种。

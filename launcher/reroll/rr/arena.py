@@ -84,7 +84,7 @@ GEN_REGION_MAP = 'm14_00_00_00'
 GEN_ENT0, GEN_REG0, GEN_REQ0, GEN_EV0 = 3700, 3901, 2900, 5300
 GEN_AT = [(-6.0, -12.0), (6.0, -12.0), (0.0, -14.0), (-10.0, -3.0), (10.0, -3.0), (0.0, -5.0)]   # 出生点（同 sc/arena.py 的坐标系：竞技场中心、玩家出生点朝 −z）
 GEN_PARAMS = dict(max_num=1, limit=-1, min_gen=1, max_gen=1, min_iv=0.0, max_iv=0.0, initial=1)
-DEFAULT = dict(enabled=True, tiers=[31, 13, 8], bosses=8, elite_kinds=4, elite_copies=4, elite_per_wave=2, scarab_pct=20, scarab_copies=4,
+DEFAULT = dict(enabled=True, tiers=[31, 13, 8], bosses=8, elite_kinds=4, elite_families=0, elite_copies=4, elite_per_wave=2, scarab_pct=20, scarab_copies=4,
                cost=[1, 2, 3], waves=[2, 4, 8],
                items_elite=2, items_boss=1, ash_boss=1, clear_bonus=[1, 2, 4], refund=[0, 1, 2], elite_two=[0, 0, 10, 15, 20, 30, 40, 50],
                reward_tiers=[[4, 4], [3, 4], [2, 3]], reward_scale=[2, 1, 1], hp_every=2, hp_step=0.1, wave_fx=[], generator_test='',
@@ -268,20 +268,23 @@ def build(ctx):
         pick_e = [k for k in sorted(elite_all) if dlc_ok or not is_dlc(ents[k])]
         rng.shuffle(pick_e)
         kinds, efam = [], set()
+        n_fam = int(c.get('elite_families') or 0) or int(c['elite_kinds'])
         for k in pick_e:
             f = npc[k] // 10000
             if f in efam or tier_of(k) is None or ents[k]['part'] not in part_names(vdir, ents[k]['src_map']):
                 continue
             efam.add(f)
             kinds.append(k)
-            if len(kinds) >= int(c['elite_kinds']):
+            if len(kinds) >= min(n_fam, int(c['elite_kinds'])):
                 break
-        # 族不够 elite_kinds 种（用户 2026-11-19「精英64种」，本体只有 36 个精英族）：同一族里敌人参数不同的（武器、招式不同）再补，
-        # 部件名也不重复（dark_core 排出场按部件名分种类）。同族的模型一样，不多占读图
+        # 族不够 elite_kinds 种（用户 2026-11-19「精英64种」，本体只有 36 个精英族），或者 elite_families 限了族数：
+        # 已经挑中的族里敌人参数不同的（武器、招式不同）再补，部件名也不重复（dark_core 排出场按部件名分种类）。
+        # 同族的模型一样，不多占读图（98 只、57 种模型那次游戏只读进来 60 只左右）
         if len(kinds) < int(c['elite_kinds']):
             used_npc, used_part = {npc[k] for k in kinds}, {ents[k]['part'] for k in kinds}
             for k in pick_e:
-                if npc[k] in used_npc or ents[k]['part'] in used_part or tier_of(k) is None or ents[k]['part'] not in part_names(vdir, ents[k]['src_map']):
+                if npc[k] // 10000 not in efam or npc[k] in used_npc or ents[k]['part'] in used_part or tier_of(k) is None \
+                        or ents[k]['part'] not in part_names(vdir, ents[k]['src_map']):
                     continue
                 used_npc.add(npc[k])
                 used_part.add(ents[k]['part'])
