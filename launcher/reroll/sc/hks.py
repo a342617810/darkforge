@@ -675,9 +675,11 @@ AFFIX_STATE_PULSE = [
     (r'^function Attack(Right|Both)(Heavy[12]End|HeavyDash|HeavyCounter|HeavySpecial[12]End)_onUpdate\(\)$',
      '    DR_ClashFrame("h", FALSE) -- Dark Reforged: 相杀（重击）'),
     (r'^function AttackLeftHeavy\d_onUpdate\(\)$', '    DR_ClashFrame("h", TRUE) -- Dark Reforged: 相杀（左手重击）'),
+    # 左手单独轻击（左右手武器不同类，原版的 L1；同类是 AttackDual*）：只算左手。以前归在双持里，右手武器的特效也跟着算（用户 2026-11-20「只算左手」）
+    (r'^function AttackLeftLight1_onUpdate\(\)$', '    DR_ClashFrame("l", TRUE) -- Dark Reforged: 相杀（左手轻击）'),
     (r'^function Attack(Right|Both)(Light[1-6]|LightDash|LightStep|LightFastStep|LightStealth|LightCounter|LightGuard|Backstep|Dash|Special[12]|WhileGuard)_onUpdate\(\)$',
      '    DR_ClashFrame("l", FALSE) -- Dark Reforged: 相杀（轻击）'),
-    (r'^function (AttackLeftLight1|AttackBothLeft(\d|Dash|Step|Special\d)|AttackDual(Light\d|Dash|BackStep|Rolling|Stealth))_onUpdate\(\)$',
+    (r'^function (AttackBothLeft(\d|Dash|Step|Special\d)|AttackDual(Light\d|Dash|BackStep|Rolling|Stealth))_onUpdate\(\)$',
      '    DR_ClashFrame("l", TRUE, TRUE) -- Dark Reforged: 相杀（双持轻击）'),
     (r'^function (JumpAttack_Start_Falling(_F|_D)?|Jump_LandAttack_(Normal|Hard)|Jump_Attack_Land_F)_onUpdate\(\)$',
      '    DR_ClashJumpFrame() -- Dark Reforged: 相杀（跳跃攻击）'),
