@@ -133,7 +133,11 @@ HP_DRAIN_PCT = {'when_poisoning_or_rot_occurs_in_vicinity_increas': 1.0}
 RIME_KEY = 'when_frostbite_occurs_in_vicinity_reduce_damage'
 RIME_TIERS = ((7, 5), (10, 8), (14, 11), (20, 16))      # 普通~传说：(受到伤害降低 %, 精力恢复速度 +)
 RIME_SEC, RIME_STATE, RIME_WEIGHT = 40.0, 578, 40      # 持续秒数、标记的 stateInfo、护符权重（原包词条的中位数）
-RIME_ICON, RIME_BUFF_ICON = 18170, 20408               # 护符图标（原版健壮角饰品的）、增益状态图标（原版防御提升类）
+RIME_ICON = 18170                                      # 护符图标（原版健壮角饰品的）
+# 增益拆成两行、各带一个图标，冻伤时一起挂（用户 2026-11-19「可以同时触发两个图标吗」）：减伤用原版防御提升（20408，溢出的露滴、水煮螃蟹），
+# 精力恢复用原版精力恢复（20410，腌乌龟脖子、迸发结晶露滴）。两行各由一个监听挂（护符 refId + residentSpEffectId1），同一个标记触发
+RIME_CUT_ICON, RIME_STAM_ICON = 20408, 20410
+RIME_MORE_SP = 7218000                                 # 第二个监听 / 精力恢复那行的号段（每档 2 个，锁定；TIER_SP 的游标到不了这么远）
 RIME_LIKE = 'when_blood_loss_occur_nearby_increase_damage_by'   # 护符模板照这个词条的（同为附近触发）
 RIME_TEXT = {'zh': '周围发生冻伤时，%d秒内受到的伤害减少%d％，精力恢复速度＋%d\n同稀有度仅生效一次',
              'en': 'When FROSTBITE occurs in vicinity, reduce damage taken by %d%% and increase stamina recovery by %d for %d seconds\n'
@@ -1924,40 +1928,50 @@ class Extract:
 
         like = gear[RIME_LIKE]
         groups = {getf(self.AC, row, 'accessoryGroup') for row in self.rows['EquipParamAccessory'].values()}
+        # sp_more：链头以外还要挂的监听（护符 residentSpEffectId1；value_ranges 的效果链也从这里展开，dark_core 词条数值随机把没被引用的行都当链头挂）
         f = dict(zh=NUM.sub('#', RIME_TEXT['zh']), en=NUM.sub('#', RIME_TEXT['en']), suffix=['Rimeguard', '霜铠'], group='附近触发',
-                 sp={}, vals={}, text={}, tal={}, weight={'armor': 0, 'talisman': RIME_WEIGHT})
+                 sp={}, sp_more={}, vals={}, text={}, tal={}, weight={'armor': 0, 'talisman': RIME_WEIGHT})
         RATES = [n for n in self.SP if n.startswith(('atkEnemyDmgCorrectRate_', 'atkPlayerDmgCorrectRate_'))]
         for k, (r_, (cut, stam)) in enumerate(zip(RAR, RIME_TIERS)):
             listen = self.pin('SpEffectParam', 'sp/%s/%s' % (RIME_KEY, r_), lambda: self.new_id('SpEffectParam', TIER_SP))
-            buff = self.new_id('SpEffectParam', TIER_SP)
-            r = sp(321700)
-            setf(self.SP, r, 'cycleOccurrenceSpEffectId', buff)
-            setf(self.SP, r, 'invocationConditionsStateChange1', RIME_STATE)
-            self.rows['SpEffectParam'][listen] = bytes(r)
-            r = sp(321701)
-            for fld in RATES:
-                setf(self.SP, r, fld, 1.0)
-            for fld in CUT_FIELDS:
-                setf(self.SP, r, fld, 1.0 - cut / 100.0)
-            for fld, v in (('iconId', RIME_BUFF_ICON), ('effectEndurance', RIME_SEC), ('vfxId', vfx), ('staminaRecoverChangeSpeed', stam)):
-                setf(self.SP, r, fld, v)
-            self.rows['SpEffectParam'][buff] = bytes(r)
+            cut_buff = self.new_id('SpEffectParam', TIER_SP)
+            # 第二个监听和精力恢复那行放到单独的号段并锁定：不走 new_id 的游标，后面别的内部行的编号不跟着挪
+            listen2 = self.pin('SpEffectParam', 'sp2/%s/%s' % (RIME_KEY, r_), lambda: RIME_MORE_SP + 2 * k)
+            stam_buff = self.pin('SpEffectParam', 'stam/%s/%s' % (RIME_KEY, r_), lambda: RIME_MORE_SP + 2 * k + 1)
+            for lid, bid in ((listen, cut_buff), (listen2, stam_buff)):
+                r = sp(321700)                    # 监听：原版这行带腐败眷属的欢愉的图标，摘掉（图标只放在增益上）
+                for fld, v in (('cycleOccurrenceSpEffectId', bid), ('invocationConditionsStateChange1', RIME_STATE), ('iconId', -1)):
+                    setf(self.SP, r, fld, v)
+                self.rows['SpEffectParam'][lid] = bytes(r)
+            for bid, cut_, stam_, icon, vx in ((cut_buff, cut, 0, RIME_CUT_ICON, vfx), (stam_buff, 0, stam, RIME_STAM_ICON, -1)):
+                r = sp(321701)                    # 特效只挂在减伤那行上（两行一起挂，挂两份就叠了）
+                for fld in RATES:
+                    setf(self.SP, r, fld, 1.0)
+                for fld in CUT_FIELDS:
+                    setf(self.SP, r, fld, 1.0 - cut_ / 100.0)
+                for fld, v in (('iconId', icon), ('effectEndurance', RIME_SEC), ('vfxId', vx), ('staminaRecoverChangeSpeed', stam_)):
+                    setf(self.SP, r, fld, v)
+                self.rows['SpEffectParam'][bid] = bytes(r)
             t = bytearray(self.rows['EquipParamAccessory'][like['tal'][r_]])
+            if any(getf(self.AC, t, 'residentSpEffectId%d' % j) > 0 for j in range(1, 5)):
+                raise RuntimeError('霜铠：护符模板 %d 的常驻效果栏不空，第二个监听放不下' % like['tal'][r_])
             g = TIER_GROUP
             while g in groups:
                 g += 1
             groups.add(g)
             tid = self.pin('EquipParamAccessory', 'tal/%s/%s' % (RIME_KEY, r_), self.free_acc)
-            for fld, v in (('refId', listen), ('iconId', RIME_ICON), ('accessoryGroup', g)):
+            for fld, v in (('refId', listen), ('residentSpEffectId1', listen2), ('iconId', RIME_ICON), ('accessoryGroup', g)):
                 setf(self.AC, t, fld, v)
             self.rows['EquipParamAccessory'][tid] = bytes(t)
-            f['sp'][r_], f['tal'][r_] = listen, tid
+            f['sp'][r_], f['sp_more'][r_], f['tal'][r_] = listen, [listen2], tid
             f['text'][r_] = {'zh': RIME_TEXT['zh'] % (RIME_SEC, cut, stam), 'en': RIME_TEXT['en'] % (cut, stam, RIME_SEC)}
             f['vals'][r_] = NUM.findall(f['text'][r_]['zh'])
         gear[RIME_KEY] = f
-        self.report.append('新词条 霜铠（附近冻伤 %g 秒，受到伤害 %s，精力恢复 %s）：效果 %s，护符模板 %s；判定 %d → 行为 %d → 子弹 %d（攻击 %d）→ 标记 %d（stateInfo %d），特效 %d' % (
+        self.report.append('新词条 霜铠（附近冻伤 %g 秒，受到伤害 %s，精力恢复 %s）：效果 %s（第二个监听 %s），护符模板 %s；'
+                           '判定 %d → 行为 %d → 子弹 %d（攻击 %d）→ 标记 %d（stateInfo %d），特效 %d；图标 减伤 %d、精力恢复 %d' % (
             RIME_SEC, ' / '.join('-%d%%' % c for c, _ in RIME_TIERS), ' / '.join('+%d' % s for _, s in RIME_TIERS),
-            ' / '.join(str(f['sp'][r]) for r in RAR), ' / '.join(str(f['tal'][r]) for r in RAR), emit, beh, bul, atk, mark, RIME_STATE, vfx))
+            ' / '.join(str(f['sp'][r]) for r in RAR), ' / '.join(str(f['sp_more'][r][0]) for r in RAR),
+            ' / '.join(str(f['tal'][r]) for r in RAR), emit, beh, bul, atk, mark, RIME_STATE, vfx, RIME_CUT_ICON, RIME_STAM_ICON))
         self.rime_emit = emit
         return [{'param': 'SpEffectParam', 'where': {'stateInfo': 260, 'spCategory': 10007}, 'field': 'cycleOccurrenceSpEffectId',
                  'empty': [-1, 0], 'value': emit, 'what': '冻伤发作接霜铠的附近判定'}]
@@ -2726,9 +2740,9 @@ class Extract:
         return rs, idx, seqs
 
     def value_ranges(self, gear):
-        def walk(root):
-            """效果链按路径展开（只走效果行之间的引用）：{路径: 编号}"""
-            out, todo = {}, [('', root)]
+        def walk(root, more=()):
+            """效果链按路径展开（只走效果行之间的引用）：{路径: 编号}。more：另外几个链头（词条的 sp_more，路径 +1、+2……）"""
+            out, todo = {}, [('', root)] + [('+%d' % (j + 1), x) for j, x in enumerate(more)]
             while todo:
                 path, i = todo.pop(0)
                 if i <= 0 or i in out.values():
@@ -2756,7 +2770,7 @@ class Extract:
                 continue
             rs, idx, seqs = got
             # 链：只连着效果行（没有行为 / 子弹 / 攻击），路径对齐
-            ws = [walk(f['sp'][r]) for r in rs]
+            ws = [walk(f['sp'][r], (f.get('sp_more') or {}).get(r, ())) for r in rs]
             if any(set(w) != set(ws[0]) for w in ws) or any(getf(self.SP, self.row_of('SpEffectParam', i), 'behaviorId') > 0
                                                             for w in ws for i in w.values()):
                 continue

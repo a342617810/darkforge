@@ -3,6 +3,7 @@
 //! 每条随机词条分一组占位效果行（affixes.txt 的 valpool，BLOCK 行一组，rr/affixes.py val_pool 建的），
 //! 整行照这一档的效果链抄过来（游戏内存里的参数行）、链内引用改指到这一组、和数成线性关系的字段写成按位置算出的精确数值，
 //! 再把链头挂到人物身上；脱下就摘掉。同名的各占一组，所以同稀有度也叠加（不用叠加副本）。
+//! 链头 = 链里没被别的行引用的行（Val::roots；霜铠有两个监听，两个都挂）。
 //! 第一次用一条词条的一档时核对：按现在的数算出来的字段要和游戏里这一档的效果行一样（不是用重随的参数启动、或者定义和参数对不上），
 //! 对不上的这条词条照固定数值挂这一档原来的效果行。
 //! 二期（积木规则 / 专用模块按位置取数）用 worn()：身上每条随机词条的（键, 稀有度, 位置）。
@@ -289,11 +290,10 @@ pub(super) fn tick(d: &Defs, st: &mut St, pgd: &PlayerGameData) {
             ok
         });
         let block = plan.get(inst).copied().filter(|_| ok);
+        let roots = val.roots();
         let (Some(b), Some(tpl)) = (block, tpl) else {
             // 照固定数值：挂这一档原来的链头（同一个效果挂一次就够）
-            if let Some(&root) = val.rows.first() {
-                fixed.insert(root);
-            }
+            fixed.extend(roots.iter().filter_map(|&k| val.rows.get(k).copied()));
             continue;
         };
         let bid = ids(b);
@@ -312,9 +312,15 @@ pub(super) fn tick(d: &Defs, st: &mut St, pgd: &PlayerGameData) {
             }
             log(&format!("词条数值随机：{key}（稀有度 {r}，位置 {pos}‰）挂到第 {b} 组：{:?}", val.nums_at(pos_f(*pos))));
             v.held.insert(*inst, (b, rows));
-            p.apply_speffect(bid[0], false);
-        } else if !on.contains(&bid[0]) {
-            p.apply_speffect(bid[0], false); // 死了 / 读图后被清掉了：补挂
+            for &k in &roots {
+                p.apply_speffect(bid[k], false);
+            }
+        } else {
+            for &k in &roots {
+                if !on.contains(&bid[k]) {
+                    p.apply_speffect(bid[k], false); // 死了 / 读图后被清掉了：补挂
+                }
+            }
         }
     }
     // 照固定数值挂的（对不上定义的、组不够的）：只在身上没有时挂；不再需要的不摘（装备行没挂过它们，原版一样的效果别的来源也可能挂着）
@@ -373,6 +379,26 @@ mod tests {
         assert_eq!(v.text(1.0, 0), "伤害＋8％，回复35点");
         assert_eq!(v.text(0.0, 1), "dmg 6% heal 30");
         assert_eq!(v.text(0.25, 0), "伤害＋6.5％，回复31点");
+    }
+
+    /// 链头：没被引用的行都算（霜铠两个监听各挂一个增益 → 两个链头，占位行也各自指到这一组的增益）
+    #[test]
+    fn roots_two_heads() {
+        assert_eq!(val().roots(), vec![0], "一般的链只有第 0 行是链头");
+        let mut v = val();
+        v.rows = vec![100, 200, 101, 201];
+        v.refs = vec![(0, 8, 2), (1, 8, 3)];
+        v.fields = vec![(2, 0, b'f', 1.0, 0.01, 0), (3, 4, b'i', 0.0, -1.0, 1)];
+        assert_eq!(v.roots(), vec![0, 1]);
+        let tpl = vec![vec![0u8; 16]; 4];
+        let rows = block_rows(&v, 0.0, &tpl, &[900, 901, 902, 903]);
+        assert_eq!(get_field(&rows[0], 8, b'i'), Some(902.0), "第一个监听指到这一组的减伤行");
+        assert_eq!(get_field(&rows[1], 8, b'i'), Some(903.0), "第二个监听指到这一组的精力行");
+        assert!((get_field(&rows[2], 0, b'f').unwrap() - 1.06).abs() < 1e-6);
+        assert_eq!(get_field(&rows[3], 4, b'i'), Some(-30.0));
+        let mut none = val();
+        none.refs = vec![(0, 8, 1), (1, 8, 0)];
+        assert_eq!(none.roots(), vec![0], "成环的退回第 0 行");
     }
 
     /// 分组：留着的照旧，新的拿空的，不够的记下来

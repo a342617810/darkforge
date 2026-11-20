@@ -620,11 +620,16 @@ impl InventoryItemsData {
     /// A mutable slice over all the normal item [EquipInventoryDataListEntry]
     /// allocated for this [InventoryItemsData], whether or not they're empty or
     /// in range of [normal_items_len](Self::normal_items_len).
+    ///
+    /// Darkforge patch (2026-11-19): sliced by `normal_items_capacity` like
+    /// [normal_entries](Self::normal_entries). Upstream used `normal_items_len`,
+    /// but real items sit past it (a player's stack at index 708 with len 655),
+    /// so an index found through `normal_entries` panicked here.
     pub fn normal_entries_mut(&mut self) -> &mut [MaybeEmpty<EquipInventoryDataListEntry>] {
         unsafe {
             std::slice::from_raw_parts_mut(
                 self.normal_items_head.as_ptr(),
-                self.normal_items_len as usize,
+                self.normal_items_capacity as usize,
             )
         }
     }

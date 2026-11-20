@@ -280,26 +280,38 @@ pub(super) fn tick(d: &Defs, st: &mut St, pgd: &mut PlayerGameData, who: &(i32, 
         });
     }
     if req.is_some() || reforge.is_some() || ovl.is_some() || aup.is_some() {
-        let res = if !at_grace() {
-            Err(["人物不在赐福点".to_string(), "You are not resting at a site of grace.".to_string()])
-        } else if let Some((src, k, tgt, rep)) = req {
-            ih_apply(d, st, pgd, who, src, k, tgt, rep)
-        } else if let Some((k, i)) = aup {
-            overlimit::affix_apply(d, st, pgd, who, k, i)
-        } else if let Some((cat, k, n)) = ovl {
-            let r = overlimit::apply(d, st, pgd, who, cat, k, n);
-            if r.is_ok() && cat == 0 {
-                with(|w| w.want_preview = Some(k));
+        // 执行时出错（panic）也要回界面一句，不然界面一直等在「处理中」（2026-11-19 玩家诊断：扣融锻之心越界，继承卡住）；
+        // 出错前改了多少记录就存多少，让记录和背包对得上
+        let run = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            if !at_grace() {
+                Err(["人物不在赐福点".to_string(), "You are not resting at a site of grace.".to_string()])
+            } else if let Some((src, k, tgt, rep)) = req {
+                ih_apply(d, st, pgd, who, src, k, tgt, rep)
+            } else if let Some((k, i)) = aup {
+                overlimit::affix_apply(d, st, pgd, who, k, i)
+            } else if let Some((cat, k, n)) = ovl {
+                let r = overlimit::apply(d, st, pgd, who, cat, k, n);
+                if r.is_ok() && cat == 0 {
+                    with(|w| w.want_preview = Some(k));
+                }
+                r
+            } else {
+                let k = reforge.unwrap_or_default();
+                let r = reforge_apply(d, st, pgd, who, k);
+                if r.is_ok() {
+                    with(|w| w.want_preview = Some(k)); // 补正等级变了（全能的名字也变了），范围按新的重算一次
+                }
+                r
             }
-            r
-        } else {
-            let k = reforge.unwrap_or_default();
-            let r = reforge_apply(d, st, pgd, who, k);
-            if r.is_ok() {
-                with(|w| w.want_preview = Some(k)); // 补正等级变了（全能的名字也变了），范围按新的重算一次
-            }
-            r
-        };
+        }));
+        let res = run.unwrap_or_else(|_| {
+            log(&format!("{}：执行时出错（详情见上一行 panic），已存记录、告诉界面", NAMES[mode]));
+            rec_save(who, st);
+            Err([
+                "出错了，这次没有做完。关掉再打开看看装备现在的样子".to_string(),
+                "Something went wrong and this was not finished. Reopen to see the current state of your gear.".to_string(),
+            ])
+        });
         let lang = ui_lang();
         let text = match &res {
             Ok(m) => format!("ok\t{}", m[lang]),

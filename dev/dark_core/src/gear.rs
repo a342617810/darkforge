@@ -451,6 +451,14 @@ pub(crate) struct Val {
     pub(crate) runs: Vec<(String, f32, f32, usize)>,
 }
 
+impl Val {
+    /// 链头：链里没被别的行引用的行（一般只有第 0 行；霜铠两个监听各挂一个增益，有两个链头，用户 2026-11-19「可以同时触发两个图标吗」）
+    pub(crate) fn roots(&self) -> Vec<usize> {
+        let r: Vec<usize> = (0..self.rows.len()).filter(|k| !self.refs.iter().any(|x| x.2 == *k)).collect();
+        if r.is_empty() && !self.rows.is_empty() { vec![0] } else { r }
+    }
+}
+
 fn round_to(v: f32, prec: f32) -> f32 {
     if prec > 0.0 { (v / prec).round() * prec } else { v }
 }
@@ -2397,8 +2405,16 @@ fn build_row(lib: &Lib, rec: &Rec, base_row: &[u8], old: bool) -> Vec<u8> {
         }
         // 词条数值随机：护符行不挂（gear/valfx.rs 挂占位行）；固定数值的照模板
         Recipe::A { sp, key, .. } => {
-            if is_val(lib, key, sp_rar(lib, key, *sp).unwrap_or(r)) {
+            let rr = sp_rar(lib, key, *sp).unwrap_or(r);
+            if is_val(lib, key, rr) {
                 put(lib, c, &mut row, "refId", -1.0);
+                // 链上别的链头放在常驻效果栏里的（霜铠的第二个监听）也不挂，valfx 挂它的占位行
+                let chain: Vec<i32> = lib.fam_by_key.get(key.as_str()).and_then(|&k| lib.fams[k].r[rr].as_ref()).and_then(|x| x.val.as_ref()).map_or(Vec::new(), |v| v.rows.clone());
+                for nm in ["residentSpEffectId1", "residentSpEffectId2", "residentSpEffectId3", "residentSpEffectId4"] {
+                    if get_i32(lib, c, &row, nm).is_some_and(|v| v > 0 && chain.contains(&v)) {
+                        put(lib, c, &mut row, nm, -1.0);
+                    }
+                }
             }
         }
     }
@@ -4576,11 +4592,17 @@ fn ih_apply(
             let nsps: Vec<(i32, String)> = nsps.into_iter().map(|x| (x.0, x.1)).collect();
             let new = Rec { recipe: Recipe::P { base: *base, sps: nsps, mult: *mult, pos: npos }, ..old.clone() };
             write_row(d, st, &new).map_err(|x| [format!("改写目标失败：{x}"), format!("failed to rewrite the target: {x}")])?;
+            // 先扣融锻之心再移走来源（和超限、重铸一样）：扣不掉就改回目标、来源不动（以前扣在最后，扣的时候出错就只剩来源没了）
+            if remove_goods(pgd, stone, 1) != 1 {
+                let _ = write_row(d, st, &old);
+                return Err(e("扣不掉融锻之心，目标已改回、来源没动", "could not use a Fusion Heart; the target was restored and the source kept"));
+            }
             st.recs.remove(&(1, src_idx)); // 先删记录：移掉后不进回购商店
             if !remove_slot(pgd, src_slot, src_raw) {
                 st.recs.insert((1, src_idx), src.clone());
                 let _ = write_row(d, st, &old);
-                return Err(e("来源移除失败，目标已改回", "could not remove the source; the target was restored"));
+                gift_n(1, stone as i32, 1);
+                return Err(e("来源移除失败，目标已改回、融锻之心已还回", "could not remove the source; the target was restored and the Fusion Heart returned"));
             }
             write_texts(d, &new);
             let tname = [plain_name(d, &new, 0), plain_name(d, &new, 1)];
@@ -4606,7 +4628,13 @@ fn ih_apply(
             let idx = *free(d, st, &held)[2].first().ok_or_else(|| e("护符容器满了，卖掉或丢掉一些生成的护符", "no free talisman slots; sell or drop some generated talismans"))?;
             let rec = Rec { cat: 2, idx, tier: r as u8, recipe: Recipe::A { tal: tal as u32, sp, key: key.clone(), pos: p } };
             let tname = [plain_name(d, &rec, 0), plain_name(d, &rec, 1)];
-            let ok = ship(d, st, vec![(Made::Gear(rec), 0)]).ok_or_else(|| e("发放失败", "delivery failed"))?;
+            if remove_goods(pgd, stone, 1) != 1 {
+                return Err(e("扣不掉融锻之心，没提取", "could not use a Fusion Heart; nothing was extracted"));
+            }
+            let Some(ok) = ship(d, st, vec![(Made::Gear(rec), 0)]) else {
+                gift_n(1, stone as i32, 1);
+                return Err(e("发放失败，融锻之心已还回", "delivery failed; the Fusion Heart was returned"));
+            };
             st.pending = Some(Pending::new(ok));
             st.recs.remove(&(1, src_idx));
             if !remove_slot(pgd, src_slot, src_raw) {
@@ -4617,7 +4645,6 @@ fn ih_apply(
             [format!("提取出「{}」，稍后放进背包。", tname[0]), format!("Extracted \"{}\". It will arrive in your inventory shortly.", tname[1])]
         }
     };
-    remove_goods(pgd, stone, 1);
     rec_save(who, st);
     Ok(done)
 }
@@ -4807,6 +4834,43 @@ pub fn tick() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// 背包里的道具可以放在 normal_items_len 后面（2026-11-19 玩家诊断：融锻之心在第 708 格、len 655）。
+    /// remove_goods 按 normal_entries（按容量）找到的格子，再用 normal_entries_mut 改数量：两边长度要一样，不然越界
+    #[test]
+    fn inventory_mut_entries_cover_capacity() {
+        use eldenring::cs::InventoryItemsData;
+        use std::mem::{ManuallyDrop, MaybeUninit};
+        use std::ptr::addr_of_mut;
+        const CAP: usize = 800;
+        let mut entries = vec![0u64; CAP * 8]; // 每格按 64 字节放宽（实际不到）
+        let mut other = [0u64; 8];
+        let (head, dummy) = (entries.as_mut_ptr().cast::<u8>(), other.as_mut_ptr().cast::<u8>());
+        let mut raw = MaybeUninit::<InventoryItemsData>::zeroed();
+        let p = raw.as_mut_ptr();
+        // 指针字段都写成非空（OwnedPtr / NonNull 不能是 0）；ManuallyDrop 不让它释放
+        unsafe {
+            addr_of_mut!((*p).normal_items_capacity).write(CAP as u32);
+            addr_of_mut!((*p).normal_items_len).write(655);
+            addr_of_mut!((*p).normal_items_head).cast::<*mut u8>().write(head);
+            for f in [
+                addr_of_mut!((*p).key_items_head).cast::<*mut u8>(),
+                addr_of_mut!((*p).multiplay_key_items_head).cast::<*mut u8>(),
+                addr_of_mut!((*p).normal_items_accessor.head).cast::<*mut u8>(),
+                addr_of_mut!((*p).normal_items_accessor.length).cast::<*mut u8>(),
+                addr_of_mut!((*p).key_items_accessor.head).cast::<*mut u8>(),
+                addr_of_mut!((*p).key_items_accessor.length).cast::<*mut u8>(),
+                addr_of_mut!((*p).item_id_mapping_indices).cast::<*mut u8>(),
+                addr_of_mut!((*p).item_id_mapping).cast::<*mut u8>(),
+            ] {
+                f.write(dummy);
+            }
+        }
+        let mut inv = ManuallyDrop::new(unsafe { raw.assume_init() });
+        assert_eq!(inv.normal_entries().len(), CAP);
+        assert_eq!(inv.normal_entries_mut().len(), CAP, "可改的格子也要按容量");
+        assert!(inv.normal_entries_mut().get_mut(708).is_some());
+    }
 
     /// 刚建的角色挪开旧记录：rec_aside_copy 不管名字都复制进 旧记录（没有文件时不复制）
     #[test]
