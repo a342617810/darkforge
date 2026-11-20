@@ -394,10 +394,12 @@ RULE_AFFIXES = [
          logic=[dict(type='stack', add=['guard_hit'], consume=['attack'], max=1, timeout=3.0, fx='buff')]),
     # 血魔法（bd设计.md 3.5）：专注换成血量，低血量更强，打倒敌人回血
     # 用户 2026-11-19「血契传说挡位消耗血量改为专注值的300% 其余缩放」：150 → 300；随后「算了改成500吧 说明也改一下 不用百分比了 用5倍」：
-    # 500（只出传说，其他档同比例也是 500），说明写「专注值消耗量的5倍」（text_val：说明里的数字 = v / 100，规则行仍是 fp_to_hp=500）
-    dict(key='dr_blood_pact', suffix=['Blood Pact', '血契'], slots=('talisman',), icon=18390, vals=(500, 500, 500, 500), rarities=('Legendary',),
-         keystone=True, zh='使用魔法、祷告与战技时，不再消耗专注值，改为消耗血量（专注值消耗量的%s倍）',
-         en='Sorceries, incantations and skills no longer cost FP; they cost HP instead (%s× the FP cost)', text_val=lambda v: v / 100,
+    # 500（只出传说，其他档同比例也是 500），说明写「专注值消耗量的5倍」（text_val：说明里的数字 = v / 100，规则行仍是 fp_to_hp=500）。
+    # 用户 2026-11-20「血契数值调整为4倍」：400
+    dict(key='dr_blood_pact', suffix=['Blood Pact', '血契'], slots=('talisman',), icon=18390, vals=(400, 400, 400, 400), rarities=('Legendary',),
+         # 同日「血不够就扣死」：扣血不再保底留 1（rules.rs fp_to_hp 用 HpCost），说明照燃血补一句会死
+         keystone=True, zh='使用魔法、祷告与战技时，不再消耗专注值，改为消耗血量（专注值消耗量的%s倍），血量耗尽时会死亡',
+         en='Sorceries, incantations and skills no longer cost FP; they cost HP instead (%s× the FP cost). Running out of HP kills you', text_val=lambda v: v / 100,
          logic=[dict(type='while', fp_to_hp=lambda v: v)]),
     # 用户 2026-11-03：传说提升到 50％（以前 6 / 9 / 12 / 16），去掉战技那一份，只管魔法、祷告；
     # 2026-11-18「血涌的触发条件改到25%血以下」（以前血量低于一半）

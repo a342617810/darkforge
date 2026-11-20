@@ -1,7 +1,7 @@
 {
  "_说明": "词条库（阶段 1：迁移原包的词条）。由 dev\\item_system\\extract_affixes.py 从 RNG Lands 原包提取，不要手改；规则见 dev\\item_system\\词条一览.md、设计文档.md 第 8 节。权重 / 分布里的数字都是原包里的件数。",
  "source": "packs\\Ruby\\recommended increased difficulty",
- "time": "2026-11-19 22:34:19",
+ "time": "2026-11-20 11:56:28",
  "rarities": [
   "Common",
   "Rare",
@@ -25982,8 +25982,8 @@
    }
   },
   "dr_blood_pact": {
-   "zh": "使用魔法、祷告与战技时，不再消耗专注值，改为消耗血量（专注值消耗量的#倍）\n同名词条只有稀有度最高的生效",
-   "en": "Sorceries, incantations and skills no longer cost FP; they cost HP instead (#× the FP cost)\nOnly the highest rarity of this effect applies",
+   "zh": "使用魔法、祷告与战技时，不再消耗专注值，改为消耗血量（专注值消耗量的#倍），血量耗尽时会死亡\n同名词条只有稀有度最高的生效",
+   "en": "Sorceries, incantations and skills no longer cost FP; they cost HP instead (#× the FP cost). Running out of HP kills you\nOnly the highest rarity of this effect applies",
    "suffix": [
     "Blood Pact",
     "血契"
@@ -25994,13 +25994,13 @@
    },
    "vals": {
     "Legendary": [
-     "5"
+     "4"
     ]
    },
    "text": {
     "Legendary": {
-     "zh": "使用魔法、祷告与战技时，不再消耗专注值，改为消耗血量（专注值消耗量的5倍）\n同名词条只有稀有度最高的生效",
-     "en": "Sorceries, incantations and skills no longer cost FP; they cost HP instead (5× the FP cost)\nOnly the highest rarity of this effect applies"
+     "zh": "使用魔法、祷告与战技时，不再消耗专注值，改为消耗血量（专注值消耗量的4倍），血量耗尽时会死亡\n同名词条只有稀有度最高的生效",
+     "en": "Sorceries, incantations and skills no longer cost FP; they cost HP instead (4× the FP cost). Running out of HP kills you\nOnly the highest rarity of this effect applies"
     }
    },
    "tal": {
@@ -26017,18 +26017,18 @@
      {
       "type": "while",
       "fp_to_hp": [
-       500,
-       500,
-       500,
-       500
+       400,
+       400,
+       400,
+       400
       ]
      }
     ],
     "vals": [
-     500,
-     500,
-     500,
-     500
+     400,
+     400,
+     400,
+     400
     ]
    },
    "archetype": "法术",

@@ -2423,10 +2423,11 @@ impl Engine {
                         let lost = fr.max_fp - fr.fp;
                         acts.push(Act::Fp(lost));
                         if st.armed {
+                            // 扣血可以扣到 0（用户 2026-11-20「血不够就扣死」，同燃血）：以前保底留 1 血，剩 1 血时能一直白放法术
                             let cost = ((lost as f32 * fp_to_hp[r] / 100.0).round() as i32).max(1);
-                            acts.push(Act::Hp(-cost));
+                            acts.push(Act::HpCost(cost));
                             if lost >= 5 {
-                                acts.push(Act::Log(format!("{}：专注 {lost} → 扣血 {cost}", rule.key)));
+                                acts.push(Act::Log(format!("{}：专注 {lost} → 扣血 {cost}{}", rule.key, if cost >= fr.hp { "（血不够，扣死）" } else { "" })));
                             }
                         }
                     }
@@ -4269,9 +4270,9 @@ mod tests {
         assert!(s.step(&d, &w, &[], None, 100).is_empty());
         // 施法掉 20 专注：补回来，扣 30 血
         s.fp = 80;
-        assert_eq!(s.step(&d, &w, &[], None, 200), vec![Act::Fp(20), Act::Hp(-30), Act::Log("dr_pact：专注 20 → 扣血 30".into())]);
+        assert_eq!(s.step(&d, &w, &[], None, 200), vec![Act::Fp(20), Act::HpCost(30), Act::Log("dr_pact：专注 20 → 扣血 30".into())]);
         s.fp = 98;
-        assert_eq!(s.step(&d, &w, &[], None, 300), vec![Act::Fp(2), Act::Hp(-3)], "持续耗蓝的每帧也扣，少的不写日志");
+        assert_eq!(s.step(&d, &w, &[], None, 300), vec![Act::Fp(2), Act::HpCost(3)], "持续耗蓝的每帧也扣，少的不写日志");
         // 血量低于一半：血涌的两行都挂；回到一半以上摘掉
         s.fp = 100;
         s.hp = 499;
@@ -4282,6 +4283,12 @@ mod tests {
         s.step(&d, &worn(&[]), &[], None, 600);
         s.fp = 50;
         assert_eq!(s.step(&d, &w, &[], None, 700), vec![Act::Fp(50)]);
+        // 血不够付：扣到 0（扣死），不再保底留 1 血白放
+        s.hp = 10;
+        s.fp = 80;
+        let acts = s.step(&d, &w, &[], None, 800);
+        assert_eq!(acts[..2], [Act::Fp(20), Act::HpCost(30)]);
+        assert_eq!(s.hp, 0, "剩 10 血放掉 20 专注（扣 30）：死");
     }
 
     #[test]
