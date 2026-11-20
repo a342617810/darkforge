@@ -11,12 +11,13 @@
 //! - v0.8.2 一度改成按物理位置自己算距离，用户觉得不靠谱，查实确实不对：物理位置是各自地图块里的坐标，跨地图块直接相减没意义
 //!   （2026-11-01 运行中读：游戏距离 13.5 米的敌人按位置算 103 米）。改回用游戏的距离、加就绪检查。
 //! 宏里只借 WorldChrMan 的这几个字段，调用处同时可变借着 main_player 也行。
-//! 在场 = ChrSet 里的非空条目，去掉正在建（状态字节 1）和正在拆（5）的（崩溃风险审查 2026-11-19 第 20 条：以前全收，下游照样解引用、挂效果、改血量）。
-//! - 只排除这两种，不是只收「Active」：第一版只收 vendored 枚举的 Active（2），同日 18:18 实测稳定在场的主角一直是 4、从来不是 2，
-//!   前 90 秒 live! / around! 一个角色都没有（斗技场第一波精英没魇化）。黄金树爬塔（1.17.1）也把 4（ReadyForActivation）当在场，
-//!   没唤醒的地图敌人是 0（Unloaded）、被停读的也是 0：0 照旧算（联机时房主那边离房主远、靠近客机的敌人可能就是 0，房主要替客机改它）。
+//! 在场 = ChrSet 条目的状态字节读到过 2 或 4 的角色（崩溃风险审查 2026-11-19 第 20 条：以前全收，没建好 / 没读进来 / 正在拆的也照样解引用、挂效果、改血量）。
+//! - 第一版只收 vendored 枚举的 Active（2）：同日 18:18 实测稳定在场的主角一直是 4、从来不是 2，前 90 秒周围角色全空（斗技场第一波精英没魇化）。
+//!   黄金树爬塔（1.17.1）把 2 | 4（Active / ReadyForActivation）当在场，没唤醒 / 被停读的地图敌人是 0。
+//! - 第二版只排除 1 和 5，0 照算：19:43 斗技场 98 只里 41 只一直是 0（没读进来、玩家看不到），魇化照样给其中一只挂了效果、读了血量。
+//!   现在 0 / 1 / 3 只有以前读到过 2 / 4 的才算（停读的照算，SEEN：不让 speed.rs / rules 丢掉要改回的记录）；5 不算、忘掉。
+//!   联机：客机收到房主的魇化会等 120 秒等它出现；房主替客机减速每帧重新套；替客机改架势是一次性的，对方在房主这边没读进来就不改。
 //! - 主角读到 2 或 4（确认这个字节就是状态）以前全收，不等、不会一开始全空；读到大于 5 的值就当不是状态，之后一直全收。
-//! - 见过不在建的角色之后再读到 1 也照样算（SEEN）：不让 speed.rs / rules 丢掉要改回的记录。
 //! - status_diag 照样记实测的值（「周围角色（实测）」），以后要改规则先看它。
 
 use std::collections::{BTreeMap, HashSet};
@@ -96,13 +97,14 @@ fn scan<T: Subclass<ChrIns> + 'static>(s: &ChrSet<T>, f: &mut impl FnMut(usize, 
     }
 }
 
-/// 状态字节：正在建、正在拆（vendored 枚举 Initializing / Unloading），比 STATUS_MAX 大就不是状态
-const BUILDING: u8 = 1;
+/// 状态字节：在场（vendored 枚举 Active / ReadyForActivation；实测主角是 4）、正在拆（Unloading），比 STATUS_MAX 大就不是状态
+const ACTIVE: u8 = 2;
+const READY_ACT: u8 = 4;
 const TEARING: u8 = 5;
 const STATUS_MAX: u8 = 5;
 /// 0 还没确认（主角还没读到 2 / 4，先全收）、1 确认了、2 读到不认识的值（这个字节不是状态）→ 一直全收
 static STATUS_LAYOUT: AtomicU8 = AtomicU8::new(0);
-/// 见过不在建、不在拆的角色地址：之后再读到正在建也照样算在场；正在拆或者离开 ChrSet 就忘掉
+/// 读到过 2 / 4 的角色地址：之后变成 0（停读）/ 1 / 3 也照样算在场；正在拆或者离开 ChrSet 就忘掉
 static SEEN: Mutex<Option<HashSet<usize>>> = Mutex::new(None);
 
 /// 状态字节读到不认识的值：之后不看状态（只记一次）
@@ -112,7 +114,7 @@ fn status_bad(why: &str) {
     }
 }
 
-/// （所有非空条目, 其中在场的 = 去掉正在建 / 正在拆的）。状态字节还没确认或者对不上时两份一样
+/// （所有非空条目, 其中在场的，见 pick）。状态字节还没确认或者对不上时两份一样
 pub fn collect_live(players: &ChrSet<PlayerIns>, fixed: [&ChrSet<ChrIns>; 4], sets: &[Option<OwnedPtr<ChrSet<ChrIns>>>]) -> (HashSet<usize>, HashSet<usize>) {
     if STATUS_LAYOUT.load(Ordering::Relaxed) != 1 {
         let all = collect(players, fixed, sets);
@@ -139,16 +141,17 @@ pub fn collect_live(players: &ChrSet<PlayerIns>, fixed: [&ChrSet<ChrIns>; 4], se
     }
 }
 
-/// 按状态字节挑在场的：去掉正在拆的，正在建的只留以前见过的（seen 跟着更新）；读到比 STATUS_MAX 大的值 = Err（不是状态）
+/// 按状态字节挑在场的：2 / 4 算；0 / 1 / 3 只算以前读到过 2 / 4 的（seen 跟着更新）；5 不算、忘掉；
+/// 读到比 STATUS_MAX 大的值 = Err（不是状态）
 fn pick(entries: &[(usize, u8)], seen: &mut HashSet<usize>) -> Result<HashSet<usize>, (usize, u8)> {
     if let Some(&odd) = entries.iter().find(|e| e.1 > STATUS_MAX) {
         return Err(odd);
     }
-    let mut live: HashSet<usize> = entries.iter().filter(|e| e.1 != BUILDING && e.1 != TEARING).map(|e| e.0).collect();
-    let building: HashSet<usize> = entries.iter().filter(|e| e.1 == BUILDING).map(|e| e.0).collect();
+    let mut live: HashSet<usize> = entries.iter().filter(|e| e.1 == ACTIVE || e.1 == READY_ACT).map(|e| e.0).collect();
+    let other: HashSet<usize> = entries.iter().filter(|e| e.1 != ACTIVE && e.1 != READY_ACT && e.1 != TEARING).map(|e| e.0).collect();
     // 正在拆的、不在 ChrSet 里的忘掉
-    seen.retain(|a| live.contains(a) || building.contains(a));
-    live.extend(building.iter().copied().filter(|a| seen.contains(a)));
+    seen.retain(|a| live.contains(a) || other.contains(a));
+    live.extend(other.iter().copied().filter(|a| seen.contains(a)));
     seen.extend(live.iter().copied());
     Ok(live)
 }
@@ -166,9 +169,9 @@ fn status_watch(w: &WorldChrMan) {
         }
     });
     match main {
-        Some(st @ (2 | 4)) => {
+        Some(st @ (ACTIVE | READY_ACT)) => {
             if STATUS_LAYOUT.compare_exchange(0, 1, Ordering::Relaxed, Ordering::Relaxed).is_ok() {
-                log(&format!("周围角色：ChrSet 条目的状态字节对上了（主角是 {st}），之后正在建（1）/ 正在拆（5）的角色不算在场"));
+                log(&format!("周围角色：ChrSet 条目的状态字节对上了（主角是 {st}），之后只有读到过 2 / 4 的角色算在场（正在拆的 5 不算）"));
             }
         }
         Some(st) if st > STATUS_MAX => status_bad(&format!("主角的状态是 {st}")),
@@ -564,22 +567,22 @@ mod tests {
         assert_eq!((STATUS_AT, ENTRY_SIZE), (8, 16));
     }
 
-    /// 0 / 2 / 3 / 4 都算在场（实测主角是 4，没唤醒的地图敌人是 0）；正在拆的不算；正在建的只算以前见过的；不认识的值 = 不是状态
+    /// 2 / 4 算在场（实测主角是 4）；0（没读进来 / 没唤醒）、1、3 只算以前读到过 2 / 4 的；5 不算；不认识的值 = 不是状态
     #[test]
     fn pick_by_status() {
         let mut seen = HashSet::new();
         let live = pick(&[(10, 4), (11, 2), (12, 0), (13, 3), (14, 1), (15, 5)], &mut seen).unwrap();
-        assert_eq!(live, [10, 11, 12, 13].into_iter().collect());
-        // 10 重新读到正在建（同一个地址重新初始化 / 状态来回变）：见过，照样算；14 一直在建，不算；12 开始拆，不算、忘掉
-        let live = pick(&[(10, 1), (11, 4), (12, 5), (14, 1)], &mut seen).unwrap();
         assert_eq!(live, [10, 11].into_iter().collect());
+        // 10 停读了（0）、11 变成 1：读到过 4 / 2，照样算；12 一直是 0（斗技场没读进来的那种），不算；15 拆完不在了
+        let live = pick(&[(10, 0), (11, 1), (12, 0), (13, 3)], &mut seen).unwrap();
+        assert_eq!(live, [10, 11].into_iter().collect());
+        // 12 唤醒了（4），之后再停读也算
+        pick(&[(12, 4)], &mut seen).unwrap();
+        assert_eq!(pick(&[(12, 0)], &mut seen).unwrap(), [12].into_iter().collect());
+        // 12 开始拆：不算、忘掉；同一个地址后来又是 0 / 1：不再当读到过
+        assert!(pick(&[(12, 5)], &mut seen).unwrap().is_empty());
         assert!(!seen.contains(&12));
-        // 12 离开过（正在拆）以后同一个地址又在建：不再当见过
-        let live = pick(&[(12, 1)], &mut seen).unwrap();
-        assert!(live.is_empty());
-        // 14 建好了，之后再读到 1 也算
-        pick(&[(14, 4)], &mut seen).unwrap();
-        assert_eq!(pick(&[(14, 1)], &mut seen).unwrap(), [14].into_iter().collect());
+        assert!(pick(&[(12, 1)], &mut seen).unwrap().is_empty());
         assert_eq!(pick(&[(10, 4), (16, 9)], &mut seen), Err((16, 9)));
     }
 }
