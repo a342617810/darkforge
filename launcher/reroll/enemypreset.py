@@ -13,6 +13,7 @@ boss_in_basic_pct = 头目出现在普通敌人位置：预设 Classes 里 Basic
 
 追忆 Boss（settings.json 的 remembrance_boss_shuffle，名单 data\\remembrance_bosses.json）：只在追忆 Boss 之间一对一打乱，
 本体和本体换、DLC 和 DLC 换（没开 DLC 时只管本体）；同时写 RemoveSource，追忆 Boss 不再出现在其他位置。
+搬到别处会卡住的 Boss（NO_SOURCE：唤灵蜗牛）每次都写进 RemoveSource，不放到别的位置（它原来的位置照样换成别的）。
 名单的 dlc_extra（狂龙贝勒，用户 2026-11-02）不掉追忆，但也并进 DLC 组一起换。
 指定的位置随机器不检查，这里照它对 Boss 的规则检查（canPlace）：目标的 exclude 标签、体型 size 不超过场地 arena、
 不同模型、同一个多阶段 Boss 的两段不互换、excludemultiphase 的不放进多阶段的位置。
@@ -35,9 +36,13 @@ sys.path.insert(0, HERE)
 import erlib  # noqa: E402
 
 MARK = '# Dark Reforged：按地区控制精英比例（enemypreset.py 自动生成，每次一键重随敌人前重写，手动改了也会被覆盖）'
-MARK_RS = '# Dark Reforged：追忆 Boss 只在追忆 Boss 之间随机（enemypreset.py 自动生成，下一行每次重写）原有：'
+MARK_RS = '# Dark Reforged：这些 Boss 不放到别的位置（追忆 Boss、高难度固定的、搬走会卡住的；enemypreset.py 自动生成，下一行每次重写）原有：'
 OUR_LINE = ('# Dark Reforged：', '# RNG Lands：')       # 我们写的说明行开头（含改名前写的）
-MARK_RS_ALL = (MARK_RS, '# RNG Lands：追忆 Boss 只在追忆 Boss 之间随机（enemypreset.py 自动生成，下一行每次重写）原有：')
+MARK_RS_ALL = (MARK_RS, '# Dark Reforged：追忆 Boss 只在追忆 Boss 之间随机（enemypreset.py 自动生成，下一行每次重写）原有：',
+               '# RNG Lands：追忆 Boss 只在追忆 Boss 之间随机（enemypreset.py 自动生成，下一行每次重写）原有：')
+# 搬到别处会卡住、不当来源的 Boss（用户 2026-11-21「去掉蜗牛」）：唤灵蜗牛靠自己场地的事件现身，随机器把它放进尤米尔的场地后
+# 两只随从打完只亮血条、本体不出来，战斗结束不了（玩家报告 2026-11-21）。只写 RemoveSource：原来的位置照样可以换成别的 Boss
+NO_SOURCE = (31220800, 30030800)   # 唤灵洞窟和路尽头地下墓地的两只唤灵蜗牛
 # 高难度世界（dev\boss_mods\README.md：只在「死亡」以上加载的 Boss 改版，用户 2026-11-05「只在高难度固定」）：
 # 整合了改版的 Boss 不随机、留在原场地（DontRandomize），也不放到别处（RemoveSource）。正常那一遍生成时还原
 MARK_DR = '# Dark Reforged：高难度世界把整合了改版的 Boss 固定在原位（enemypreset.py 自动生成，下一行每次重写）原有：'
@@ -349,7 +354,7 @@ def main():
     elite_on = not ((shares is None and keep >= 1.0) or (shares is not None and not bands))
     rem_on = bool(S.get('remembrance_boss_shuffle', True))
     fixed = sorted({int(x) for x in a.fixed_bosses.replace(';', ',').split(',') if x.strip()})
-    if a.off or not (elite_on or rem_on or fixed):
+    if a.off or not (elite_on or rem_on or fixed or NO_SOURCE):
         open(preset, 'w', encoding='utf-8').write(basic_pools(strip_block(base), 0 if a.off else bpct))
         print('  精英比例：不限制；追忆 Boss：不单独随机')
         if bpct > 0 and not a.off:
@@ -369,24 +374,19 @@ def main():
             print('  追忆 Boss：在随机器的放置限制下排不出一对一的打乱，这次不单独随机')
             boss = {}
     elite = elite_force(a, S, base, rng, dlc_on) if elite_on else ({}, None)
-    if elite is None and not boss and not fixed and bpct <= 0:
+    if elite is None and not boss and not fixed and bpct <= 0 and not NO_SOURCE:
         return 3
     force, msg = elite or ({}, None)
     body = strip_block(base)
-    if boss:                                    # 追忆 Boss 从所有来源池里拿掉（指定的不受影响）；原有的 RemoveSource 记在说明行里，下次还原
+    # 追忆 Boss、高难度固定的、搬走会卡住的（NO_SOURCE）从所有来源池里拿掉（指定的不受影响）；原有的 RemoveSource 记在说明行里，下次还原
+    rs_add = sorted(set(boss.values()) | set(fixed) | set(NO_SOURCE))
+    if rs_add:
         m = re.search(r'^RemoveSource: *(.*)$', body, re.M)
         orig = m.group(1).strip() if m else ''
         if m:
             body = body[:m.start()] + body[m.end() + 1:]
         keep_rs = [orig] if orig and orig.lower() != 'none' else []
-        body += MARK_RS + orig + '\nRemoveSource: ' + '; '.join(keep_rs + ['%d' % e for e in sorted(set(boss.values()) | set(fixed))]) + '\n'
-    elif fixed:
-        m = re.search(r'^RemoveSource: *(.*)$', body, re.M)
-        orig = m.group(1).strip() if m else ''
-        if m:
-            body = body[:m.start()] + body[m.end() + 1:]
-        keep_rs = [orig] if orig and orig.lower() != 'none' else []
-        body += MARK_RS + orig + '\nRemoveSource: ' + '; '.join(keep_rs + ['%d' % e for e in fixed]) + '\n'
+        body += MARK_RS + orig + '\nRemoveSource: ' + '; '.join(keep_rs + ['%d' % e for e in rs_add]) + '\n'
     if fixed:                                   # 高难度世界：固定的 Boss 不随机（原有的 DontRandomize 记在说明行里，下次还原）
         m = re.search(r'^DontRandomize: *(.*)$', body, re.M)
         orig = m.group(1).strip() if m else ''
@@ -395,7 +395,8 @@ def main():
         keep_dr = [orig] if orig and orig.lower() != 'none' else []
         body += MARK_DR + orig + '\nDontRandomize: ' + '; '.join(keep_dr + ['%d' % e for e in fixed]) + '\n'
     force = {**force, **boss}
-    body += MARK + '\nEnemies:\n' + ''.join("  '%d': '%d'\n" % kv for kv in sorted(force.items()))
+    if force:                                   # 只剩 RemoveSource（什么都不限制）时不写空的 Enemies 一节
+        body += MARK + '\nEnemies:\n' + ''.join("  '%d': '%d'\n" % kv for kv in sorted(force.items()))
     body = basic_pools(body, bpct)
     tmp = preset + '.tmp'
     open(tmp, 'w', encoding='utf-8').write(body)
@@ -407,6 +408,7 @@ def main():
             '本体和本体换、DLC 和 DLC 换' if dlc_on else '本体之间换（没开 DLC）', len(boss)))
     if fixed:
         print('  高难度世界：%d 个 Boss 位置固定在原位（%s）' % (len(fixed), ' '.join(map(str, fixed))))
+    print('  唤灵蜗牛不放到别的位置（搬走后只亮血条、本体不出来）')
     if bpct > 0:
         print('  头目出现在普通敌人位置：约 %g%%（追忆头目除外）' % bpct)
     return 0
