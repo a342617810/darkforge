@@ -73,8 +73,11 @@ def build(ctx):
         rows.append(('arena coop down', '你倒下了：这次试炼给你的奖励会收回', 'You fell. The rewards this trial gave you will be taken back'))
         rows.append(('arena coop lost', '和房主断开了：斗技场试炼结束，奖励保留', 'Lost the host. The Colosseum Trial is over and you keep your rewards'))
     # 死亡惩罚（用户 2026-11-19，dark_core 的 gear/deathloss.rs）：复活后提示。放最后，不动前面的编号
+    # 同一天用户「可以随着卢恩取回好了」：遗失的跟着血迹，取回卢恩时发回来（death back），没取回又死了永久没了（death gone）
     if getattr(ctx, 'containers', None) and containers.death_pct(ctx.S) > 0:
-        rows.append(('death loss', '死亡时遗失了部分未鉴定物品', 'Some unidentified items were lost upon death'))
+        rows.append(('death loss', '死亡时遗失了部分未鉴定物品，取回卢恩时一起取回', 'Some unidentified items were lost upon death. Recover your runes to get them back'))
+        rows.append(('death back', '取回了死亡时遗失的未鉴定物品', 'Recovered the unidentified items lost upon death'))
+        rows.append(('death gone', '没有取回的未鉴定物品永久遗失了', 'The unidentified items you did not recover are lost for good'))
     if len(rows) >= 1 << len(BITS):
         raise RuntimeError('原版提示：%d 条，%d 个标记放不下' % (len(rows), len(BITS)))
     ctx.notes = rows

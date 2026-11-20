@@ -6,10 +6,149 @@
 //! - 扣：背包（不含仓库）里的未鉴定道具一共 N 件，扣 N × 比例（不是整数时余下的部分按几率多扣一件），每件被挑中的机会一样。
 //!   新装备正在发货（鉴定、许愿、赠送）时先欠着，发完再扣：发货核对还要扣掉换掉的未鉴定道具。回主菜单、换角色时欠着的作废。
 //! - 扣掉了：血量回来、人物在场后原版闪烁提示 death loss（rr/notes.py）。
+//! - 跟着卢恩取回（用户 2026-11-19「死亡惩罚那里也改一下 可以随着卢恩取回好了」）：扣掉的这批记下来，等死后新出现的那摊血迹
+//!   （GameDataMan 的 has_bloodstain / bloodstain：所在地图、位置、卢恩数）。认出来以后：血迹没了（摸到了、卢恩取回了）就把这批发回来；
+//!   血迹变成了另一摊（没取回又死了）就永久没了，同卢恩。死后 NO_STAIN 一直没有新血迹（献祭细枝、身上没有卢恩）就直接还回来。
+//!   记在角色记录 遗失的未鉴定物品_<格子>.txt，退出游戏再进来照样认。
 //! - 联机：只动自己的背包，各台电脑各算各的，不用房主定（联机计划 13.2 的 G 规则管的是敌人身上的效果和抽签）。
 use std::time::{Duration, Instant};
 
 use super::*;
+
+/// 死后（人物在场、活着）这么久还没有新血迹：这次没掉卢恩（献祭细枝、身上没有卢恩），遗失的直接还回来
+const NO_STAIN: Duration = Duration::from_secs(60);
+/// 角色记录里的文件名：遗失的未鉴定物品_<格子>.txt
+const LOST_PREFIX: &str = "遗失的未鉴定物品_";
+
+/// 一摊血迹（认是不是同一摊：所在地图、位置取到 0.1 米、卢恩数）
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct Stain {
+    block: i32,
+    pos: [i32; 3],
+    runes: i32,
+}
+
+/// 现在的血迹；没有血迹（取回了、还没死过）是 None
+fn stain_now() -> Option<Stain> {
+    let g = unsafe { GameDataMan::instance() }.ok()?;
+    if !g.has_bloodstain {
+        return None;
+    }
+    let b: &eldenring::cs::BloodstainData = &g.bloodstain;
+    let p = &b.msb_pos;
+    let q = |v: f32| if v.is_finite() { (v * 10.0).round() as i32 } else { 0 };
+    Some(Stain { block: i32::from(b.block_id), pos: [q(p.0), q(p.1), q(p.2)], runes: b.rune_count })
+}
+
+/// 遗失的这批现在该怎么办
+#[derive(Debug, PartialEq)]
+enum Lost {
+    /// 接着等
+    Wait,
+    /// 死后新出现了血迹：这批跟着它
+    Link,
+    /// 死后一直没有新血迹：直接还回来
+    NoStain,
+    /// 跟着的那摊血迹没了：卢恩取回了，这批也发回来
+    Back,
+    /// 跟着的那摊血迹换成了别的（没取回又死了）：永久没了
+    Gone,
+}
+
+/// 刚扣掉、还没认出血迹的这批：cur 现在的血迹、before 死之前的血迹、waited 死后在场活着等了多久
+fn judge_fresh(cur: Option<Stain>, before: Option<Stain>, waited: Duration) -> Lost {
+    match cur {
+        Some(c) if Some(c) != before => Lost::Link,
+        _ if waited >= NO_STAIN => Lost::NoStain,
+        _ => Lost::Wait,
+    }
+}
+
+/// 已经跟着血迹 stain 的这批
+fn judge_linked(cur: Option<Stain>, stain: Stain) -> Lost {
+    match cur {
+        None => Lost::Back,
+        Some(c) if c != stain => Lost::Gone,
+        _ => Lost::Wait,
+    }
+}
+
+fn lost_path(slot: i32) -> PathBuf {
+    data_dir().join(format!("{LOST_PREFIX}{slot}.txt"))
+}
+
+fn fmt_list(v: &[(u32, u32)]) -> String {
+    v.iter().map(|(g, n)| format!("{g}×{n}")).collect::<Vec<_>>().join("、")
+}
+
+fn total(v: &[(u32, u32)]) -> u32 {
+    v.iter().map(|x| x.1).sum()
+}
+
+/// 写这个角色的记录（两批都空了就删掉文件）
+fn save_lost(ds: &DeathSt) {
+    let Some((slot, name)) = &ds.who else { return };
+    let p = lost_path(*slot);
+    if ds.lost.is_empty() && ds.fresh.is_empty() {
+        if p.is_file() {
+            let _ = std::fs::remove_file(&p);
+        }
+        return;
+    }
+    let mut s = format!("# 死亡惩罚遗失的未鉴定物品（dark_core gear/deathloss.rs）：取回卢恩时一起发回来\nname\t{name}\n");
+    let line = |tag: &str, t: Stain| format!("{tag}\t{}\t{}\t{}\t{}\t{}\n", t.block, t.pos[0], t.pos[1], t.pos[2], t.runes);
+    if let Some(t) = ds.stain {
+        s += &line("stain", t);
+    }
+    if let Some(t) = ds.before {
+        s += &line("before", t);
+    }
+    for (g, n) in &ds.lost {
+        s += &format!("g\t{g}\t{n}\n");
+    }
+    for (g, n) in &ds.fresh {
+        s += &format!("f\t{g}\t{n}\n");
+    }
+    let _ = std::fs::create_dir_all(data_dir());
+    let tmp = p.with_extension("tmp");
+    if std::fs::write(&tmp, s).and_then(|_| std::fs::rename(&tmp, &p)).is_err() {
+        log(&format!("死亡惩罚：遗失的未鉴定物品记不下来（{}）", p.display()));
+    }
+}
+
+/// 读记录（名字对不上的不认）：(跟着血迹的那批, 血迹, 还没认出血迹的那批, 死之前的血迹)
+fn parse_lost(text: &str, name: &str) -> Option<(Vec<(u32, u32)>, Option<Stain>, Vec<(u32, u32)>, Option<Stain>)> {
+    if rec_text_name(text).as_deref() != Some(name) {
+        return None;
+    }
+    let (mut lost, mut stain, mut fresh, mut before) = (Vec::new(), None, Vec::new(), None);
+    for l in text.lines().map(|l| l.trim_end_matches('\r')) {
+        let f: Vec<&str> = l.split('\t').collect();
+        let num = |i: usize| f.get(i).and_then(|v| v.parse::<i64>().ok());
+        match f[0] {
+            "stain" | "before" => {
+                if let (Some(b), Some(x), Some(y), Some(z), Some(r)) = (num(1), num(2), num(3), num(4), num(5)) {
+                    let t = Some(Stain { block: b as i32, pos: [x as i32, y as i32, z as i32], runes: r as i32 });
+                    if f[0] == "stain" { stain = t } else { before = t }
+                }
+            }
+            "g" | "f" => {
+                if let (Some(g), Some(n)) = (num(1), num(2)) {
+                    if g > 0 && n > 0 {
+                        if f[0] == "g" { lost.push((g as u32, n as u32)) } else { fresh.push((g as u32, n as u32)) }
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+    Some((lost, stain, fresh, before))
+}
+
+/// 发回来（排进发货队列）；发不了（没有发货表）返回 false
+fn give_back(v: &[(u32, u32)]) -> bool {
+    v.iter().all(|&(g, n)| gift_n(1, g as i32, n))
+}
 
 /// 血量 0 停这么久还没被馈赠复活顶掉就算死了（同 arena.rs DEATH_HOLD）
 const HOLD: Duration = Duration::from_millis(2500);
@@ -26,6 +165,17 @@ pub(super) struct DeathSt {
     owe: bool,
     /// 扣掉了、复活后要提示
     note: bool,
+    /// 这个记录是哪个角色的（格子, 名字）；换了角色 DeathSt 整个清掉，认准了再读
+    who: Option<(i32, String)>,
+    /// 跟着血迹 stain 的那批（道具编号, 件数）
+    lost: Vec<(u32, u32)>,
+    stain: Option<Stain>,
+    /// 刚扣掉、还没认出血迹的那批；死之前的血迹 before；死后在场活着开始等的时间
+    fresh: Vec<(u32, u32)>,
+    before: Option<Stain>,
+    wait_from: Option<Instant>,
+    /// 活着时最后看到的血迹（死的时候记成 before）
+    alive_stain: Option<Stain>,
 }
 
 #[derive(Debug, Default)]
@@ -126,36 +276,105 @@ fn pick(have: &[(u32, u32)], k: u32, rng: &mut Rng) -> Vec<(u32, u32)> {
     have.iter().zip(out).filter(|(_, n)| *n > 0).map(|(h, n)| (h.0, n)).collect()
 }
 
-/// 扣掉背包里的未鉴定道具，返回实际扣掉几件
-fn apply(d: &Defs, pgd: &mut PlayerGameData, pct: f64, rng: &mut Rng) -> u32 {
+/// 扣掉背包里的未鉴定道具，返回实际扣掉的（道具编号, 件数）
+fn apply(d: &Defs, pgd: &mut PlayerGameData, pct: f64, rng: &mut Rng) -> Vec<(u32, u32)> {
     let have = unidentified(d, pgd);
     let total: u32 = have.iter().map(|x| x.1).sum();
     if total == 0 {
         log("死亡惩罚：背包里没有未鉴定物品，不扣");
-        return 0;
+        return Vec::new();
     }
     let k = how_many(total, pct, unit(rng));
     if k == 0 {
         log(&format!("死亡惩罚：背包里未鉴定物品 {total} 件，按 {pct}% 这次没扣到"));
-        return 0;
+        return Vec::new();
     }
-    let mut gone = 0;
+    let mut gone = Vec::new();
     let mut parts = Vec::new();
     for (g, n) in pick(&have, k, rng) {
         let got = remove_goods(pgd, g, n);
-        gone += got;
+        if got > 0 {
+            gone.push((g, got));
+        }
         let name = d.items.goods.get(&g).map_or_else(|| format!("道具 {g}"), |&(c, t)| format!("{}（{}）", DIR_CAT_ZH.get(c).unwrap_or(&"?"), TIER_ZH.get(t).unwrap_or(&"?")));
         parts.push(if got == n { format!("{name}×{n}") } else { format!("{name}×{n}（只扣掉 {got}）") });
     }
-    log(&format!("死亡惩罚：背包里未鉴定物品 {total} 件，按 {pct}% 扣 {k} 件：{}；实际扣掉 {gone} 件", parts.join("、")));
+    log(&format!("死亡惩罚：背包里未鉴定物品 {total} 件，按 {pct}% 扣 {k} 件：{}；实际扣掉 {} 件，取回卢恩时一起发回来",
+                 parts.join("、"), gone.iter().map(|x| x.1).sum::<u32>()));
     gone
+}
+
+/// 遗失的两批：换了角色读记录，活着时看血迹，该还的还、该丢的丢
+fn lost_tick(st: &mut St, present_alive: bool, now: Instant) {
+    let ds = &mut st.death;
+    if ds.who.is_none() {
+        let Some(w) = st.who.clone().filter(|w| crate::who::is_confirmed(w)) else { return };
+        if let Some((lost, stain, fresh, before)) = std::fs::read_to_string(lost_path(w.0)).ok().and_then(|t| parse_lost(&t, &w.1)) {
+            if !lost.is_empty() || !fresh.is_empty() {
+                log(&format!("死亡惩罚：格子 {}「{}」有遗失还没取回的未鉴定物品：跟着血迹的 {} 件、刚遗失的 {} 件", w.0, w.1, total(&lost), total(&fresh)));
+            }
+            (ds.lost, ds.stain, ds.fresh, ds.before) = (lost, stain, fresh, before);
+        }
+        ds.who = Some(w);
+    }
+    if !present_alive {
+        return;
+    }
+    let cur = stain_now();
+    ds.alive_stain = cur;
+    if !ds.fresh.is_empty() {
+        let waited = now - *ds.wait_from.get_or_insert(now);
+        match judge_fresh(cur, ds.before, waited) {
+            Lost::Link => {
+                if !ds.lost.is_empty() {
+                    log(&format!("死亡惩罚：上次遗失的未鉴定物品 {} 件没取回又死了，永久失去：{}", total(&ds.lost), fmt_list(&ds.lost)));
+                    let _ = crate::notes::push("death gone");
+                }
+                ds.lost = std::mem::take(&mut ds.fresh);
+                ds.stain = cur;
+                ds.before = None;
+                ds.wait_from = None;
+                log(&format!("死亡惩罚：遗失的 {} 件跟着这次的血迹（卢恩 {}），取回卢恩时一起发回来", total(&ds.lost), cur.map_or(0, |c| c.runes)));
+                save_lost(ds);
+            }
+            Lost::NoStain => {
+                let ok = give_back(&ds.fresh);
+                log(&format!("死亡惩罚：死后 {} 秒没有新血迹（献祭细枝、或者身上没有卢恩），遗失的 {} 件{}", NO_STAIN.as_secs(), total(&ds.fresh),
+                             if ok { "直接发回来" } else { "要发回来，但没有发货表，发不了" }));
+                ds.fresh.clear();
+                ds.before = None;
+                ds.wait_from = None;
+                save_lost(ds);
+            }
+            _ => {}
+        }
+        return;
+    }
+    let Some(stain) = ds.stain.filter(|_| !ds.lost.is_empty()) else { return };
+    match judge_linked(cur, stain) {
+        Lost::Back => {
+            let ok = give_back(&ds.lost);
+            log(&format!("死亡惩罚：血迹没了（卢恩取回了），遗失的 {} 件{}：{}", total(&ds.lost), if ok { "发回来" } else { "要发回来，但没有发货表，发不了" }, fmt_list(&ds.lost)));
+            if ok {
+                let _ = crate::notes::push("death back");
+            }
+            ds.lost.clear();
+            ds.stain = None;
+            save_lost(ds);
+        }
+        Lost::Gone => {
+            log(&format!("死亡惩罚：跟着的那摊血迹换成了别的（没取回又死了），遗失的 {} 件永久失去：{}", total(&ds.lost), fmt_list(&ds.lost)));
+            let _ = crate::notes::push("death gone");
+            ds.lost.clear();
+            ds.stain = None;
+            save_lost(ds);
+        }
+        _ => {}
+    }
 }
 
 pub(super) fn tick(d: &Defs, st: &mut St, pgd: &mut PlayerGameData) {
     let pct = d.items.deathloss;
-    if pct <= 0.0 {
-        return;
-    }
     let now = Instant::now();
     let me = unsafe { WorldChrMan::instance() }.ok().and_then(|w| w.main_player.as_ref()).map(|p| {
         let j = crate::curses::revive_just();
@@ -163,10 +382,18 @@ pub(super) fn tick(d: &Defs, st: &mut St, pgd: &mut PlayerGameData) {
         (p.chr_ins.modules.data.hp, just, p.current_block_id.area() == COLOS_AREA)
     });
     let (present, hp, just, colos) = me.map_or((false, 0, false, false), |(h, j, c)| (true, h, j, c));
+    // 遗失还没取回的照样看（关掉死亡惩罚以后也要把欠着的还回来）
+    lost_tick(st, present && hp > 0 && st.death.w.zero_at.is_none(), now);
+    if pct <= 0.0 {
+        return;
+    }
     match st.death.w.step(present, hp, just, colos, now) {
         Ev::Died(held) => {
             log(&format!("死亡惩罚：死了（血量 0 停了 {:.1} 秒），扣未鉴定物品", held.as_secs_f32()));
             st.death.owe = true;
+            if st.death.fresh.is_empty() {
+                st.death.before = st.death.alive_stain;
+            }
         }
         Ev::Skip(why) => log(&format!("死亡惩罚：血量到 0，{why}，不扣")),
         Ev::None => {}
@@ -176,8 +403,18 @@ pub(super) fn tick(d: &Defs, st: &mut St, pgd: &mut PlayerGameData) {
     }
     if st.death.owe && st.pending.is_none() && st.gift_wait.is_none() {
         st.death.owe = false;
-        let lost = apply(d, pgd, pct, &mut Rng::new());
-        st.death.note |= lost > 0;
+        let got = apply(d, pgd, pct, &mut Rng::new());
+        if !got.is_empty() {
+            for (g, n) in got {
+                match st.death.fresh.iter_mut().find(|x| x.0 == g) {
+                    Some(x) => x.1 += n,
+                    None => st.death.fresh.push((g, n)),
+                }
+            }
+            st.death.wait_from = None;
+            save_lost(&st.death);
+            st.death.note = true;
+        }
     }
     if st.death.note && hp > 0 && st.death.w.zero_at.is_none() && crate::notes::push("death loss") {
         st.death.note = false;
@@ -263,6 +500,39 @@ mod tests {
         if let Some((items, _)) = super::super::tests::real_defs() {
             eprintln!("真实 items.txt 的死亡惩罚：{}%", items.deathloss);
         }
+    }
+
+    #[test]
+    fn follow_the_bloodstain() {
+        let a = Stain { block: 0x3c2a2800, pos: [10, 20, 30], runes: 5000 };
+        let b = Stain { runes: 800, ..a };
+        let s = Duration::from_secs;
+        // 刚扣掉：死后出现了新血迹（之前没有 / 之前是另一摊）才跟上
+        assert_eq!(judge_fresh(Some(a), None, s(1)), Lost::Link);
+        assert_eq!(judge_fresh(Some(b), Some(a), s(1)), Lost::Link);
+        // 还是死之前那摊（献祭细枝）、或者一直没有血迹：等，等够了直接还
+        assert_eq!(judge_fresh(Some(a), Some(a), s(10)), Lost::Wait);
+        assert_eq!(judge_fresh(None, None, s(10)), Lost::Wait);
+        assert_eq!(judge_fresh(Some(a), Some(a), NO_STAIN), Lost::NoStain);
+        assert_eq!(judge_fresh(None, Some(a), NO_STAIN), Lost::NoStain);
+        // 跟着的血迹：还在就等，没了 = 卢恩取回了，换成别的 = 没取回又死了
+        assert_eq!(judge_linked(Some(a), a), Lost::Wait);
+        assert_eq!(judge_linked(None, a), Lost::Back);
+        assert_eq!(judge_linked(Some(b), a), Lost::Gone);
+    }
+
+    #[test]
+    fn lost_record() {
+        let text = "# 说明\nname\t褪色者\nstain\t1010040000\t12\t-34\t56\t2500\nbefore\t1\t2\t3\t4\t5\ng\t9203\t2\ng\t9212\t1\nf\t9221\t3\ng\tx\t1\n";
+        let (lost, stain, fresh, before) = parse_lost(text, "褪色者").unwrap();
+        assert_eq!(lost, vec![(9203, 2), (9212, 1)]);
+        assert_eq!(stain, Some(Stain { block: 1010040000, pos: [12, -34, 56], runes: 2500 }));
+        assert_eq!(fresh, vec![(9221, 3)]);
+        assert_eq!(before, Some(Stain { block: 1, pos: [2, 3, 4], runes: 5 }));
+        // 别的角色的记录不认
+        assert!(parse_lost(text, "别人").is_none());
+        assert_eq!(total(&lost), 3);
+        assert_eq!(fmt_list(&lost), "9203×2、9212×1");
     }
 
     #[test]
