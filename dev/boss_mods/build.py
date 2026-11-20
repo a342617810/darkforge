@@ -23,7 +23,8 @@ import tae  # noqa: E402
 erlib.DLL_DIRS[:] = [ER]
 BOSS = os.path.join(DR, 'boss')
 OUT = os.path.join(RR, 'data', 'bossmods')
-SMITHBOX_DEFS = r'C:\Users\dxphh\Downloads\Smithbox_2_2_6_2026_09_20_b\Assets\PARAM\ER\Defs'
+# Smithbox 的 paramdef：环境变量 SMITHBOX_DIR 指 Smithbox 解压目录，不设就找 ~\Downloads 下的 2.2.6
+SMITHBOX_DEFS = os.path.join(os.environ.get('SMITHBOX_DIR') or os.path.expanduser(r'~\Downloads\Smithbox_2_2_6_2026_09_20_b'), 'Assets', 'PARAM', 'ER', 'Defs')
 
 # ---------------------------------------------------------------- 各模组的配置
 # 拉塔恩 20012814 用的指令参数：IF Character HP Value(组, 实体, 比较, 血量, ==, 1)；比较 2 是 >，3 是 <

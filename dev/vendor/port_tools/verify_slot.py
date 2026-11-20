@@ -6,10 +6,13 @@
   定时检查：每个起点都试（同 pelite 扫描器），[4-132] 取最短；必须 181 处、互不相同、都是 0x72
 另外和 Golden Age 带的 eldenring_covenant_slot 0.1.2 写死的 2.7.1.0 地址对一遍。
 用法：launcher\\python\\python.exe -X utf8 dev\\vendor\\port_tools\\verify_slot.py [2.7.1.0 exe] [2.7.2.0 exe]"""
+import os
 import struct
 import sys
 
-EXES = sys.argv[1:] or [r'E:\SteamLibrary\steamapps\common\ELDEN RING\Game\eldenring.exe', r'C:\Users\dxphh\ER_new\Game\eldenring.exe']
+# 不给参数时：本机游戏的 exe + 另一版的 exe（环境变量 ER_NEW_EXE 可换）
+EXES = sys.argv[1:] or [os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', '..', '..', 'eldenring.exe')),
+                        os.environ.get('ER_NEW_EXE') or os.path.expanduser(r'~\ER_new\Game\eldenring.exe')]
 W = None
 # 和 lib.rs 的 VERSIONS 一致
 VERSIONS = [

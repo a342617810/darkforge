@@ -2,12 +2,12 @@
 """静态核对双版本 DLL：从源码里读出 dark_lock 的 VERSIONS / checks() 和 dark_sell 的 NO_ARROW，
 在 2.7.1.0（本机）和 2.7.2.0（ER_new）两个 exe 上照 DLL 的逻辑走一遍：每个 exe 应该正好认出自己那一组；
 再照 fromsoftware-rs 的 detect 读版本资源（产品版本、语言、产品名）"""
-import re, struct, sys
+import os, re, struct, sys
 import pefile
 
-ROOT = r'E:\SteamLibrary\steamapps\common\ELDEN RING\Game\dark_reforged\dev'
-EXES = {'2.7.1.0': r'E:\SteamLibrary\steamapps\common\ELDEN RING\Game\eldenring.exe',
-        '2.7.2.0': r'C:\Users\dxphh\ER_new\Game\eldenring.exe'}
+ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..'))   # 仓库的 dev
+EXES = {'2.7.1.0': os.path.normpath(os.path.join(ROOT, '..', '..', 'eldenring.exe')),   # 本机游戏的 exe
+        '2.7.2.0': os.environ.get('ER_NEW_EXE') or os.path.expanduser(r'~\ER_new\Game\eldenring.exe')}   # 另一版（环境变量 ER_NEW_EXE 可换）
 
 lock = open(ROOT + r'\dark_lock\src\lib.rs', encoding='utf-8').read()
 sell = open(ROOT + r'\dark_sell\src\lib.rs', encoding='utf-8').read()

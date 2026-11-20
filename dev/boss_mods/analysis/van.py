@@ -5,7 +5,7 @@
 再设环境变量 BOSSMODS 指过去；脚本都用 python -P 跑（要用户目录里的 pycryptodome），结果写在本目录。
 keys\\ 是 Data0-3 / DLC 的公钥（Data1/2/DLC 从 Smithbox 的 Andre.Formats.dll 取的），只读原版文件用。"""
 import os, sys
-ER = r'E:\SteamLibrary\steamapps\common\ELDEN RING\Game'
+ER = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', '..', '..'))   # 游戏的 Game 目录（仓库在 Game\dark_reforged）
 RR = os.path.join(ER, 'dark_reforged', 'launcher', 'reroll')
 sys.path.insert(0, RR)
 import erlib  # noqa

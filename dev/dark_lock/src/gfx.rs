@@ -425,14 +425,24 @@ pub fn widen_scaling(src: &[u8]) -> Result<Option<Vec<u8>>, String> {
 
 #[cfg(test)]
 mod tests {
+    /// 样本：游戏目录（仓库在 Game\dark_reforged）里别的 mod 留下的界面文件；没有就跳过这一个
+    fn sample(rel: &str) -> Option<Vec<u8>> {
+        let p = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(r"..\..\..").join(rel);
+        let b = std::fs::read(&p).ok();
+        if b.is_none() {
+            println!("没有样本 {}，跳过", p.display());
+        }
+        b
+    }
+
     /// 补正格：武器详情一格、对比两格加宽到 40 像素（右边不动），别的不变；再改一次不动
     #[test]
     fn widen_samples() {
         for (src, want) in [
-            (r"E:\SteamLibrary\steamapps\common\ELDEN RING\Game\mod\menu\02_055_detailstatus_weapon1.gfx", 1),
-            (r"E:\SteamLibrary\steamapps\common\ELDEN RING\Game\mod\menu\03_030_comparison_equip_weapon1.gfx", 2),
+            (r"mod\menu\02_055_detailstatus_weapon1.gfx", 1),
+            (r"mod\menu\03_030_comparison_equip_weapon1.gfx", 2),
         ] {
-            let b = std::fs::read(src).unwrap();
+            let Some(b) = sample(src) else { continue };
             let p = super::widen_scaling(&b).unwrap().expect("没找到补正格");
             assert!(super::widen_scaling(&p).unwrap().is_none(), "二次改写应该不动");
             let hdr = 8 + (5 + (b[8] >> 3) as usize * 4).div_ceil(8) + 4;
@@ -461,11 +471,11 @@ mod tests {
     #[test]
     fn patch_samples() {
         for (src, dst) in [
-            (r"E:\SteamLibrary\steamapps\common\ELDEN RING\Game\mod\menu\02_020_inventory.gfx", "inv"),
-            (r"E:\SteamLibrary\steamapps\common\ELDEN RING\Game\mod\menu\03_050_itembox.gfx", "box"),
-            (r"E:\SteamLibrary\steamapps\common\ELDEN RING\Game\ERRv2.3.5.3\mod\menu\02_020_inventory.gfx", "err_inv"),
+            (r"mod\menu\02_020_inventory.gfx", "inv"),
+            (r"mod\menu\03_050_itembox.gfx", "box"),
+            (r"ERRv2.3.5.3\mod\menu\02_020_inventory.gfx", "err_inv"),
         ] {
-            let b = std::fs::read(src).unwrap();
+            let Some(b) = sample(src) else { continue };
             let p = super::patch(&b).unwrap().expect("没认出格子元件");
             assert!(super::patch(&p).unwrap().is_none(), "二次改写应该不动");
             let out = std::env::var("RNG_LOCK_TEST_OUT").unwrap_or_else(|_| ".".into());

@@ -9,7 +9,8 @@ import van
 from van import erlib
 import paramdef_min as pdm
 
-SB = r'C:\Users\dxphh\Downloads\Smithbox_2_2_6_2026_09_20_b\Assets\PARAM\ER\Defs'
+# Smithbox 的 paramdef：环境变量 SMITHBOX_DIR 指 Smithbox 解压目录，不设就找 ~\Downloads 下的 2.2.6
+SB = os.path.join(os.environ.get('SMITHBOX_DIR') or os.path.expanduser(r'~\Downloads\Smithbox_2_2_6_2026_09_20_b'), 'Assets', 'PARAM', 'ER', 'Defs')
 H = van.HERE
 D = json.load(open(os.path.join(H, 'reg_diff.json')))
 MODS = sorted(van.ROOTS)

@@ -1,16 +1,14 @@
-# 同 dark_core：GNU 工具链自带的 dlltool 缺汇编器，用 llvm-tools 里的 llvm-ar 当 llvm-dlltool（复制成 ~/.cargo/tools/dlltool.exe），链接用 rust-lld
+# GNU 工具链自带的 dlltool 缺汇编器：用 llvm-tools 里的 llvm-ar 当 llvm-dlltool；
+# llvm-dlltool 做的导入库 GNU ld 排不对（部分系统函数落在导入表结束标记后面、加载时不解析），所以链接改用工具链自带的 rust-lld。
+# dlltool 的位置（-C dlltool=…）是本机的，不放仓库里：写在仓库外面的 Game\.cargo\config.toml，见 README「编译」
 [target.x86_64-pc-windows-gnu]
 linker = "rust-lld"
 rustflags = [
-  "-C", "dlltool=C:/Users/dxphh/.cargo/tools/dlltool.exe",
   "-C", "linker-flavor=ld.lld",
 ]
 
-# ImGui（imgui-sys）要编译 C++：用 llvm-mingw（github.com/mstorsjo/llvm-mingw 20261020，解压在 ~/.cargo/tools/llvm-mingw）。
+# ImGui（imgui-sys）要编译 C++（用 llvm-mingw；CC / CXX / AR 的位置是本机的，同样写在 Game\.cargo\config.toml）。
 # ImGui 不用 C++ 运行库：关掉异常 / RTTI / 线程安全静态变量，不链接 C++ 标准库（CXXSTDLIB 留空）
 [env]
-CC_x86_64_pc_windows_gnu = "C:/Users/dxphh/.cargo/tools/llvm-mingw/bin/x86_64-w64-mingw32-clang.exe"
-CXX_x86_64_pc_windows_gnu = "C:/Users/dxphh/.cargo/tools/llvm-mingw/bin/x86_64-w64-mingw32-clang++.exe"
-AR_x86_64_pc_windows_gnu = "C:/Users/dxphh/.cargo/tools/llvm-mingw/bin/llvm-ar.exe"
 CXXFLAGS_x86_64_pc_windows_gnu = "-fno-exceptions -fno-rtti -fno-threadsafe-statics"
 CXXSTDLIB_x86_64_pc_windows_gnu = ""

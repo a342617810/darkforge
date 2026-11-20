@@ -5,8 +5,8 @@ import numpy as np
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 H = os.path.dirname(os.path.abspath(__file__))
-FZH = r'E:/SteamLibrary/steamapps/common/ELDEN RING/Game/dark_reforged/out/menu/dark_ui_font_zh.ttf'
-FEN = r'E:/SteamLibrary/steamapps/common/ELDEN RING/Game/dark_reforged/out/menu/dark_ui_font_en.ttf'
+FZH = os.path.normpath(os.path.join(H, '..', '..', 'out', 'menu', 'dark_ui_font_zh.ttf'))
+FEN = os.path.normpath(os.path.join(H, '..', '..', 'out', 'menu', 'dark_ui_font_en.ttf'))
 W, HH = 1920, 1080
 RAR = ['#DADADA', '#A0B4F3', '#BB2DC2', '#D4A900']
 rng = np.random.default_rng(7)

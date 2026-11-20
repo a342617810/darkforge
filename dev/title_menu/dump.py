@@ -1,9 +1,10 @@
 import sys, os, io
-R = r'E:/SteamLibrary/steamapps/common/ELDEN RING/Game/dark_reforged/launcher/reroll'
+PALY = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..'))   # 仓库（Game\dark_reforged）
+R = os.path.join(PALY, 'launcher', 'reroll')
 sys.path.insert(0, R)
 import erlib
 from PIL import Image
-G = r'E:/SteamLibrary/steamapps/common/ELDEN RING/Game/'
+G = os.path.dirname(PALY)   # 游戏的 Game 目录
 erlib.DLL_DIRS[:] = [G, os.path.join(R, 'bin')]
 OUT = os.path.dirname(os.path.abspath(__file__))
 arc = erlib.GameArchive(G + 'Data0.bhd', open(os.path.join(R, 'data', 'menu', 'data0_key.pem'), encoding='ascii').read())

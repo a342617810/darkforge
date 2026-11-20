@@ -6,10 +6,13 @@
   本体战斗判断（runtime.rs COMBAT_AOB：call 前面是 mov rcx,[rip+x]）
   拾遗的拾取判断（pickup.rs RVAS + SIG：每个版本的地址有一个对得上整段特征码，同一特征码别处还有命中也列出来）
 用法：launcher\\python\\python.exe -X utf8 dev\\vendor\\port_tools\\verify_core.py [旧 exe] [新 exe]"""
+import os
 import struct
 import sys
 
-EXES = sys.argv[1:] or [r'E:\SteamLibrary\steamapps\common\ELDEN RING\Game\eldenring.exe', r'C:\Users\dxphh\ER_new\Game\eldenring.exe']
+# 不给参数时：本机游戏的 exe + 另一版的 exe（环境变量 ER_NEW_EXE 可换）
+EXES = sys.argv[1:] or [os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', '..', '..', 'eldenring.exe')),
+                        os.environ.get('ER_NEW_EXE') or os.path.expanduser(r'~\ER_new\Game\eldenring.exe')]
 W = None
 
 

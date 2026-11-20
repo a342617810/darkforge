@@ -57,3 +57,6 @@ __pycache__/
 /dev/tools/*token*.txt
 *.token
 .env
+
+# ---- 编译时生成的（build_msbport.py 每次重写，里面是本机的绝对路径）
+/dev/boss_mods/msbport/build_msbport.rsp

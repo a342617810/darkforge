@@ -16,7 +16,8 @@ sys.path.insert(0, RR)
 import erlib, paramdef_min as pdm  # noqa: E402
 
 erlib.DLL_DIRS[:] = [os.path.join(PALY, 'randomizer'), os.path.dirname(PALY)]
-NAMES = r'C:\Users\dxphh\Downloads\Smithbox_2_2_6_2026_09_20_b\Assets\PARAM\ER\Param Row Names\English'
+# Smithbox 的行名表：环境变量 SMITHBOX_DIR 指 Smithbox 解压目录，不设就找 ~\Downloads 下的 2.2.6
+NAMES = os.path.join(os.environ.get('SMITHBOX_DIR') or os.path.expanduser(r'~\Downloads\Smithbox_2_2_6_2026_09_20_b'), 'Assets', 'PARAM', 'ER', 'Param Row Names', 'English')
 OUT = os.path.join(RR, 'data', 'aoe_skills.json')
 GEMS = os.path.join(RR, 'data', 'skill_gems.json')
 # 战技编号 → 中文名（SwordArtsParam；英文名按 Smithbox 的 SwordArtsParam 行名）

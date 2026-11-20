@@ -371,7 +371,15 @@ mod tests {
     use super::*;
     use windows::Win32::System::Memory::{MEM_RELEASE, PAGE_READWRITE, VirtualFree};
 
-    const EXES: &str = r"E:\SteamLibrary\steamapps\common\ELDEN RING\Game\eldenring.exe;C:\Users\dxphh\ER_new\Game\eldenring.exe";
+    /// 默认：本机游戏的 exe（仓库在 Game\dark_reforged）+ 另一版的 exe（环境变量 ER_NEW_EXE，不设就找 %USERPROFILE%\ER_new\Game；没有就只测本机的）
+    fn default_exes() -> String {
+        let game = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(r"..\..\..\eldenring.exe");
+        let other = std::env::var("ER_NEW_EXE")
+            .ok()
+            .or_else(|| std::env::var("USERPROFILE").ok().map(|h| format!(r"{h}\ER_new\Game\eldenring.exe")))
+            .filter(|p| std::path::Path::new(p).is_file());
+        [Some(game.display().to_string()), other].into_iter().flatten().collect::<Vec<_>>().join(";")
+    }
 
     fn u16_at(d: &[u8], o: usize) -> usize {
         u16::from_le_bytes([d[o], d[o + 1]]) as usize
@@ -402,7 +410,7 @@ mod tests {
 
     #[test]
     fn both_versions() {
-        let exes = std::env::var("DARK_SLOT_EXES").unwrap_or_else(|_| EXES.into());
+        let exes = std::env::var("DARK_SLOT_EXES").unwrap_or_else(|_| default_exes());
         for path in exes.split(';').filter(|p| !p.is_empty()) {
             let base = unsafe { map(path) };
             let t = unsafe { text(base) }.unwrap();

@@ -3,13 +3,13 @@
 函数开头反汇编若干条指令，rel32 / RIP 相对位移当通配符做特征码，在新 exe 的代码段里找唯一命中；
 函数内的指令（POPUP 里调 FINALIZE 的 call、箭袋的 cmp）按周围指令找；MemoryFile 虚表按它的函数指针在只读数据里找。
 输出新旧地址、开头字节（给 DLL 的版本核对用），以及每个移植的核对结果"""
-import sys, struct, json
+import os, sys, struct, json
 import pefile
 from capstone import Cs, CS_ARCH_X86, CS_MODE_64
 from capstone import x86_const as X
 
-OLD = r'E:\SteamLibrary\steamapps\common\ELDEN RING\Game\eldenring.exe'
-NEW = r'C:\Users\dxphh\ER_new\Game\eldenring.exe'
+OLD = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', '..', '..', 'eldenring.exe'))   # 本机游戏的 exe
+NEW = os.environ.get('ER_NEW_EXE') or os.path.expanduser(r'~\ER_new\Game\eldenring.exe')   # 另一版的 exe（环境变量 ER_NEW_EXE 可换）
 
 
 class Img:
