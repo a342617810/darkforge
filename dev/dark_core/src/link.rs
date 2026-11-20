@@ -718,7 +718,20 @@ fn load_profile() -> Vec<(String, String)> {
     fs::read_to_string(dir().join("coop_profile.txt")).map(|t| parse_profile(&t)).unwrap_or_default()
 }
 
+/// 上次看 coopnet_req.txt 的时间：每帧开一次文件（文件不在也要走一趟文件系统）单机时整个通道每帧 0.17 毫秒
+/// （2026-11-19 性能记录「联机通道 0.17」），改成半秒看一次，开发工具的请求晚半秒没关系
+static REQ_AT: Mutex<Option<Instant>> = Mutex::new(None);
+const REQ_EVERY: Duration = Duration::from_millis(500);
+
 fn take_req() -> Vec<String> {
+    {
+        let now = Instant::now();
+        let mut at = REQ_AT.lock().unwrap_or_else(|e| e.into_inner());
+        if at.is_some_and(|t| now.duration_since(t) < REQ_EVERY) {
+            return Vec::new();
+        }
+        *at = Some(now);
+    }
     let p = dir().join("coopnet_req.txt");
     let Ok(t) = fs::read_to_string(&p) else { return Vec::new() };
     let _ = fs::remove_file(&p);
