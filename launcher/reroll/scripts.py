@@ -224,6 +224,8 @@ def main():
     ap.add_argument('--sources', nargs='+', required=True)
     ap.add_argument('--out', required=True)
     ap.add_argument('--dll-dir', action='append', default=[])
+    # dark_core 的定义文件目录（斗技场换阵容要改 arena.txt 的部件行、记轮到第几批）；副本测试改到副本里
+    ap.add_argument('--core-dir', default=os.path.join(os.path.dirname(os.path.dirname(HERE)), 'dll', 'dark_core'))
     a = ap.parse_args()
     erlib.DLL_DIRS.extend(a.dll_dir)
     sources = [s for s in a.sources if os.path.isdir(s)]
@@ -237,6 +239,16 @@ def main():
             r = {'ok': True, 'warn': True, 'msg': '这次没做成，沿用上次的结果（%s）' % err}
         else:
             r = {'ok': False, 'msg': err + why}
+    if r['ok']:
+        # 斗技场每次启动换一批阵容（sc/arena.py pick；联机启动的覆盖包目录是 scripts_coop…，按日期选，两台电脑一样）。
+        # 换不成照样启动，用覆盖包里原样的那一批
+        try:
+            coop = os.path.basename(os.path.normpath(a.out)).lower().startswith('scripts_coop')
+            note = arena.pick(a.out, a.core_dir, coop=coop)
+            if note:
+                r['msg'] += '；' + note
+        except Exception as e:
+            r['msg'] += '；斗技场换阵容没做成，用上次那一批（%s: %s）' % (type(e).__name__, e)
     print(json.dumps(r, ensure_ascii=True))
 
 

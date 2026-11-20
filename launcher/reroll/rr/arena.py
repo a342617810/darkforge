@@ -29,7 +29,10 @@ SPAWN, DEAD, ASK, LEAVE, NOTE_BITS = 2400, 2500, 2600, 2610, 2630   # 出场 / �
 NOTE_N = 5                            # 竞技场里的提示：5 位，编号 1~31（sc/arena.py 的事件显示 EventTextForMap NOTE_TEXT0 + 编号）
 REQ, LEN0, WARP = 93670, 93671, 93673   # 雕像对话的请求、场次 2 位（93671~93672）、传送请求（dev\event_flags\说明.md）
 SHARD = 1290                          # 星光碎片
-ARENA_NPC0 = 99300000                 # 敌人参数副本：ARENA_NPC0 + X × 100 + k
+# 敌人参数副本：ARENA_NPC0 + X × NPC_SPAN + 第几行（几批阵容共用，同一只敌人只做一行；以前是 + X × 100 + 部件 k）
+ARENA_NPC0, NPC_SPAN = 99300000, 1000
+# 一批阵容最多几个部件（出场 / 死亡标记 F + 2400 / 2500 + k 只排得下 100 个；一张图同时最多读进来约 58 只）、最多做几批
+MAX_PARTS, MAX_VARIANTS = 100, 8
 SCALE0 = 7800001                      # 随机器的缩放效果：7800001 + 4 × ((a − 1) × 33 + b 的序号) + 变体（0 普通、3 Boss）
 NOTE_TEXT0 = 80099200                 # 竞技场里的提示（EventTextForMap）
 HPW_SP0, HPW_N = 7319970, 4           # 血量随波次的效果行：第 j 档（1 起）= HPW_SP0 + j − 1，最大血量 ×(1 + hp_step × j)（dark_core 出场时挂）
@@ -87,7 +90,7 @@ GEN_REGION_MAP = 'm14_00_00_00'
 GEN_ENT0, GEN_REG0, GEN_REQ0, GEN_EV0 = 3700, 3901, 2900, 5300
 GEN_AT = [(-6.0, -12.0), (6.0, -12.0), (0.0, -14.0), (-10.0, -3.0), (10.0, -3.0), (0.0, -5.0)]   # 出生点（同 sc/arena.py 的坐标系：竞技场中心、玩家出生点朝 −z）
 GEN_PARAMS = dict(max_num=1, limit=-1, min_gen=1, max_gen=1, min_iv=0.0, max_iv=0.0, initial=1)
-DEFAULT = dict(enabled=True, tiers=[31, 13, 8], bosses=8, elite_kinds=4, elite_families=0, exclude_models=[], elite_copies=4, elite_per_wave=2, scarab_pct=20, scarab_copies=4,
+DEFAULT = dict(enabled=True, tiers=[31, 13, 8], bosses=8, elite_kinds=4, elite_families=0, exclude_models=[], variants=1, elite_copies=4, elite_per_wave=2, scarab_pct=20, scarab_copies=4,
                cost=[1, 2, 3], waves=[2, 4, 8],
                items_elite=2, items_boss=1, ash_boss=1, clear_bonus=[1, 2, 4], refund=[0, 1, 2], elite_two=[0, 0, 10, 15, 20, 30, 40, 50],
                reward_tiers=[[4, 4], [3, 4], [2, 3]], reward_scale=[2, 1, 1], hp_every=2, hp_step=0.1, wave_fx=[], generator_test='',
@@ -250,9 +253,15 @@ def build(ctx):
         e = ents[k]
         if e['cls'] == 'Scarab' and not is_dlc(e) and not (e['tags'] & ep.BAD_SOURCE) and have_map(e) and flask(k) is not None:
             scarab_all[flask(k)].append(k)
-    for x in range(3):
-        if ARENA_NPC0 + 100 * x in N.rows:
-            raise RuntimeError('斗技场试炼：敌人参数 %d 已经有人用了' % (ARENA_NPC0 + 100 * x))
+    taken = sorted(r for r in N.rows if ARENA_NPC0 <= r < ARENA_NPC0 + NPC_SPAN * 3)
+    if taken:
+        raise RuntimeError('斗技场试炼：敌人参数 %d 已经有人用了' % taken[0])
+    # 几批阵容（用户 2026-11-19「做启动换一批」）：一张图同时最多读进来约 58 只（试负载三轮），所以一批不超过约 56 只；
+    # 重随时一次做好 n_var 批，每次启动 sc/arena.py 的 pick 换下一批（联机按日期，两台电脑一样）
+    n_var = max(1, min(MAX_VARIANTS, int(c.get('variants') or 1)))
+    n_boss, n_kind, n_cp = int(c['bosses']), int(c['elite_kinds']), max(1, int(c['elite_copies']))
+    n_fam = min(int(c.get('elite_families') or 0) or n_kind, n_kind)
+    ok_src = lambda k: tier_of(k) is not None and ents[k]['part'] in part_names(vdir, ents[k]['src_map'])
     colos = []
     added = 0
     for x, m in enumerate(COLOS):
@@ -260,76 +269,83 @@ def build(ctx):
         tgt = int(c['tiers'][x])
         dlc_ok = dlc_on and x == 0
         F = flag_base(x)
+        # Boss 候选：每个模型一只（按这一局的种子洗过的顺序）
         pick_b = [k for k in sorted(boss_all) if dlc_ok or not is_dlc(ents[k])]
         rng.shuffle(pick_b)
-        bosses, models = [], set()
+        boss_c, models = [], set()
         for k in pick_b:
             mdl = ents[k]['part'].split('_')[0]
-            if mdl in models or tier_of(k) is None or ents[k]['part'] not in part_names(vdir, ents[k]['src_map']):
-                continue
-            models.add(mdl)
-            bosses.append(k)
-            if len(bosses) >= int(c['bosses']):
-                break
+            if mdl not in models and ok_src(k):
+                models.add(mdl)
+                boss_c.append(k)
+        # 精英候选：按族排（洗过的顺序），每族里敌人参数不同、部件名也不同的几种（武器、招式不同；dark_core 排出场按部件名分种类）
         pick_e = [k for k in sorted(elite_all) if dlc_ok or not is_dlc(ents[k])]
         rng.shuffle(pick_e)
-        kinds, efam = [], set()
-        n_fam = int(c.get('elite_families') or 0) or int(c['elite_kinds'])
+        fam_order, fam_srcs = [], {}
         for k in pick_e:
-            f = npc[k] // 10000
-            if f in efam or tier_of(k) is None or ents[k]['part'] not in part_names(vdir, ents[k]['src_map']):
+            if not ok_src(k):
                 continue
-            efam.add(f)
-            kinds.append(k)
-            if len(kinds) >= min(n_fam, int(c['elite_kinds'])):
-                break
-        # 族不够 elite_kinds 种（用户 2026-11-19「精英64种」，本体只有 36 个精英族），或者 elite_families 限了族数：
-        # 已经挑中的族里敌人参数不同的（武器、招式不同）再补，部件名也不重复（dark_core 排出场按部件名分种类）。
-        # 同族的模型一样，不多占读图（98 只、57 种模型那次游戏只读进来 60 只左右）
-        if len(kinds) < int(c['elite_kinds']):
-            used_npc, used_part = {npc[k] for k in kinds}, {ents[k]['part'] for k in kinds}
-            for k in pick_e:
-                if npc[k] // 10000 not in efam or npc[k] in used_npc or ents[k]['part'] in used_part or tier_of(k) is None \
-                        or ents[k]['part'] not in part_names(vdir, ents[k]['src_map']):
-                    continue
-                used_npc.add(npc[k])
-                used_part.add(ents[k]['part'])
-                kinds.append(k)
-                if len(kinds) >= int(c['elite_kinds']):
-                    break
-        scarabs = []                          # [(0 红 / 1 蓝, 来源)]：每种挑一只，复制 scarab_copies 个
-        if float(c['scarab_pct']) > 0:
-            for col, pool in enumerate(scarab_all):
-                cand = [k for k in pool if tier_of(k) is not None and ents[k]['part'] in part_names(vdir, ents[k]['src_map'])]
-                if cand:
-                    scarabs += [(col, rng.choice(cand))] * max(0, int(c['scarab_copies']))
-        parts = []
-        for kind, srcs in (('b', bosses), ('e', [k for k in kinds for _ in range(int(c['elite_copies']))]), ('s', [k for _c, k in scarabs])):
-            for j, src in enumerate(srcs):
-                k = len(parts)
-                if k >= 100:
-                    raise RuntimeError('斗技场试炼：%s 的敌人超过 100 个' % m)
-                nid = ARENA_NPC0 + 100 * x + k
-                row = bytearray(N.rows[npc[src]])
-                for f in ('itemLotId_enemy', 'itemLotId_map'):
-                    if f in LN:
-                        struct.pack_into('<' + LN[f][1], row, LN[f][2], -1)
-                a = tier_of(src)
-                sp = scale_sp(a, tgt, kind == 'b')
-                if sp is not None:
-                    if sp not in S_sp.rows:
-                        raise RuntimeError('斗技场试炼：随机器没有缩放效果 %d（%d → %d）' % (sp, a, tgt))
-                    slot = next((f for f in sp_slots if get(row, f) <= 0), None)
-                    if slot is None:
-                        raise RuntimeError('斗技场试炼：敌人参数 %d 没有空的特殊效果格' % npc[src])
-                    struct.pack_into('<i', row, LN[slot][2], sp)
-                N.add_row(nid, bytes(row))
-                added += 1
-                e = ents[src]
-                name = e['npcname'] or (get(row, 'nameId') if 'nameId' in LN else 0)
-                parts.append(dict(k=k, kind=kind, src=src, src_map=e['src_map'], part=e['part'], model=e['part'].split('_')[0],
-                                  ent=F + PART_ENT + k, npc=nid, name=int(name or 0), tier=a, spot=(j // int(c['elite_copies'])) % ELITE_SPOTS if kind == 'e' else SCARAB_SPOTS[scarabs[j][0]] if kind == 's' else -1))
-        colos.append(dict(x=x, map=m, tier=tgt, flag=F, parts=parts, warp=F + WARP_ENT))
+            f = npc[k] // 10000
+            lst = fam_srcs.setdefault(f, [])
+            if not lst:
+                fam_order.append(f)
+            if npc[k] not in {npc[j] for j in lst} and ents[k]['part'] not in {ents[j]['part'] for j in lst}:
+                lst.append(k)
+        scar_c = [[k for k in pool if ok_src(k)] for pool in scarab_all] if float(c['scarab_pct']) > 0 else [[], []]
+        for pool in scar_c:
+            rng.shuffle(pool)
+        # 一批一批发：Boss、精英族都按顺序接着往下取，取完了从头再来（几批加起来尽量把候选都轮到）
+        rows, variants = {}, []
+        for v in range(n_var):
+            nb = min(n_boss, len(boss_c))
+            bosses = [boss_c[(v * nb + i) % len(boss_c)] for i in range(nb)] if boss_c else []
+            nf = min(n_fam, len(fam_order))
+            fams = [fam_order[(v * nf + i) % len(fam_order)] for i in range(nf)] if fam_order else []
+            # 先每族一种；族不够 elite_kinds 种（本体只有 36 个精英族）或者 elite_families 限了族数：这些族里轮着补别的参数（同族同模型，不多占读图）
+            kinds = [fam_srcs[f][0] for f in fams]
+            depth = 1
+            while len(kinds) < n_kind and any(len(fam_srcs[f]) > depth for f in fams):
+                for f in fams:
+                    if len(kinds) < n_kind and len(fam_srcs[f]) > depth:
+                        kinds.append(fam_srcs[f][depth])
+                depth += 1
+            scarabs = [(col, pool[v % len(pool)]) for col, pool in enumerate(scar_c) if pool for _ in range(max(0, int(c['scarab_copies'])))]
+            parts = []
+            for kind, srcs in (('b', bosses), ('e', [k for k in kinds for _ in range(n_cp)]), ('s', [k for _c, k in scarabs])):
+                for j, src in enumerate(srcs):
+                    k = len(parts)
+                    if k >= MAX_PARTS:
+                        raise RuntimeError('斗技场试炼：%s 一批超过 %d 个敌人' % (m, MAX_PARTS))
+                    nid = rows.get((kind, src))
+                    if nid is None:
+                        nid = ARENA_NPC0 + NPC_SPAN * x + len(rows)
+                        if nid >= ARENA_NPC0 + NPC_SPAN * (x + 1):
+                            raise RuntimeError('斗技场试炼：%s 的敌人参数副本超过 %d 行' % (m, NPC_SPAN))
+                        row = bytearray(N.rows[npc[src]])
+                        for f in ('itemLotId_enemy', 'itemLotId_map'):
+                            if f in LN:
+                                struct.pack_into('<' + LN[f][1], row, LN[f][2], -1)
+                        sp = scale_sp(tier_of(src), tgt, kind == 'b')
+                        if sp is not None:
+                            if sp not in S_sp.rows:
+                                raise RuntimeError('斗技场试炼：随机器没有缩放效果 %d（%d → %d）' % (sp, tier_of(src), tgt))
+                            slot = next((f for f in sp_slots if get(row, f) <= 0), None)
+                            if slot is None:
+                                raise RuntimeError('斗技场试炼：敌人参数 %d 没有空的特殊效果格' % npc[src])
+                            struct.pack_into('<i', row, LN[slot][2], sp)
+                        N.add_row(nid, bytes(row))
+                        rows[(kind, src)] = nid
+                        added += 1
+                    e = ents[src]
+                    name = e['npcname'] or (get(N.rows[nid], 'nameId') if 'nameId' in LN else 0)
+                    parts.append(dict(k=k, kind=kind, src=src, src_map=e['src_map'], part=e['part'], model=e['part'].split('_')[0],
+                                      ent=F + PART_ENT + k, npc=nid, name=int(name or 0), tier=tier_of(src),
+                                      spot=(j // n_cp) % ELITE_SPOTS if kind == 'e' else SCARAB_SPOTS[scarabs[j][0]] if kind == 's' else -1))
+            variants.append(parts)
+        # 血量对齐按参数行做一次（几批共用的行不重复加）
+        bank = list({p['npc']: p for parts in variants for p in parts}.values())
+        colos.append(dict(x=x, map=m, tier=tgt, flag=F, parts=variants[0], variants=variants, bank=bank, warp=F + WARP_ENT,
+                          pool=(len(boss_c), len(fam_order))))
     hp_msg = align_hp(ctx, colos, N, S_sp, npc)
     ctx.bnd.put('NpcParam.param', N.serialize())
     # 每 hp_every 波敌人血量 +hp_step（用户 2026-11-10「每两波 敌人血量提升10%」）：效果行，dark_core 出场时挂
@@ -351,8 +367,11 @@ def build(ctx):
     band = lambda t: next((i for i, b in enumerate(ctx.S.get('tier_bands') or []) if t <= b.get('max_tier', 99)), len(ctx.S.get('tier_bands') or []) - 1)
     gen = gen_test(ctx, c, colos)
     ctx.arena = dict(cfg=c, colos=colos, band=[band(co['tier']) for co in colos], gen=gen)
+    keep = ('k', 'kind', 'src_map', 'part', 'model', 'ent', 'npc', 'name', 'spot')
     ctx.features['arena'] = dict(colos=[dict(x=co['x'], map=co['map'], flag=co['flag'], warp=co['warp'], gen=gen if gen and gen['x'] == co['x'] else None,
-                                             parts=[{k: p[k] for k in ('k', 'kind', 'src_map', 'part', 'model', 'ent', 'npc', 'name', 'spot')} for p in co['parts']],
+                                             parts=[{k: p[k] for k in keep} for p in co['parts']],
+                                             # 各批阵容（sc/arena.py 每批做一份地图和事件，每次启动 pick 换上一批；第 0 批 = parts）
+                                             variants=[[{k: p[k] for k in keep} for p in parts] for parts in co['variants']],
                                              statues=[dict(v=v, map=s[0], block=list(s[1]), ent=s[2], esd=s[3], src=list(s[4]), pos=list(s[5]), statue=list(s[6]),
                                                            resp=s[7], rsrc=list(s[8]))
                                                       for v, s in enumerate(STATUES[co['x']])])
@@ -361,15 +380,23 @@ def build(ctx):
                                  spawn=SPAWN, dead=DEAD, ask=ASK, leave=LEAVE, run=RUN, banner=BANNER, note_bits=NOTE_BITS, note_n=NOTE_N, note_text0=NOTE_TEXT0,
                                  ready=READY, engage=ENGAGE, mydead=MYDEAD,
                                  notes=note_rows(c))
-    ctx.report.append('斗技场试炼：' + '；'.join('%s（强度 %d）Boss %d 个、精英 %d 种 × %d、粪金龟 %d 只，共 %d 种模型' % (
-        COLO_ZH[co['x']], co['tier'], sum(p['kind'] == 'b' for p in co['parts']), len({p['src'] for p in co['parts'] if p['kind'] == 'e'}),
-        int(c['elite_copies']), sum(p['kind'] == 's' for p in co['parts']), len({p['model'] for p in co['parts']})) for co in colos) +
+    def cover(co):
+        """几批加起来轮到的 Boss 模型、精英族（候选里的）"""
+        allp = [p for parts in co['variants'] for p in parts]
+        return (len({p['model'] for p in allp if p['kind'] == 'b'}), len({npc[p['src']] // 10000 for p in allp if p['kind'] == 'e'}))
+    ctx.report.append('斗技场试炼：每个竞技场 %d 批阵容，每次启动换下一批（联机按日期）；' % n_var + '；'.join(
+        '%s（强度 %d）一批 Boss %d 个、精英 %d 种 × %d、粪金龟 %d 只，共 %d 种模型；几批加起来 Boss %d / %d 种、精英 %d / %d 族' % (
+            COLO_ZH[co['x']], co['tier'], sum(p['kind'] == 'b' for p in co['parts']), len({p['src'] for p in co['parts'] if p['kind'] == 'e'}),
+            n_cp, sum(p['kind'] == 's' for p in co['parts']), len({p['model'] for p in co['parts']}), cover(co)[0], co['pool'][0], cover(co)[1], co['pool'][1])
+        for co in colos) +
         '（敌人参数副本 %d 行，%d 起；Boss 池 %d、精英池 %d、红 / 蓝粪金龟 %d / %d；精英位 %g%% 换成粪金龟）' % (
             added, ARENA_NPC0, len(boss_all), len(elite_all), len(scarab_all[0]), len(scarab_all[1]), float(c['scarab_pct'])))
     for co in colos:
-        seen = set()
-        ctx.report.append('  %s：%s' % (COLO_ZH[co['x']], '、'.join('%s%s(%d→%d)' % ({'b': 'B', 's': 'S'}.get(p['kind'], 'E'), p['part'], p['tier'], co['tier'])
-                                                                   for p in co['parts'] if not ((p['kind'], p['src']) in seen or seen.add((p['kind'], p['src']))))))
+        for v, parts in enumerate(co['variants']):
+            seen = set()
+            ctx.report.append('  %s 第 %d 批：%s' % (COLO_ZH[co['x']], v + 1, '、'.join(
+                '%s%s(%d→%d)' % ({'b': 'B', 's': 'S'}.get(p['kind'], 'E'), p['part'], p['tier'], co['tier'])
+                for p in parts if not ((p['kind'], p['src']) in seen or seen.add((p['kind'], p['src']))))))
     ctx.report.append('  血量：' + hp_msg)
     inline_packs(ctx, c)
 
@@ -523,7 +550,7 @@ def align_hp(ctx, colos, N, S_sp, npc_of):
         add = adds.get(T, adds[min(near, key=lambda t: (abs(t - T), t))] if near else 0.0)
         mm = bm[min(b, len(bm) - 1)]
         got = {'e': [], 'b': []}
-        for p in co['parts']:
+        for p in co.get('bank') or co['parts']:
             if p['kind'] == 's':                   # 粪金龟：照原版血量（只有随机器的缩放），打死回露滴的奖励怪
                 continue
             row = bytearray(N.rows[p['npc']])

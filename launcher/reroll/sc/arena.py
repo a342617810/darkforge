@@ -12,7 +12,9 @@
   点亮场次位和请求（93670~93672），dark_core 扣碎片、点传送请求。联机会话里只有房主能开始（确认框写明队友一起进），队员只看提示。
 - 联机（联机计划 13.13）：竞技场里加的事件都关掉网络同步；敌人出场先读进来、AI 关着，各台电脑都就绪了 dark_core 再点亮开打（map_events）。
 做不成的竞技场整个不改（日志说一句），其他照常。"""
+import datetime
 import hashlib
+import json
 import math
 import os
 import re
@@ -64,6 +66,33 @@ def feat(cx):
     return cx.feat.get('arena')
 
 
+# 几批阵容（用户 2026-11-19「做启动换一批」；rr/arena.py 的 variants）：每批一份竞技场地图和事件，放在覆盖包的 VAR_DIR\v<批>\ 下，
+# 外加 VAR_DIR\variants.json（每批 arena.txt 的部件行）。每次启动 scripts.py 调 pick：把这次那一批复制到地图 / 事件的正式位置，
+# arena.txt 的部件行换成那一批的。单人按顺序轮（记在 dll\dark_core\arena_pick.txt），联机按日期（两台电脑同一天用同一批）
+VAR_DIR = 'arena_variants'
+MANIFEST = 'variants.json'
+PICK_FILE = 'arena_pick.txt'
+
+
+def variants_of(co):
+    return co.get('variants') or [co['parts']]
+
+
+def variant_co(co, v):
+    """第 v 批阵容当成一个竞技场（部件换成这一批的；生成器实验的生成器管的部件名跟着换）"""
+    parts = variants_of(co)[v]
+    out = dict(co, parts=parts)
+    g = co.get('gen')
+    if g:
+        out['gen'] = dict(g, gens=[dict(k=p['k'], part='%s_%d' % (p['model'], 9500 + p['k']), ent=g['gen0'] + p['k']) for p in parts])
+    return out
+
+
+def part_line(x, p):
+    """arena.txt 的部件行（同 rr/arena.py 的 def_lines）"""
+    return 'part\t%d\t%d\t%s\t%d\t%d\t%d\t%s' % (x, p['k'], p['kind'], p['ent'], p['npc'], p['spot'], p['part'])
+
+
 def rel_map(m):
     return os.path.join('map', 'mapstudio', m + '.msb.dcx')
 
@@ -95,7 +124,7 @@ def sources(cx):
     out = []
     for co in f['colos']:
         out += [src_file(cx, rel_map(co['map'])), src_file(cx, rel_event(co['map']))]
-        out += [vanilla(rel_map(p['src_map'])) for p in co['parts']]
+        out += [vanilla(rel_map(p['src_map'])) for parts in variants_of(co) for p in parts]
         for s in co['statues']:
             out += [src_file(cx, rel_map(s['map'])), src_file(cx, rel_talk(talk_of(s['map'])))]
             if s['src'][0] == 'player':
@@ -372,11 +401,19 @@ def prepare(cx):
             src = src_file(cx, rel_map(m))
             if not src:
                 raise RuntimeError('找不到 %s' % m)
-            out[rel_map(m)] = run_batch(m, src, arena_spec(co))
             ev_src = src_file(cx, rel_event(m))
             if not ev_src:
                 raise RuntimeError('找不到 %s 的事件脚本' % m)
-            out[rel_event(m)] = erlib.dcx_compress_dflt(map_events(erlib.dcx_decompress(open(ev_src, 'rb').read()), co, f), level=6)
+            ev_raw = erlib.dcx_decompress(open(ev_src, 'rb').read())
+            # 每批一份地图和事件（缓存名按批分开，免得互相顶掉）；第 0 批同时放在正式位置（pick 没跑成时就用它）
+            for v in range(len(variants_of(co))):
+                cv = variant_co(co, v)
+                msb = run_batch(m if v == 0 else '%s_v%d' % (m, v), src, arena_spec(cv))
+                evd = erlib.dcx_compress_dflt(map_events(ev_raw, cv, f), level=6)
+                out[os.path.join(VAR_DIR, 'v%d' % v, rel_map(m))] = msb
+                out[os.path.join(VAR_DIR, 'v%d' % v, rel_event(m))] = evd
+                if v == 0:
+                    out[rel_map(m)], out[rel_event(m)] = msb, evd
             for s in co['statues']:
                 ssrc = src_file(cx, rel_map(s['map']))
                 if not ssrc:
@@ -508,6 +545,13 @@ def files(cx, tmp):
             open(os.path.join(tmp, rel), 'wb').write(blob)
         for s in co['statues']:
             by_talk.setdefault(talk_of(s['map']), []).append((s['esd'], x))
+    # 几批阵容的清单（pick 用）：做成了的竞技场、每批的部件行
+    made = [dict(x=co['x'], map=co['map'], lines=[[part_line(co['x'], p) for p in parts] for parts in variants_of(co)])
+            for co in f['colos'] if co['x'] in cx.arena_ok]
+    if made:
+        os.makedirs(os.path.join(tmp, VAR_DIR), exist_ok=True)
+        with open(os.path.join(tmp, VAR_DIR, MANIFEST), 'w', encoding='utf-8', newline='\n') as fh:
+            json.dump(dict(n=max(len(m_['lines']) for m_ in made), colos=made), fh, ensure_ascii=False)
     n = 0
     for tm, scripts in sorted(by_talk.items()):
         rel = rel_talk(tm)
@@ -568,3 +612,47 @@ def texts(cx, key):
     if f.get('banner'):
         out['GR_MenuText'] = {BANNER_TEXT: 'TRIAL COMPLETE'}      # 原版大字幕中文版也是英文（用户 2026-11-10：用「试炼完成」的英文）
     return out
+
+
+# ------------------------------------------------------------------ 每次启动换一批阵容
+def _replace(path, blob):
+    """先写 .tmp 再换上去（中途失败不留半个文件）"""
+    tmp = path + '.tmp'
+    with open(tmp, 'wb') as fh:
+        fh.write(blob)
+    os.replace(tmp, path)
+
+
+def pick(out, core_dir, coop=False, today=None):
+    """scripts.py 每次启动（新做的覆盖包、沿用的都算）调：把这次那一批阵容的地图 / 事件复制到正式位置，dll\\dark_core\\arena.txt 的部件行
+    换成那一批的。单人接着上次那一批往下轮（core_dir\\PICK_FILE 记着，连着两次不一样）；联机按今天的日期（同一份整合包、同一天，
+    两台电脑用的是同一批：斗技场联机按部件位置对应敌人）。返回日志里的一句；覆盖包里没有几批阵容返回 ''"""
+    mf = os.path.join(out, VAR_DIR, MANIFEST)
+    if not os.path.isfile(mf):
+        return ''
+    man = json.load(open(mf, encoding='utf-8'))
+    n = max(1, int(man.get('n') or 1))
+    pf = os.path.join(core_dir, PICK_FILE)
+    if coop:
+        v = (today or datetime.date.today()).toordinal() % n
+    else:
+        try:
+            v = (int(open(pf, encoding='utf-8').read().split()[0]) + 1) % n
+        except (OSError, ValueError, IndexError):
+            v = 0
+    lines = []
+    for co in man['colos']:
+        vv = v % len(co['lines'])
+        for rel in (rel_map(co['map']), rel_event(co['map'])):
+            _replace(os.path.join(out, rel), open(os.path.join(out, VAR_DIR, 'v%d' % vv, rel), 'rb').read())
+        lines += co['lines'][vv]
+    at = os.path.join(core_dir, 'arena.txt')
+    if os.path.isfile(at):
+        old = open(at, encoding='utf-8').read().split('\n')
+        first = next((i for i, l in enumerate(old) if l.startswith('part\t')), len(old))
+        rest = [l for l in old if not l.startswith('part\t')]
+        at_rest = sum(1 for l in old[:first] if not l.startswith('part\t'))
+        _replace(at, '\n'.join(rest[:at_rest] + lines + rest[at_rest:]).encode('utf-8'))
+    if not coop:
+        _replace(pf, ('%d\n' % v).encode('utf-8'))
+    return '斗技场：这次用第 %d / %d 批阵容（%s）' % (v + 1, n, '联机按日期' if coop else '每次启动换下一批')
