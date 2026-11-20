@@ -40,6 +40,9 @@ DLC_MAP_PREFIX = ('m20', 'm21', 'm22', 'm25', 'm28', 'm40', 'm41', 'm42', 'm43',
 # 精英池里不要龙（用户 2026-11-10）：敌人参数族 = 模型号。飞龙 / 辉石龙 c450x、古龙 c451x、龙王 c4520、熔岩土龙 c4910 / c5920、尖峰飞龙 c5580
 # （龙人士兵 c4650、龙树守卫 c3250 不是龙，照常）
 DRAGON_FAMILIES = {4500, 4501, 4502, 4503, 4510, 4511, 4520, 4910, 5580, 5920}
+# 放进竞技场也读不进来的模型（Boss、精英都不要；settings 的 exclude_models 可以再加）：
+# 铃珠猎人 c3100（2026-11-19 试负载：50 只里只有它一直是状态 0、看不见；黄金树爬塔也把它排除在 Boss / 精英外）
+BAD_MODELS = {'c3100'}
 # 精英站位（sc/arena.py 按竞技场的玩家出生点摆）：Boss 在中间偏后，精英在前方一排 5 个位置
 ELITE_SPOTS = 5
 # 红 / 蓝粪金龟的站位（sc/arena.py ELITE_AT 的第 6、7 个，在精英那排前面）：同一波里红的、蓝的最多各一只
@@ -84,7 +87,7 @@ GEN_REGION_MAP = 'm14_00_00_00'
 GEN_ENT0, GEN_REG0, GEN_REQ0, GEN_EV0 = 3700, 3901, 2900, 5300
 GEN_AT = [(-6.0, -12.0), (6.0, -12.0), (0.0, -14.0), (-10.0, -3.0), (10.0, -3.0), (0.0, -5.0)]   # 出生点（同 sc/arena.py 的坐标系：竞技场中心、玩家出生点朝 −z）
 GEN_PARAMS = dict(max_num=1, limit=-1, min_gen=1, max_gen=1, min_iv=0.0, max_iv=0.0, initial=1)
-DEFAULT = dict(enabled=True, tiers=[31, 13, 8], bosses=8, elite_kinds=4, elite_families=0, elite_copies=4, elite_per_wave=2, scarab_pct=20, scarab_copies=4,
+DEFAULT = dict(enabled=True, tiers=[31, 13, 8], bosses=8, elite_kinds=4, elite_families=0, exclude_models=[], elite_copies=4, elite_per_wave=2, scarab_pct=20, scarab_copies=4,
                cost=[1, 2, 3], waves=[2, 4, 8],
                items_elite=2, items_boss=1, ash_boss=1, clear_bonus=[1, 2, 4], refund=[0, 1, 2], elite_two=[0, 0, 10, 15, 20, 30, 40, 50],
                reward_tiers=[[4, 4], [3, 4], [2, 3]], reward_scale=[2, 1, 1], hp_every=2, hp_step=0.1, wave_fx=[], generator_test='',
@@ -222,11 +225,14 @@ def build(ctx):
     from collections import Counter as _C
     df_n = _C(e['defeat'] for e in ents.values() if e['defeat'])
     phase2 = {int(e['next']) for e in ents.values() if e['next']}
+    bad_models = BAD_MODELS | {str(m) for m in (c.get('exclude_models') or [])}
     boss_all = [k for k, e in ents.items()
                 if e['cls'] in CLASSES_BOSS and k not in rem_ids and not (e['tags'] & BAD_BOSS_TAGS) and not e['next'] and k not in phase2
-                and (not e['defeat'] or df_n[e['defeat']] == 1) and k in npc and npc[k] in N.rows and have_map(e)]
+                and (not e['defeat'] or df_n[e['defeat']] == 1) and k in npc and npc[k] in N.rows and have_map(e)
+                and e['part'].split('_')[0] not in bad_models]
     elite_all = [k for k, e in ents.items()
                  if e['cls'] == 'Basic' and k in npc and npc[k] in N.rows and npc[k] // 10000 in fams and npc[k] // 10000 not in DRAGON_FAMILIES
+                 and e['part'].split('_')[0] not in bad_models
                  and not (e['tags'] & ep.BAD_SOURCE) and have_map(e)]
     if not boss_all or not elite_all:
         ctx.report.append('斗技场试炼：Boss 池 %d、精英池 %d，跳过' % (len(boss_all), len(elite_all)))
