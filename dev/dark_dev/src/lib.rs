@@ -1091,13 +1091,12 @@ impl App {
             self.send_arena("状态");
         }
         ui.text_wrapped("正常流程：三个竞技场门口的雕像对话里选「斗技场试炼」。结果看 dark_core.log 里「竞技场：」开头的行。");
-        // 无尽模式的生成器实验（settings 的 arena.generator_test 写了竞技场名字、重随过才有 gentest 行）
-        let gen_line = fs::read_to_string(core_dir().join("arena.txt")).ok().and_then(|t| t.lines().find(|l| l.starts_with("gentest\t")).map(str::to_string));
-        if let Some(line) = gen_line {
-            let x = line.split('\t').nth(1).unwrap_or("?").to_string();
-            let name = match x.as_str() { "0" => "王城", "1" => "盖利德", "2" => "宁姆格福", _ => "?" };
+        // 复活用的生成器（2026-11-19 转正：三个竞技场每个敌人一个，arena.txt 的 gen 行；以前只有生成器实验开着时的 gentest 行）
+        let gen_on = fs::read_to_string(core_dir().join("arena.txt")).ok()
+            .is_some_and(|t| t.lines().any(|l| l.starts_with("gen\t") || l.starts_with("gentest\t")));
+        if gen_on {
             ui.separator();
-            ui.text_wrapped(format!("生成器实验（{name}竞技场，每个敌人一个生成器；先用上面的按钮进那个竞技场的试炼）："));
+            ui.text_wrapped("复活（每个敌人一个生成器；对着现在的试炼、或者人在的那个竞技场；详细记录只在上面「直接进」的试炼里写）：");
             for (label, cmd) in [("复活这一波倒下的", "复活这一波"), ("叫一只没出场的精英", "叫精英"), ("叫一只没出场的 Boss", "叫Boss")] {
                 if ui.button(format!("{label}##gen{cmd}")) {
                     self.send_arena(&format!("生成器 {cmd}"));

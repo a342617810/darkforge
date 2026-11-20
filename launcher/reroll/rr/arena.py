@@ -85,15 +85,18 @@ GEN_REGION_MAP = 'm14_00_00_00'
 # 第六轮：不要模板了，给这个竞技场池子里每个敌人各配一个这样的生成器（管那个部件本身），出生点 6 个（F + 3901~3906），
 # 生成器 k 的出生点从第 k 个开始排（几只一起叫不挤在一处）。生成器实体 F + 3700 + k、请求标记 F + 2700 + k、事件 F + 2950 + k。
 # 2026-11-19 实测：开场不生（initial 0）的话，生成器没叫过的敌人事件启用了也不出来（第 1 波两只都没出、一只没排到的 Boss 自己被放了出来）。
-# 第七轮（现在）：开场就生 1 只（第三轮的模板就是这样，读图时是站在原位的普通敌人），出场照旧走事件，只有复活用生成器叫
+# 第七轮：开场就生 1 只（第三轮的模板就是这样，读图时是站在原位的普通敌人），出场照旧走事件，只有复活用生成器叫
 # 2026-11-19 池子做大到 100 个部件：请求标记挪到 F + 2900 + k、事件挪到 F + 5300 + k（原版竞技场的事件只用 2200~2300）
+# 2026-11-19 转正（用户「按建议，开始做」无尽模式第一期）：三个竞技场每个部件都配一个，generator_test 设置去掉。
+# 出生点区域 F + 3901 起：Boss 位 1 个 + 精英位 7 个（坐标在 sc/arena.py：BOSS_AT、ELITE_AT），每个生成器只用它那只敌人自己的站位，
+# 复活在原来出场的地方。复活走单独的循环事件 F + 5300 + k（sc/arena.py：等请求 → 叫生成器 → 就绪 → 等开打 → 等死 → 从头再等），
+# 第一次出场的事件不变
 GEN_ENT0, GEN_REG0, GEN_REQ0, GEN_EV0 = 3700, 3901, 2900, 5300
-GEN_AT = [(-6.0, -12.0), (6.0, -12.0), (0.0, -14.0), (-10.0, -3.0), (10.0, -3.0), (0.0, -5.0)]   # 出生点（同 sc/arena.py 的坐标系：竞技场中心、玩家出生点朝 −z）
 GEN_PARAMS = dict(max_num=1, limit=-1, min_gen=1, max_gen=1, min_iv=0.0, max_iv=0.0, initial=1)
 DEFAULT = dict(enabled=True, tiers=[31, 13, 8], bosses=8, elite_kinds=4, elite_families=0, exclude_models=[], variants=1, elite_copies=4, elite_per_wave=2, scarab_pct=20, scarab_copies=4,
                cost=[1, 2, 3], waves=[2, 4, 8],
                items_elite=2, items_boss=1, ash_boss=1, clear_bonus=[1, 2, 4], refund=[0, 1, 2], elite_two=[0, 0, 10, 15, 20, 30, 40, 50],
-               reward_tiers=[[4, 4], [3, 4], [2, 3]], reward_scale=[2, 1, 1], hp_every=2, hp_step=0.1, wave_fx=[], generator_test='',
+               reward_tiers=[[4, 4], [3, 4], [2, 3]], reward_scale=[2, 1, 1], hp_every=2, hp_step=0.1, wave_fx=[],
                ash_weights=[[0, 30, 40, 30], [0, 70, 20, 10], [50, 35, 10, 5]],
                difficulty_mult=[[1.6, 1.2, 0.7, 0.4], [1.3, 1.1, 0.85, 0.6], [1, 1, 1, 1], [0.85, 1, 1.15, 1.3],
                                 [0.7, 0.95, 1.3, 1.7], [0.55, 0.9, 1.45, 2.2], [0.4, 0.8, 1.6, 2.8], [0.3, 0.7, 1.7, 3.5]])
@@ -365,10 +368,11 @@ def build(ctx):
         S_sp.add_row(rid, bytes(row))
     ctx.bnd.put('SpEffectParam.param', S_sp.serialize())
     band = lambda t: next((i for i, b in enumerate(ctx.S.get('tier_bands') or []) if t <= b.get('max_tier', 99)), len(ctx.S.get('tier_bands') or []) - 1)
-    gen = gen_test(ctx, c, colos)
-    ctx.arena = dict(cfg=c, colos=colos, band=[band(co['tier']) for co in colos], gen=gen)
+    for co in colos:
+        co['gen'] = gen_of(co)
+    ctx.arena = dict(cfg=c, colos=colos, band=[band(co['tier']) for co in colos])
     keep = ('k', 'kind', 'src_map', 'part', 'model', 'ent', 'npc', 'name', 'spot')
-    ctx.features['arena'] = dict(colos=[dict(x=co['x'], map=co['map'], flag=co['flag'], warp=co['warp'], gen=gen if gen and gen['x'] == co['x'] else None,
+    ctx.features['arena'] = dict(colos=[dict(x=co['x'], map=co['map'], flag=co['flag'], warp=co['warp'], gen=co['gen'],
                                              parts=[{k: p[k] for k in keep} for p in co['parts']],
                                              # 各批阵容（sc/arena.py 每批做一份地图和事件，每次启动 pick 换上一批；第 0 批 = parts）
                                              variants=[[{k: p[k] for k in keep} for p in parts] for parts in co['variants']],
@@ -389,8 +393,9 @@ def build(ctx):
             COLO_ZH[co['x']], co['tier'], sum(p['kind'] == 'b' for p in co['parts']), len({p['src'] for p in co['parts'] if p['kind'] == 'e'}),
             n_cp, sum(p['kind'] == 's' for p in co['parts']), len({p['model'] for p in co['parts']}), cover(co)[0], co['pool'][0], cover(co)[1], co['pool'][1])
         for co in colos) +
-        '（敌人参数副本 %d 行，%d 起；Boss 池 %d、精英池 %d、红 / 蓝粪金龟 %d / %d；精英位 %g%% 换成粪金龟）' % (
-            added, ARENA_NPC0, len(boss_all), len(elite_all), len(scarab_all[0]), len(scarab_all[1]), float(c['scarab_pct'])))
+        '（敌人参数副本 %d 行，%d 起；Boss 池 %d、精英池 %d、红 / 蓝粪金龟 %d / %d；精英位 %g%% 换成粪金龟；'
+        '每个部件一个生成器，复活用，照抄 %s 的 %d）' % (
+            added, ARENA_NPC0, len(boss_all), len(elite_all), len(scarab_all[0]), len(scarab_all[1]), float(c['scarab_pct']), GEN_SRC_MAP, GEN_SRC_GEN))
     for co in colos:
         for v, parts in enumerate(co['variants']):
             seen = set()
@@ -401,26 +406,15 @@ def build(ctx):
     inline_packs(ctx, c)
 
 
-def gen_test(ctx, c, colos):
-    """生成器实验（GEN_*）：generator_test 写了竞技场名字（王城 / 盖利德 / 宁姆格福，或 0~2）才做；返回 sc/arena.py 和 arena.txt 要的"""
-    v = str(c.get('generator_test') or '').strip()
-    if not v:
-        return None
-    x = COLO_KEYS.get(v, int(v) if v.isdigit() else None)
-    co = next((co for co in colos if co['x'] == x), None)
-    if not co or not co['parts']:
-        ctx.report.append('生成器实验：generator_test「%s」不对（写 王城 / 盖利德 / 宁姆格福），或者那个竞技场没有敌人，跳过' % v)
-        return None
+def gen_of(co):
+    """这个竞技场的生成器（GEN_*）：sc/arena.py 每批阵容给每个部件配一个、写复活事件；arena.txt 的 gen 行。每批里的部件不同，
+    生成器管的部件名、出生点由 sc/arena.py 按那一批的部件定（variant_co）"""
     F = co['flag']
-    if F + GEN_ENT0 + max(p['k'] for p in co['parts']) >= F + GEN_REG0:
-        raise RuntimeError('生成器实验：部件太多，生成器实体和出生点撞号')
-    g = dict(x=x, regs=[F + GEN_REG0 + i for i in range(len(GEN_AT))], at=[list(a) for a in GEN_AT],
-             req0=F + GEN_REQ0, gen0=F + GEN_ENT0, ev0=F + GEN_EV0,
-             gens=[dict(k=p['k'], part='%s_%d' % (p['model'], 9500 + p['k']), ent=F + GEN_ENT0 + p['k']) for p in co['parts']],
-             src_map=GEN_SRC_MAP, src_gen=GEN_SRC_GEN, region_map=GEN_REGION_MAP, src_region=GEN_SRC_REGION, **GEN_PARAMS)
-    ctx.report.append('生成器实验：%s，%d 个敌人各配一个生成器（实体 %d 起，照抄 %s 的 %d），F9「斗技场试炼测试」里叫' % (
-        COLO_ZH[x], len(g['gens']), g['gen0'], GEN_SRC_MAP, GEN_SRC_GEN))
-    return g
+    n = max(len(parts) for parts in co['variants'])
+    if F + GEN_ENT0 + n > F + GEN_REG0:
+        raise RuntimeError('斗技场试炼：部件太多，生成器实体和出生点撞号')
+    return dict(x=co['x'], reg0=F + GEN_REG0, req0=F + GEN_REQ0, gen0=F + GEN_ENT0, ev0=F + GEN_EV0,
+                src_map=GEN_SRC_MAP, src_gen=GEN_SRC_GEN, region_map=GEN_REGION_MAP, src_region=GEN_SRC_REGION, **GEN_PARAMS)
 
 
 def inline_packs(ctx, c):
@@ -637,10 +631,6 @@ def def_lines(ctx):
     if float(c['hp_step']) > 0:
         out.append('hpwave\t%d\t%d\t%d' % (max(1, int(c['hp_every'])), HPW_SP0, HPW_N))
     out += wave_fx_lines(ctx, c)
-    g = a.get('gen')
-    if g:
-        # gentest <竞技场> <部件 k 的请求标记起点（+ k，竞技场的事件听，叫部件 k 的生成器）> <部件 k 的生成器实体起点（+ k）>
-        out.append('gentest\t%d\t%d\t%d' % (g['x'], g['req0'], g['gen0']))
     for i, (w, cost) in enumerate(zip(c['waves'], c['cost'])):
         # run <场次> <波数> <碎片> <全部打完多给几件> <全部打完退还几个碎片>
         back = int(c['refund'][i]) if i < len(c.get('refund') or []) else 0
@@ -649,6 +639,10 @@ def def_lines(ctx):
     for co in a['colos']:
         x = co['x']
         out.append('colo\t%d\t%d\t%d' % (x, co['flag'], co['warp']))
+        g = co.get('gen')
+        if g:
+            # gen <竞技场> <部件 k 的复活请求标记起点（+ k，竞技场的复活事件听，叫部件 k 的生成器）> <部件 k 的生成器实体起点（+ k）>
+            out.append('gen\t%d\t%d\t%d' % (x, g['req0'], g['gen0']))
         for v, s in enumerate(STATUES[x]):
             out.append('statue\t%d\t%d\t%s' % (x, v, '\t'.join(map(str, s[1]))))
         et, bt = c['reward_tiers'][x]

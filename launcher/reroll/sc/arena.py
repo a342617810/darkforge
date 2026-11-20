@@ -78,13 +78,19 @@ def variants_of(co):
     return co.get('variants') or [co['parts']]
 
 
+def gen_spot(p):
+    """部件复活在哪个出生点区域（下标：0 是 Boss 位，1 起是精英位 ELITE_AT）：同它第一次出场的位置"""
+    return 0 if p['kind'] == 'b' else 1 + p['spot'] % len(ELITE_AT)
+
+
 def variant_co(co, v):
-    """第 v 批阵容当成一个竞技场（部件换成这一批的；生成器实验的生成器管的部件名跟着换）"""
+    """第 v 批阵容当成一个竞技场（部件换成这一批的；生成器管的部件名、出生点跟着换）"""
     parts = variants_of(co)[v]
     out = dict(co, parts=parts)
     g = co.get('gen')
     if g:
-        out['gen'] = dict(g, gens=[dict(k=p['k'], part='%s_%d' % (p['model'], 9500 + p['k']), ent=g['gen0'] + p['k']) for p in parts])
+        out['gen'] = dict(g, gens=[dict(k=p['k'], part='%s_%d' % (p['model'], 9500 + p['k']), ent=g['gen0'] + p['k'], reg=gen_spot(p))
+                                   for p in parts])
     return out
 
 
@@ -185,19 +191,18 @@ def arena_spec(co):
         raise RuntimeError('部件实体和传送落点撞号')
     g = co.get('gen')
     if g:
-        # 无尽模式的生成器实验（rr/arena.py 的 GEN_*，第六轮）：每个部件一个生成器（照抄湖底的类型 3，管那个部件本身），
-        # 出生点区域从原版学院照抄；生成器 k 的出生点从第 k 个开始排
+        # 复活用的生成器（rr/arena.py 的 GEN_*）：每个部件一个（照抄湖底的类型 3，管那个部件本身）。出生点区域从原版学院照抄，
+        # 摆在 Boss 位和各精英位（F + 3901 起），每个生成器只用它那只敌人第一次出场的站位
         src, rsrc = vanilla(rel_map(g['src_map'])), vanilla(rel_map(g.get('region_map') or g['src_map']))
         if not src or not rsrc:
-            raise RuntimeError('找不到生成器实验的来源地图 %s / %s' % (g['src_map'], g.get('region_map')))
+            raise RuntimeError('找不到生成器的来源地图 %s / %s' % (g['src_map'], g.get('region_map')))
         names = []
-        for i, (ent, (x, z)) in enumerate(zip(g['regs'], g['at'])):
-            names.append('DR 生成器实验 出生点 %d' % (i + 1))
-            L.append(line('region', rsrc, g['src_region'], names[-1], ent, float(x), Y, float(z), ENEMY_YAW))
+        for i, (x, z) in enumerate([BOSS_AT] + list(ELITE_AT)):
+            names.append('DR 复活出生点 %d' % i)
+            L.append(line('region', rsrc, g['src_region'], names[-1], g['reg0'] + i, float(x), Y, float(z), ENEMY_YAW))
         for gi in g['gens']:
-            n = gi['k'] % len(names)
-            L.append(line('generator', src, g['src_gen'], 'DR 生成器实验 %d' % gi['k'], gi['ent'], g['max_num'], g['limit'], g['min_gen'], g['max_gen'],
-                          float(g['min_iv']), float(g['max_iv']), g['initial'], ','.join(names[n:] + names[:n]), gi['part']))
+            L.append(line('generator', src, g['src_gen'], 'DR 复活 %d' % gi['k'], gi['ent'], g['max_num'], g['limit'], g['min_gen'], g['max_gen'],
+                          float(g['min_iv']), float(g['max_iv']), g['initial'], names[gi['reg']], gi['part']))
     return '\n'.join(L) + '\n'
 
 
@@ -353,12 +358,29 @@ def map_events(raw, co, f):
             wait_flag(F + f['run'] + s['v'])] + died + [
             emevd.ins(2003, 23, ('u32', s['resp']))]})
     if g:
-        # 生成器实验（第六轮）：部件 k 的请求标记（dark_core 点亮）→ 叫部件 k 的生成器（2003[54]，原版 EMEDF Invoke Enemy Generator）。
+        # 复活（无尽模式第一期，2026-11-19）：部件 k 的复活请求（dark_core 先熄掉它的死亡、就绪标记再点亮）→ 叫部件 k 的生成器
+        # （2003[54]，原版 EMEDF Invoke Enemy Generator；0.5 秒后满血复活，还是那只）→ AI 关、无敌 → 就绪 → Boss 挂血条 →
+        # 等开打（AI 开、无敌关）→ 等它死、点亮死亡标记、关血条 → 从头再等。第一次出场的事件不变（它出场、死一次就结束了）。
         # 生成器读图时开着（第五轮：类型 3 开着也不会自己复活），这里不开不关
-        for gi in g['gens']:
-            q = g['req0'] + gi['k']
-            new.append({'id': g['ev0'] + gi['k'], 'rest': 0, 'params': [], 'ins': [
-                wait_flag(q), set_flag(q, 0), emevd.ins(2003, 54, ('u32', gi['ent'])), RESTART]})
+        by_k = {gi['k']: gi for gi in g['gens']}
+        for p in co['parts']:
+            gi, k, ent = by_k[p['k']], p['k'], p['ent']
+            q, boss = g['req0'] + k, p['kind'] == 'b' and p['name'] > 0
+            bar = lambda on, ent=ent, name=p['name']: emevd.ins(2003, 11, ('s8', on), ('u32', ent), ('s16', 0), ('s32', name))
+            body = [wait_flag(q), set_flag(q, 0), emevd.ins(2003, 54, ('u32', gi['ent'])), wait_s(1.0)]
+            if engage:
+                body += [emevd.ins(2004, 1, ('u32', ent), ('u8', 0)), emevd.ins(2004, 15, ('u32', ent), ('u8', 1))]
+            if ready:
+                body.append(set_flag(F + ready + k, 1))
+            if boss:
+                body.append(bar(1))
+            if engage:
+                body += [wait_flag(F + engage), emevd.ins(2004, 1, ('u32', ent), ('u8', 1)), emevd.ins(2004, 15, ('u32', ent), ('u8', 0))]
+            body += [emevd.ins(4, 0, ('s8', 0), ('u32', ent), ('u8', 1), ('u8', 0), ('f32', 1.0)), set_flag(F + f['dead'] + k, 1)]
+            if boss:
+                body.append(bar(0))
+            body.append(RESTART)
+            new.append({'id': g['ev0'] + k, 'rest': 0, 'params': [], 'ins': body})
     for ev in new:
         ev['ins'].insert(0, dict(NO_SYNC))
     e['events'] += new

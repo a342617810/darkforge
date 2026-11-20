@@ -111,6 +111,8 @@ struct Colo {
     scale: u32,
     ashrar: [f32; 4],
     parts: Vec<Part>,
+    /// 复活用的生成器（arena.txt 的 gen 行）：(部件 k 的复活请求标记起点, 部件 k 的生成器实体起点)，都 + k
+    revive: Option<(u32, u32)>,
 }
 
 #[derive(Debug, Default, PartialEq)]
@@ -156,12 +158,10 @@ struct Def {
     hpwave: Option<(usize, i32, usize)>,
     /// 按波次挂的效果包
     wfx: Vec<WaveFx>,
-    /// 无尽模式的生成器实验（arena.txt 的 gentest 行，settings 的 generator_test 写了才有）
-    gentest: Option<GenTest>,
 }
 
-/// 生成器实验（rr/arena.py 的 GEN_*，第六轮）：哪个竞技场、部件 k 的请求标记起点（+ k，竞技场的事件听着叫部件 k 的生成器）、
-/// 部件 k 的生成器实体起点（+ k，只写日志用）
+/// 生成器（rr/arena.py 的 GEN_*）：哪个竞技场、部件 k 的复活请求标记起点（+ k，竞技场的复活事件听着叫部件 k 的生成器）、
+/// 部件 k 的生成器实体起点（+ k，只写日志用）。开发工具按钮、记录按现在的试炼 / 人在的竞技场取（gen_here）
 #[derive(Debug, Clone, Copy, PartialEq)]
 struct GenTest {
     x: u32,
@@ -325,7 +325,7 @@ fn parse(text: &str) -> Option<Def> {
                 d.dmult[k] = f4(&f[2..])?;
             }
             "hpwave" => d.hpwave = Some(((n(1)? as usize).max(1), n(2)? as i32, n(3)? as usize)),
-            "gentest" => d.gentest = Some(GenTest { x: n(1)?, req0: n(2)?, gen0: n(3)? }),
+            "gen" | "gentest" => colos.entry(n(1)?).or_default().revive = Some((n(2)?, n(3)?)),
             // 写错的一条不要（不影响整个试炼）
             "wfx" => match WaveFx::parse(&f) {
                 Some(w) => d.wfx.push(w),
@@ -646,6 +646,8 @@ struct Run {
     cleared: usize,
     /// 结束的原因（联机发给队员）
     why: &'static str,
+    /// 开发工具直接进的（生成器的详细记录只在这种试炼里写）
+    dev: bool,
 }
 
 /// 结束了的联机试炼（队员这边）：房主还在发这一场的进度时，回报最后的情况（最多记几场）
@@ -1061,6 +1063,7 @@ fn new_run(ci: usize, v: u32, code: usize, cost: u32, lineup: Vec<Vec<usize>>, r
         dead_k: HashSet::new(),
         cleared: 0,
         why: "end",
+        dev: false,
     }
 }
 
@@ -2094,6 +2097,9 @@ fn dev_req(d: &Def, st: &mut St, wcm: &mut WorldChrMan, now: Instant) {
                     continue;
                 }
                 start_run(d, st, ci, 0, code, 0, "开发工具：直接进（不扣碎片，离开时传到雕像 0 旁）", now);
+                if let Some(r) = st.run.as_mut() {
+                    r.dev = true;
+                }
             }
             ["清场"] => {
                 let Some(r) = st.run.as_ref().filter(|r| r.phase == Phase::Fight) else {
@@ -2165,9 +2171,22 @@ fn dev_req(d: &Def, st: &mut St, wcm: &mut WorldChrMan, now: Instant) {
 
 /// 生成器实验（开发工具「生成器 复活这一波 / 叫精英 / 叫Boss / 记录」，第六轮）：点亮部件 k 的请求标记（竞技场的事件听着叫部件 k
 /// 自己的生成器，只在那个竞技场里有用），之后 GEN_WATCH 里一直记那个竞技场的敌人
+/// 开发工具的生成器按钮、记录对着哪个竞技场：试炼进行中就是那个，不然是人在的那个（m45_0X）；那个竞技场要有生成器（arena.txt 的 gen 行）
+fn gen_here(d: &Def, st: &St, wcm: &WorldChrMan) -> Option<GenTest> {
+    let x = match st.run.as_ref() {
+        Some(r) => d.colos.get(r.ci)?.x,
+        None => {
+            let b = wcm.main_player.as_ref()?.current_block_id;
+            (b.area() == 45).then_some(b.block() as u32)?
+        }
+    };
+    let (req0, gen0) = d.colos.iter().find(|c| c.x == x)?.revive?;
+    Some(GenTest { x, req0, gen0 })
+}
+
 fn gen_req(d: &Def, st: &mut St, wcm: &WorldChrMan, cmd: &str, now: Instant) {
-    let Some(g) = d.gentest else {
-        log("生成器实验：arena.txt 里没有 gentest 行（settings 的 arena.generator_test 没写竞技场名字，或者还没重随）");
+    let Some(g) = gen_here(d, st, wcm) else {
+        log("生成器：现在不在试炼里、也不在竞技场里，或者这个竞技场没有生成器（arena.txt 里没有 gen 行，还没重随）");
         return;
     };
     let Some(c) = d.colos.iter().find(|c| c.x == g.x) else {
@@ -2203,6 +2222,11 @@ fn gen_req(d: &Def, st: &mut St, wcm: &WorldChrMan, cmd: &str, now: Instant) {
                     None => flag_get(c.flag + d.dead + p.k) == Some(true),
                 };
                 if gone {
+                    // 死亡、就绪标记第一次出场时亮过：先熄掉，复活事件复活以后再点亮（清场、开打照它们看）
+                    flag_set(c.flag + d.dead + p.k, false);
+                    if d.ready > 0 {
+                        flag_set(c.flag + d.ready + p.k, false);
+                    }
                     flag_set(g.req0 + p.k, true);
                     st.genw.called.insert(p.k);
                     called.push(format!("{}（生成器 {}）", gen_name(p), g.gen0 + p.k));
@@ -2314,10 +2338,14 @@ fn gen_look(c: &Colo, wcm: &WorldChrMan) -> HashMap<usize, (usize, GenSeen)> {
 /// 生成器实验：进了那个竞技场的试炼、或者点过按钮以后，每 GEN_SCAN 看一眼那个竞技场的敌人：倒下 / 又活了（复活前后的效果、血量上限）/
 /// 被挪到出生点 / 开始显示，叫过的出现、不再显示，玩家卢恩多了多少
 fn gen_tick(d: &Def, st: &mut St, wcm: &WorldChrMan, now: Instant) {
-    let Some(g) = d.gentest else { return };
+    // 只在开发工具直接进的试炼里记（2026-11-19 生成器转正以后每个竞技场都有，玩家从雕像进的不写这些）
+    if !st.run.as_ref().is_some_and(|r| r.dev) && st.genw.until.is_none() {
+        return;
+    }
+    let Some(g) = gen_here(d, st, wcm) else { return };
     let Some(c) = d.colos.iter().find(|c| c.x == g.x) else { return };
     // 进了这个竞技场的试炼就开始记（第一波出场、魇化挂上以后的样子也要）
-    if st.run.as_ref().is_some_and(|r| d.colos.get(r.ci).is_some_and(|rc| rc.x == g.x)) && st.genw.until.is_none_or(|t| now > t) {
+    if st.run.as_ref().is_some_and(|r| r.dev && d.colos.get(r.ci).is_some_and(|rc| rc.x == g.x)) && st.genw.until.is_none_or(|t| now > t) {
         st.genw.until = Some(now + GEN_WATCH);
         st.genw.next = None;
         log(&format!("生成器实验：在竞技场 {} 的试炼里，开始记那里的敌人（{} 分钟）", g.x, GEN_WATCH.as_secs() / 60));
@@ -2594,7 +2622,7 @@ gentest\t1\t45012700\t45013700\n";
         assert_eq!(d.dmult[1], [1.0; 4]);
         assert_eq!(d.two, vec![0.0, 0.0, 10.0]);
         assert_eq!(d.hpwave, Some((2, 7319970, 4)));
-        assert_eq!(d.gentest, Some(GenTest { x: 1, req0: 45012700, gen0: 45013700 }));
+        assert_eq!(c.revive, Some((45012700, 45013700)));
         assert!(parse("req\t1\t2\t3\t4\n").is_none());
     }
 
