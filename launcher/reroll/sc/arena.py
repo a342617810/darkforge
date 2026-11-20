@@ -27,11 +27,16 @@ import esd as esdlib
 
 from . import extragrace
 from .common import REROLL, last_with, vanilla
-from .esdutil import ALWAYS, CONFIRM_NO, CONFIRM_YES, flag_is_on, i32, menu_pick, wait_menu, write_check
+from .esdutil import ALWAYS, CONFIRM_NO, CONFIRM_YES, any_flag_on, flag_is_off, flag_is_on, i32, menu_pick, wait_menu, write_check
 
 CACHE_DIR = os.path.join(REROLL, 'cache', 'arena')
 TALK_TEXT0 = 80099000        # EventTextForTalk：+r 三种场次，+3 竞技场（联机），+4 队员不能开始，+20+r 碎片不够，+30+10X+r 确认框，+60+10X+r 房主的确认框
 ASK_TEXT = 80099100          # EventTextForMap：继续下一波？
+# 无尽试炼（rr/arena.py 的 ENDLESS_*）：EventTextForTalk TALK_TEXT0 + 90 + X 菜单「继续」、+ 93 + X「从第 1 波开始」（后面的「第 N 波、最高第 M 波」
+# 是 dark_core 交给取文字钩子的占位 〔#IK~M …〕/〔#IN~P …〕）、+ 96 开始的确认框、+ 97 重新开始的确认框、+ 99 继续的确认框；
+# EventTextForMap ENDLESS_ASK：无尽试炼里问继续（选「否」= 保存进度离开）
+ENDLESS_ASK = 80099101
+ENDLESS_CONT_KIND, ENDLESS_NEW_KIND = 'KLM', 'NOP'          # 占位的种类字母（竞技场 0~2；msghook.rs 的 #I 种类 20~25）
 LEAVE_TEXT = 20000009        # 原版「离开」
 # 联机（联机计划 13.13）：会话里只有房主能在雕像开始，队员跟着房主进（dark_core arena.rs）。COOP_SESSION / COOP_HOST 和 dark_core coop.rs 的
 # SESSION_FLAG / HOST_FLAG 一样（两边一起改）
@@ -329,9 +334,12 @@ def map_events(raw, co, f):
     r_yes, r_no = f['len0'], f['len0'] + 1
     or1 = lambda flag: emevd.ins(3, 0, ('s8', -1), ('u8', 1), ('u8', 0), ('u32', flag))
     clear_r = emevd.ins(2003, 22, ('u32', r_yes), ('u32', r_no), ('u8', 0))
+    ask = lambda t: emevd.ins(2007, 10, ('s32', t), ('s16', 0), ('s16', 2), ('u32', 0), ('f32', 100.0), ('u32', r_yes), ('u32', r_no), ('u32', r_no))
+    # 无尽试炼进行中（dark_core 点亮 F + endless local）：换成「选否 = 保存进度离开」那句
+    el = F + f['endless']['local'] if f.get('endless') else 0
+    asks = [skip_if(1, 1, el), ask(ASK_TEXT), skip_if(1, 0, el), ask(ENDLESS_ASK)] if el else [ask(ASK_TEXT)]
     new.append({'id': F + EV_ASK, 'rest': 0, 'params': [], 'ins': [
-        wait_flag(a), clear_r,
-        emevd.ins(2007, 10, ('s32', ASK_TEXT), ('s16', 0), ('s16', 2), ('u32', 0), ('f32', 100.0), ('u32', r_yes), ('u32', r_no), ('u32', r_no)),
+        wait_flag(a), clear_r] + asks + [
         or1(r_yes), or1(r_no), emevd.ins(0, 0, ('s8', 0), ('u8', 1), ('s8', -1)),
         skip_if(1, 0, r_yes), set_flag(a + 1, 1),
         skip_if(1, 0, r_no), set_flag(a + 2, 1),
@@ -495,10 +503,11 @@ def menu_group(f, x):
     """我们的菜单：返回 0 = 走原版流程（竞技场联机），1 = 结束这次对话"""
     g = {0: _st([], [_go(1)]),
          1: _st([_cmd(1, 20)], [_go(2)]),
-         2: _st([_cmd(1, 19, i32(r + 1), i32(TALK_TEXT0 + r), i32(-1)) for r in range(len(f['waves']))]
+         2: _st([_cmd(1, 19, i32(r + 1), i32(TALK_TEXT0 + r), i32(-1)) for r in range(len(f['waves']))] + endless_items(f, x)
                 + [_cmd(1, 19, i32(9), i32(TALK_TEXT0 + 3), i32(-1)), _cmd(1, 19, i32(99), i32(LEAVE_TEXT), i32(-1))], [_go(3)]),
          3: _st([_cmd(1, 10, i32(1))], [_go(4, wait_menu(1))]),
-         4: _st([], [_go(10 * (r + 1), menu_pick(r + 1)) for r in range(len(f['waves']))] + [_go(90, menu_pick(9)), _go(99)]),
+         4: _st([], [_go(10 * (r + 1), menu_pick(r + 1)) for r in range(len(f['waves']))]
+                + ([_go(50, menu_pick(5)), _go(60, menu_pick(6))] if f.get('endless') else []) + [_go(90, menu_pick(9)), _go(99)]),
          90: _st([], [_ret(0)]),
          99: _st([], [_ret(1)])}
     for r, cost in enumerate(f['cost']):
@@ -514,7 +523,37 @@ def menu_group(f, x):
         g[s + 2] = _st([_cmd(1, 11, i32(f['len0']), i32(code & 1)), _cmd(1, 11, i32(f['len0'] + 1), i32((code >> 1) & 1)),
                         _cmd(1, 11, i32(f['req']), i32(1))], [_go(99)])
         g[s + 5] = _st([_cmd(6, DIALOG_GID, i32(TALK_TEXT0 + 20 + r))], [_go(1, CONFIRM_NO)])
+    e = f.get('endless')
+    if e:
+        # 无尽试炼：5 继续（有进度才列）、6 从第 1 波开始（有进度时先确认会清掉进度）。不花碎片；会话里队员只看提示（由房主开始），
+        # 房主照常开始（队员跟着进，同试炼）。点亮无尽的请求标记、场次位写 1 继续 / 2 从头、再点亮雕像的请求（dark_core 看到就开始）
+        for s, code, conf in ((50, 1, TALK_TEXT0 + 99), (60, 2, None)):
+            g[s] = _st([], [_go(s + 6, _and_not_host()), _go(s + 1)])
+            g[s + 6] = _st([_cmd(6, DIALOG_GID, i32(COOP_TEXT))], [_go(1, CONFIRM_NO)])
+            if conf is None:            # 从头：有进度确认「会清掉」，没有进度确认开始
+                g[s + 1] = _st([], [_go(s + 3, flag_is_on(e['has0'] + x)), _go(s + 4)])
+                g[s + 3] = _st([_cmd(6, CONFIRM_GID, i32(TALK_TEXT0 + 97))], [_go(s + 2, CONFIRM_YES), _go(1, CONFIRM_NO)])
+                g[s + 4] = _st([_cmd(6, CONFIRM_GID, i32(TALK_TEXT0 + 96))], [_go(s + 2, CONFIRM_YES), _go(1, CONFIRM_NO)])
+            else:
+                g[s + 1] = _st([_cmd(6, CONFIRM_GID, i32(conf))], [_go(s + 2, CONFIRM_YES), _go(1, CONFIRM_NO)])
+            g[s + 2] = _st([_cmd(1, 11, i32(e['req']), i32(1)), _cmd(1, 11, i32(f['len0']), i32(code & 1)), _cmd(1, 11, i32(f['len0'] + 1), i32((code >> 1) & 1)),
+                            _cmd(1, 11, i32(f['req']), i32(1))], [_go(99)])
     return g
+
+
+def _and_not_host():
+    """eval：在联机会话里、本机不是房主（队员不能开始）"""
+    return flag_is_on(COOP_SESSION)[:-1] + flag_is_off(COOP_HOST)[:-1] + bytes([0x98, 0xA1])
+
+
+def endless_items(f, x):
+    """菜单里无尽试炼的两项（AddTalkListDataIf）：死亡以上那几档的当前档标记亮着才列；「继续」还要这个竞技场有保存的进度"""
+    e = f.get('endless')
+    if not e:
+        return []
+    death = any_flag_on(e['lock_flags'])
+    cont = death[:-1] + flag_is_on(e['has0'] + x)[:-1] + bytes([0x98, 0xA1])
+    return [_cmd(5, 19, cont, i32(5), i32(TALK_TEXT0 + 90 + x), i32(-1)), _cmd(5, 19, death, i32(6), i32(TALK_TEXT0 + 93 + x), i32(-1))]
 
 
 def patch_statue(e, f, x):
@@ -628,6 +667,26 @@ def texts(cx, key):
                        'During co-op the host starts Colosseum Trials at a statue, and you are brought in with them.')
     mp[ASK_TEXT] = ('继续挑战下一波吗？\n选择「否」离开斗技场，已经得到的奖励保留' if zh else
                     'Continue to the next wave?\nChoose "No" to leave the colosseum and keep the rewards you have')
+    e = f.get('endless')
+    if e:
+        mp[ENDLESS_ASK] = ('继续挑战下一波吗？\n选择「否」保存进度离开，下次从下一波继续；已经得到的奖励保留' if zh else
+                           'Continue to the next wave?\nChoose "No" to save your progress and leave. Next time you continue from the next wave, '
+                           'and you keep the rewards you have')
+        pct, cap = round(float(e['step']) * 100), int(e['cap'])
+        for x in range(3):
+            ck, nk = ENDLESS_CONT_KIND[x], ENDLESS_NEW_KIND[x]
+            talk[TALK_TEXT0 + 90 + x] = ('无尽试炼：继续〔#I%s （从保存的那一波）〕' % ck) if zh else ('Endless Trial: continue [#I%s (from your saved wave)]' % ck)
+            talk[TALK_TEXT0 + 93 + x] = ('无尽试炼：从第 1 波开始〔#I%s 〕' % nk) if zh else ('Endless Trial: start from wave 1 [#I%s ]' % nk)
+        talk[TALK_TEXT0 + 96] = (
+            ('开始无尽试炼？\n魇化精英与 Boss 轮流出场，没有尽头，敌人的血量每一波提高 %d%%。不消耗星光碎片。\n'
+             '每打完一波奖励直接放进背包（每波最多 %d 件），之后可以选择继续，或者保存进度离开；途中死亡不收回奖励，下次从上次保存的那一波继续。') % (pct, cap)
+            if zh else
+            ('Start the Endless Trial?\nNightmare elites and bosses take turns without end, and enemy HP rises by %d%% every wave. No Starlight Shards needed.\n'
+             'Each cleared wave puts its rewards in your inventory (up to %d items a wave); then continue, or save your progress and leave. '
+             'Dying keeps your rewards, and next time you continue from your last saved wave.') % (pct, cap))
+        talk[TALK_TEXT0 + 97] = ('从第 1 波重新开始无尽试炼？\n保存的进度会清掉，最高波数的记录保留。' if zh else
+                                 'Restart the Endless Trial from wave 1?\nYour saved progress will be cleared. Your best wave is kept.')
+        talk[TALK_TEXT0 + 99] = ('从保存的那一波继续无尽试炼？' if zh else 'Continue the Endless Trial from your saved wave?')
     for v, (_k, z, en) in enumerate(f['notes']):
         mp[f['note_text0'] + v + 1] = z if zh else en
     out = {'EventTextForTalk': talk, 'EventTextForMap': mp}

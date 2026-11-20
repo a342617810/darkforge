@@ -35,7 +35,9 @@ use std::fs;
 use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
-use eldenring::cs::{GameDataMan, WorldChrMan};
+use std::path::PathBuf;
+
+use eldenring::cs::{GameDataMan, SoloParamRepository, SpEffectParam, WorldChrMan};
 use fromsoftware_shared::FromStatic;
 
 use crate::foefx::Fx;
@@ -158,6 +160,26 @@ struct Def {
     hpwave: Option<(usize, i32, usize)>,
     /// 按波次挂的效果包
     wfx: Vec<WaveFx>,
+    /// 无尽试炼（arena.txt 的 endless 行）
+    endless: Option<EndlessDef>,
+}
+
+/// 无尽试炼（用户 2026-11-19，提案 dev\item_system\无尽模式提案.md；rr/arena.py 的 ENDLESS_*）：只在死亡以上开放、不花碎片、
+/// 每波敌人血量 +step（第 1 波不加、不封顶）、每波奖励最多 cap 件、不给骨灰、死了不收回、每波之后可以保存进度离开
+#[derive(Debug, Clone, PartialEq)]
+struct EndlessDef {
+    /// 雕像菜单选了无尽（场次位 1 = 继续、2 = 从第 1 波开始）
+    req: u32,
+    /// 竞技场 X 有保存的进度：has0 + X（进存档时写，菜单按它列不列「继续」）
+    has0: u32,
+    /// 血量效果行（每波开打前改它的 maxHpRate）
+    sp: u32,
+    step: f32,
+    cap: u32,
+    /// 竞技场里的标记 F + local：无尽试炼进行中（问继续的事件换成「选否 = 保存进度离开」那句）
+    local: u32,
+    /// 开放的难度档（difficulty 里标了 lock 的：死亡、不可能）
+    tiers: Vec<usize>,
 }
 
 /// 生成器（rr/arena.py 的 GEN_*）：哪个竞技场、部件 k 的复活请求标记起点（+ k，竞技场的复活事件听着叫部件 k 的生成器）、
@@ -325,6 +347,17 @@ fn parse(text: &str) -> Option<Def> {
                 d.dmult[k] = f4(&f[2..])?;
             }
             "hpwave" => d.hpwave = Some(((n(1)? as usize).max(1), n(2)? as i32, n(3)? as usize)),
+            "endless" => {
+                d.endless = Some(EndlessDef {
+                    req: n(1)?,
+                    has0: n(2)?,
+                    sp: n(3)?,
+                    step: f.get(4)?.parse().ok()?,
+                    cap: n(5)?,
+                    local: n(6)?,
+                    tiers: f.get(7).map(|t| t.split(',').filter_map(|v| v.trim().parse().ok()).collect()).unwrap_or_default(),
+                })
+            }
             "gen" | "gentest" => colos.entry(n(1)?).or_default().revive = Some((n(2)?, n(3)?)),
             // 写错的一条不要（不影响整个试炼）
             "wfx" => match WaveFx::parse(&f) {
@@ -401,7 +434,7 @@ pub fn describe() -> String {
             d.colos.iter().map(|c| c.parts.len()).sum::<usize>(),
             d.runs.iter().map(|r| r.0).collect::<Vec<_>>(),
             if d.engage > 0 { "；就绪后开打，联机房主带队" } else { "；旧的竞技场事件，没有开打标记" }
-        ),
+        ) + &d.endless.as_ref().map_or(String::new(), |e| format!("；无尽试炼（难度档 {:?} 开放，每波血量 +{}%，每波最多 {} 件）", e.tiers, e.step * 100.0, e.cap)),
         None => "斗技场试炼（没有 arena.txt，不管）".into(),
     }
 }
@@ -493,6 +526,8 @@ struct HostState {
     ask: bool,
     /// 结束的原因：clear 打完 / leave 选了离开 / abort 没做成（退碎片）/ wipe 全队倒下 / host_out 房主离开了竞技场
     why: String,
+    /// 无尽试炼：从第几波开始（0 = 不是无尽；旧版房主不发，当 0）
+    e: u32,
 }
 
 impl HostState {
@@ -512,6 +547,7 @@ impl HostState {
             .with("clr", self.clr)
             .with("ask", self.ask as u8)
             .with("why", &self.why)
+            .with("e", self.e)
     }
 
     fn decode(pk: &Packet) -> Option<HostState> {
@@ -533,6 +569,7 @@ impl HostState {
             clr: n("clr")? as usize,
             ask: pk.get("ask") == Some("1"),
             why: pk.get("why").unwrap_or("").to_string(),
+            e: n("e").unwrap_or(0) as u32,
         })
     }
 }
@@ -648,6 +685,8 @@ struct Run {
     why: &'static str,
     /// 开发工具直接进的（生成器的详细记录只在这种试炼里写）
     dev: bool,
+    /// 无尽试炼：这一场从第几波开始（第 i 波（下标）是第 endless + i 波）；0 = 不是无尽
+    endless: u32,
 }
 
 /// 结束了的联机试炼（队员这边）：房主还在发这一场的进度时，回报最后的情况（最多记几场）
@@ -679,6 +718,18 @@ struct St {
     genw: GenWatch,
     /// 进场后等敌人都读进来再记一行（竞技场下标, 进场的时间）：池子做大（用户 2026-11-19「先试试32种敌人和boss」）看读图快慢、内存
     load_watch: Option<(usize, Instant)>,
+    /// 无尽试炼的进度（这个角色的）
+    prog: Prog,
+}
+
+/// 无尽试炼的进度：每个角色、每个竞技场「下次从第几波开始、最高打完第几波」，存在角色记录 无尽进度_<格子>.txt
+#[derive(Default)]
+struct Prog {
+    who: Option<(i32, String)>,
+    /// 竞技场 x → (下次从第几波开始, 最高打完第几波)
+    by_x: HashMap<u32, (u32, u32)>,
+    /// 上次交给菜单的（标记、文字），变了才重写
+    shown: String,
 }
 
 static ST: Mutex<Option<St>> = Mutex::new(None);
@@ -741,6 +792,7 @@ impl St {
             end_resend: None,
             genw: GenWatch::default(),
             load_watch: None,
+            prog: Prog::default(),
         }
     }
 }
@@ -989,6 +1041,9 @@ fn request(d: &Def, st: &mut St, blk: [u8; 4], now: Instant) {
     let code = (flag_get(d.len[0]) == Some(true)) as usize | ((flag_get(d.len[1]) == Some(true)) as usize) << 1;
     let done = |why: &str| {
         flag_set(d.req, false);
+        if let Some(e) = &d.endless {
+            flag_set(e.req, false);
+        }
         log(&format!("竞技场：{why}"));
     };
     if st.run.is_some() {
@@ -1001,6 +1056,30 @@ fn request(d: &Def, st: &mut St, blk: [u8; 4], now: Instant) {
     let Some((ci, v)) = d.colos.iter().enumerate().find_map(|(ci, c)| c.statues.iter().find(|s| s.1 == blk).map(|s| (ci, s.0))) else {
         return done(&format!("请求时玩家在地图 m{}_{:02}_{:02}_{:02}，不是竞技场雕像所在的地图，不管", blk[0], blk[1], blk[2], blk[3]));
     };
+    // 无尽试炼（菜单另外点亮了无尽的请求；场次位 1 = 继续、2 = 从第 1 波开始）：不花碎片
+    if let Some(e) = d.endless.as_ref().filter(|e| flag_get(e.req) == Some(true)) {
+        flag_set(e.req, false);
+        let diff = diff_now(d);
+        if !e.tiers.contains(&diff) {
+            return done(&format!("无尽试炼只在死亡以上难度开放（现在是第 {diff} 档）"));
+        }
+        let x = d.colos[ci].x;
+        let (next, best) = st.prog.by_x.get(&x).copied().unwrap_or((1, 0));
+        let start = if code == 1 {
+            next.max(1)
+        } else {
+            if next > 1 {
+                st.prog.by_x.insert(x, (1, best));
+                prog_save(&st.prog);
+            }
+            1
+        };
+        flag_set(d.req, false);
+        let how = format!("从雕像 {v}（m{}_{:02}_{:02}_{:02}）进无尽试炼，{}", blk[0], blk[1], blk[2], blk[3],
+                          if code == 1 { format!("从保存的第 {start} 波继续") } else { "从第 1 波开始".to_string() });
+        start_endless(d, st, ci, v, start, &how, now);
+        return;
+    }
     let Some(&(_, cost, _, _)) = code.checked_sub(1).and_then(|i| d.runs.get(i)) else {
         return done(&format!("场次位 {code} 不对"));
     };
@@ -1064,6 +1143,7 @@ fn new_run(ci: usize, v: u32, code: usize, cost: u32, lineup: Vec<Vec<usize>>, r
         cleared: 0,
         why: "end",
         dev: false,
+        endless: 0,
     }
 }
 
@@ -1096,6 +1176,235 @@ fn start_run(d: &Def, st: &mut St, ci: usize, v: u32, code: usize, cost: u32, ho
     st.run = Some(new_run(ci, v, code, cost, lineup, run, diff, nonce, role, now));
 }
 
+/// 开始一场无尽试炼（从第 start 波）：先排好第一波，之后每波开打前现排（endless_extend）
+fn start_endless(d: &Def, st: &mut St, ci: usize, v: u32, start: u32, how: &str, now: Instant) {
+    let c = &d.colos[ci];
+    let start = start.max(1);
+    // 没有生成器（arena.txt 没有 gen 行，还没重随）：用过的敌人叫不回来，出场时还是死的，那一波会直接算打完
+    if c.revive.is_none() {
+        log(&format!("竞技场：{how}：竞技场 {} 没有复活用的生成器（还没重随？），不开无尽试炼", c.x));
+        return;
+    }
+    warp_in(d, c);
+    let diff = diff_now(d);
+    let first = endless_pick(d, c, &[], start, 0, st);
+    let peers: Vec<u64> = if crate::coop::host() { crate::link::gift_peers().into_iter().map(|p| p.0).collect() } else { Vec::new() };
+    let nonce = st.roll() | 1;
+    let role = if peers.is_empty() {
+        Role::Solo
+    } else {
+        Role::Host { mates: peers.iter().map(|&id| Mate { id, rep: None, at: now, sent: None }).collect(), asking: None }
+    };
+    let names: Vec<&str> = first.iter().map(|&m| c.parts[m].name.as_str()).collect();
+    log(&format!(
+        "竞技场：{how}，竞技场 {}，难度档 {diff}；第 {start} 波出场 {}{}",
+        c.x,
+        names.join("+"),
+        if peers.is_empty() { String::new() } else { format!("；联机房主，带 {} 个队员（试炼 {nonce}）", peers.len()) }
+    ));
+    save_run(c, v);
+    let mut r = new_run(ci, v, 0, 0, vec![first], (0, 0, 0, 0), diff, nonce, role, now);
+    r.endless = start;
+    r.waves = usize::MAX;
+    st.run = Some(r);
+}
+
+/// 无尽试炼第 i 波（下标；第 start + i 波）出哪几只：偶数波 1 个 Boss，奇数波 d.per 只精英（名字、站位不重复，可能换成粪金龟）。
+/// 先挑这一场还没出过的（洗乱），都出过了挑最久没出场的（出场时用它的生成器复活）；粪金龟一场只出一次（钻地跑掉的叫不回来）
+fn endless_pick(d: &Def, c: &Colo, lineup: &[Vec<usize>], start: u32, i: usize, st: &mut St) -> Vec<usize> {
+    let abs = start + i as u32;
+    let last = |m: usize| lineup.iter().rposition(|w| w.contains(&m));
+    let order = |pool: Vec<usize>, st: &mut St| -> Vec<usize> {
+        let (mut fresh, mut used): (Vec<usize>, Vec<usize>) = pool.into_iter().partition(|&m| last(m).is_none());
+        for j in (1..fresh.len()).rev() {
+            let k = st.below(j + 1);
+            fresh.swap(j, k);
+        }
+        used.sort_by_key(|&m| last(m));
+        fresh.extend(used);
+        fresh
+    };
+    let bosses: Vec<usize> = (0..c.parts.len()).filter(|&m| c.parts[m].boss).collect();
+    if abs % 2 == 0 && !bosses.is_empty() {
+        return order(bosses, st).into_iter().take(1).collect();
+    }
+    let mut rest = order((0..c.parts.len()).filter(|&m| !c.parts[m].boss && !c.parts[m].scarab).collect(), st);
+    let mut scarabs: Vec<usize> = (0..c.parts.len()).filter(|&m| c.parts[m].scarab && last(m).is_none()).collect();
+    let per = d.per.max(1);
+    let (mut wave, mut names, mut spots): (Vec<usize>, HashSet<&str>, HashSet<i32>) = (Vec::new(), HashSet::new(), HashSet::new());
+    while wave.len() < per {
+        let real = wave.iter().any(|&m| !c.parts[m].scarab);
+        let last_slot = wave.len() + 1 >= per;
+        if d.scarab > 0.0 && (real || !last_slot) && (st.roll() % 10_000) < (d.scarab * 100.0).round() as u64 {
+            if let Some(j) = scarabs.iter().position(|&s| !spots.contains(&c.parts[s].spot)) {
+                let s = scarabs.remove(j);
+                spots.insert(c.parts[s].spot);
+                wave.push(s);
+                continue;
+            }
+        }
+        let Some(j) = rest.iter().position(|&m| !names.contains(c.parts[m].name.as_str()) && !spots.contains(&c.parts[m].spot)) else { break };
+        let m = rest.remove(j);
+        names.insert(c.parts[m].name.as_str());
+        spots.insert(c.parts[m].spot);
+        wave.push(m);
+    }
+    if wave.is_empty() && !bosses.is_empty() {
+        return order(bosses, st).into_iter().take(1).collect();
+    }
+    wave
+}
+
+/// 无尽试炼：第 i 波还没排就现排（房主 / 单人；队员照房主发来的）
+fn endless_extend(d: &Def, st: &mut St, r: &mut Run, i: usize) {
+    if r.endless == 0 || matches!(r.role, Role::Client { .. }) {
+        return;
+    }
+    let c = &d.colos[r.ci];
+    while r.lineup.len() <= i {
+        let w = endless_pick(d, c, &r.lineup, r.endless, r.lineup.len(), st);
+        r.lineup.push(w);
+    }
+}
+
+/// 无尽试炼第 i 波的血量：把血量效果行的 maxHpRate 改成 1 + step × (第几波 − 1)（第 1 波不加；同一时间只有这一波的敌人活着，共用一行）
+fn endless_hp(d: &Def, r: &Run, i: usize, why: &str) -> Option<(usize, i32)> {
+    let e = d.endless.as_ref()?;
+    let abs = r.endless + i as u32;
+    if abs < 2 {
+        return None;
+    }
+    let v = 1.0 + e.step * (abs - 1) as f32;
+    let ok = unsafe { SoloParamRepository::instance_mut() }.ok().and_then(|repo| repo.get_mut::<SpEffectParam>(e.sp)).map(|s| s.set_max_hp_rate(v)).is_some();
+    log(&format!("竞技场：{why}无尽试炼第 {abs} 波，敌人血量 ×{v:.2}（效果 {}{}）", e.sp, if ok { "" } else { "；效果行改不了，这一波不加" }));
+    ok.then_some((abs as usize, e.sp as i32))
+}
+
+/// 角色记录的文件夹（同 gear.rs：%APPDATA%\EldenRing\DarkReforged\角色记录，联机时是里面的 联机\）
+fn rec_dir() -> PathBuf {
+    let base = std::env::var_os("APPDATA").map(|a| PathBuf::from(a).join("EldenRing").join("DarkReforged").join("角色记录")).unwrap_or_else(dir);
+    if crate::coop::ersc_loaded() { base.join("联机") } else { base }
+}
+
+fn prog_path(slot: i32) -> PathBuf {
+    rec_dir().join(format!("无尽进度_{slot}.txt"))
+}
+
+/// 读进度（第一行「name<TAB>角色名」对不上的不认）：竞技场 → (下次从第几波开始, 最高打完第几波)
+fn prog_parse(text: &str, name: &str) -> Option<HashMap<u32, (u32, u32)>> {
+    let mut lines = text.lines().map(|l| l.trim_start_matches('\u{feff}').trim_end_matches('\r')).filter(|l| !l.starts_with('#'));
+    if lines.next()?.strip_prefix("name\t")? != name {
+        return None;
+    }
+    let mut out = HashMap::new();
+    for l in lines {
+        let f: Vec<&str> = l.split('\t').collect();
+        let num = |i: usize| f.get(i).and_then(|v| v.parse::<u32>().ok());
+        if f[0] == "colo" {
+            if let (Some(x), Some(next), Some(best)) = (num(1), num(2), num(3)) {
+                out.insert(x, (next.max(1), best));
+            }
+        }
+    }
+    Some(out)
+}
+
+fn prog_save(p: &Prog) {
+    let Some((slot, name)) = &p.who else { return };
+    let mut s = format!("# 斗技场无尽试炼的进度（dark_core arena.rs）：colo 竞技场 下次从第几波开始 最高打完第几波\nname\t{name}\n");
+    let mut xs: Vec<(&u32, &(u32, u32))> = p.by_x.iter().collect();
+    xs.sort();
+    for (x, (next, best)) in xs {
+        s += &format!("colo\t{x}\t{next}\t{best}\n");
+    }
+    let path = prog_path(*slot);
+    let _ = fs::create_dir_all(rec_dir());
+    let tmp = path.with_extension("tmp");
+    if fs::write(&tmp, s).and_then(|_| fs::rename(&tmp, &path)).is_err() {
+        log(&format!("竞技场：无尽试炼的进度记不下来（{}）", path.display()));
+    }
+}
+
+/// 取文字钩子的占位（「〔#I<种类> …〕」，msghook.rs）
+fn set_text(kind: u8, zh: &str, en: &str) {
+    crate::msghook::set_confirm(b'I', kind, &zh.encode_utf16().collect::<Vec<u16>>(), &en.encode_utf16().collect::<Vec<u16>>());
+}
+
+/// 「第 N 波」（竞技场里的提示「无尽试炼　第〔#IQ …〕波」「下次从第〔#IQ …〕波继续」）
+fn endless_wave_text(n: u32) {
+    set_text(26, &n.to_string(), &n.to_string());
+}
+
+/// 进存档 / 换了角色：读这个角色的无尽进度；变了就把菜单要的交出去：竞技场 X 有进度的标记（列不列「继续」）、
+/// 「继续（第 N 波，最高第 M 波）」「从第 1 波开始（最高第 M 波）」的占位（#IK~M、#IN~P，种类 20~25）
+fn prog_tick(d: &Def, st: &mut St) {
+    let Some(e) = &d.endless else { return };
+    let w = crate::who::confirmed();
+    if w != st.prog.who {
+        st.prog.by_x = w.as_ref().and_then(|(slot, name)| fs::read_to_string(prog_path(*slot)).ok().and_then(|t| prog_parse(&t, name))).unwrap_or_default();
+        if let Some((slot, name)) = &w {
+            if !st.prog.by_x.is_empty() {
+                let mut xs: Vec<String> = st.prog.by_x.iter().map(|(x, (n, b))| format!("竞技场 {x} 下次第 {n} 波、最高 {b}")).collect();
+                xs.sort();
+                log(&format!("竞技场：格子 {slot}「{name}」的无尽试炼进度：{}", xs.join("；")));
+            }
+        }
+        st.prog.who = w;
+        st.prog.shown.clear();
+    }
+    if st.prog.who.is_none() {
+        return;
+    }
+    let mut v: Vec<(u32, (u32, u32))> = st.prog.by_x.iter().map(|(a, b)| (*a, *b)).collect();
+    v.sort();
+    let key = format!("{v:?}");
+    if key == st.prog.shown {
+        return;
+    }
+    st.prog.shown = key;
+    for x in 0..3u32 {
+        let (next, best) = st.prog.by_x.get(&x).copied().unwrap_or((1, 0));
+        flag_set(e.has0 + x, next > 1);
+        let (bz, be) = if best > 0 { (format!("，最高第 {best} 波"), format!(", best wave {best}")) } else { (String::new(), String::new()) };
+        set_text(20 + x as u8, &format!("（第 {next} 波{bz}）"), &format!(" (wave {next}{be})"));
+        if best > 0 {
+            set_text(23 + x as u8, &format!("（最高第 {best} 波）"), &format!(" (best wave {best})"));
+        } else {
+            set_text(23 + x as u8, "", "");
+        }
+    }
+}
+
+/// 无尽试炼打完一波：更新最高波数（房主 / 单人记自己的）
+fn endless_cleared(d: &Def, st: &mut St, r: &Run) {
+    if r.endless == 0 || matches!(r.role, Role::Client { .. }) {
+        return;
+    }
+    let x = d.colos[r.ci].x;
+    let abs = r.endless + r.wave as u32;
+    let e = st.prog.by_x.entry(x).or_insert((1, 0));
+    if abs > e.1 {
+        e.1 = abs;
+        prog_save(&st.prog);
+    }
+}
+
+/// 无尽试炼选了「否」：保存进度（下次从下一波开始），提示一下
+fn endless_save(d: &Def, st: &mut St, r: &Run) {
+    if r.endless == 0 || matches!(r.role, Role::Client { .. }) {
+        return;
+    }
+    let x = d.colos[r.ci].x;
+    let next = r.endless + r.wave as u32 + 1;
+    let e = st.prog.by_x.entry(x).or_insert((1, 0));
+    e.0 = next;
+    e.1 = e.1.max(next - 1);
+    prog_save(&st.prog);
+    endless_wave_text(next);
+    note(d, st, r.ci, "endless saved");
+    log(&format!("竞技场：无尽试炼保存进度，下次从第 {next} 波开始"));
+}
+
 /// 队员：接下房主新开的一场（人物在场才接）。不接的原因写进 Err
 fn client_join(d: &Def, st: &mut St, host: u64, hs: HostState, hp: i32, now: Instant) -> Result<(), String> {
     if !crate::coop::client() {
@@ -1112,6 +1421,25 @@ fn client_join(d: &Def, st: &mut St, host: u64, hs: HostState, hp: i32, now: Ins
     }
     let ci = d.colos.iter().position(|c| c.x == hs.x).ok_or(format!("没有竞技场 {}", hs.x))?;
     let c = &d.colos[ci];
+    // 无尽试炼：不花碎片，出场顺序照房主每波发来的
+    if hs.e > 0 {
+        let lineup = lineup_idx(c, &hs.lineup).filter(|l| !l.is_empty()).ok_or("出场顺序和本机的竞技场对不上")?;
+        if !c.statues.iter().any(|s| s.0 == hs.v) {
+            return Err(format!("没有雕像 {}", hs.v));
+        }
+        warp_in(d, c);
+        save_run(c, hs.v);
+        crate::notes::push("arena coop join");
+        let diff = diff_now(d);
+        log(&format!("竞技场：房主开始了无尽试炼（试炼 {}），竞技场 {}，从第 {} 波；传进竞技场", hs.id, c.x, hs.e));
+        let (id, v, e) = (hs.id, hs.v, hs.e);
+        let role = Role::Client { host, paid: true, seen: now, hs, ans: None, sent: None };
+        let mut r = new_run(ci, v, 0, 0, lineup, (0, 0, 0, 0), diff, id, role, now);
+        r.endless = e;
+        r.waves = usize::MAX;
+        st.run = Some(r);
+        return Ok(());
+    }
     let run = *hs.code.checked_sub(1).and_then(|i| d.runs.get(i)).ok_or(format!("场次 {} 不对", hs.code))?;
     let lineup = lineup_idx(c, &hs.lineup).filter(|l| !l.is_empty()).ok_or("出场顺序和本机的竞技场对不上")?;
     if !c.statues.iter().any(|s| s.0 == hs.v) {
@@ -1177,22 +1505,46 @@ fn start_wave(d: &Def, st: &mut St, r: &mut Run, i: usize, now: Instant) {
     r.bound = None;
     r.seen_alive.clear();
     r.dead_k.clear();
-    let members = &r.lineup[i];
+    let members = r.lineup[i].clone();
     // 开打标记先熄灭（上一波点亮过），出场的这一波读进来了再点亮；旧的竞技场事件没有开打标记，出场就打
     if d.engage > 0 {
         flag_set(c.flag + d.engage, false);
     } else {
         r.engaged = true;
     }
-    for &m in members {
-        flag_set(c.flag + d.spawn + c.parts[m].k, true);
+    let mut back: Vec<&str> = Vec::new();
+    for &m in &members {
+        let p = &c.parts[m];
+        // 无尽试炼：这一场出过的（死了）用它的生成器复活：死亡、就绪标记先熄掉，竞技场的复活事件复活以后再点亮
+        if r.endless > 0 && r.lineup[..i].iter().any(|w| w.contains(&m)) {
+            if let Some((req0, _)) = c.revive {
+                flag_set(c.flag + d.dead + p.k, false);
+                if d.ready > 0 {
+                    flag_set(c.flag + d.ready + p.k, false);
+                }
+                flag_set(req0 + p.k, true);
+                back.push(p.name.as_str());
+                continue;
+            }
+        }
+        flag_set(c.flag + d.spawn + p.k, true);
+    }
+    if let Some(e) = &d.endless {
+        flag_set(c.flag + e.local, r.endless > 0);
     }
     crate::foefx::release(FX_TAG);
-    let members = members.clone();
     wave_effects(d, r, i, &members, "");
-    note(d, st, r.ci, &format!("wave {} {}", r.waves, i + 1));
     let names: Vec<&str> = members.iter().map(|&m| c.parts[m].name.as_str()).collect();
-    log(&format!("竞技场：第 {} / {} 波出场 {}", i + 1, r.waves, names.join("、")));
+    if r.endless > 0 {
+        let abs = r.endless + i as u32;
+        endless_wave_text(abs);
+        let boss = members.iter().any(|&m| c.parts[m].boss);
+        note(d, st, r.ci, if boss { "endless boss" } else { "endless elite" });
+        log(&format!("竞技场：无尽试炼第 {abs} 波出场 {}{}", names.join("、"), if back.is_empty() { String::new() } else { format!("（复活：{}）", back.join("、")) }));
+    } else {
+        note(d, st, r.ci, &format!("wave {} {}", r.waves, i + 1));
+        log(&format!("竞技场：第 {} / {} 波出场 {}", i + 1, r.waves, names.join("、")));
+    }
 }
 
 /// 第 i 波的这些部件（d.colos[r.ci].parts 的下标）要挂的：血量随波次（粪金龟不挂）+ 命中的 wfx 规则的效果包，交给敌人效果模块
@@ -1200,11 +1552,15 @@ fn start_wave(d: &Def, st: &mut St, r: &mut Run, i: usize, now: Instant) {
 /// 清场时这一波已经从敌人效果模块、魇化里放掉了，要重新登记；why 写进日志）
 fn wave_effects(d: &Def, r: &Run, i: usize, members: &[usize], why: &str) {
     let c = &d.colos[r.ci];
-    let hp_sp = d.hpwave.and_then(|(every, sp0, count)| {
-        let step = (i / every).min(count);
-        (step > 0).then(|| (step, sp0 + step as i32 - 1))
-    });
-    if let Some((step, sp)) = hp_sp {
+    let hp_sp = if r.endless > 0 {
+        endless_hp(d, r, i, why)
+    } else {
+        d.hpwave.and_then(|(every, sp0, count)| {
+            let step = (i / every).min(count);
+            (step > 0).then(|| (step, sp0 + step as i32 - 1))
+        })
+    };
+    if let Some((step, sp)) = hp_sp.filter(|_| r.endless == 0) {
         log(&format!("竞技场：{why}第 {} 波敌人血量加成第 {step} 档（效果 {sp}）", i + 1));
     }
     for &m in members {
@@ -1318,6 +1674,23 @@ fn death_tick(r: &mut Run, hp: i32, revived: bool, now: Instant) -> bool {
 /// 这一波打完：奖励直接发进背包（用户 2026-11-10：让玩家知道每波给了什么，死了再扣）
 fn wave_reward(d: &Def, st: &mut St, r: &mut Run) {
     let c = &d.colos[r.ci];
+    // 无尽试炼：件数照第几波涨（第 j 个精英波 items_e × j、Boss 波 items_b × j，再 × 件数倍率），最多 cap 件；不给骨灰
+    if r.endless > 0 {
+        let abs = r.endless + r.wave as u32;
+        let boss = r.lineup[r.wave].iter().any(|&m| c.parts[m].boss);
+        let j = abs.div_ceil(2);
+        let cap = d.endless.as_ref().map_or(10, |e| e.cap);
+        let n = ((if boss { d.items_b } else { d.items_e }) * j * c.scale.max(1)).min(cap);
+        let tier = c.tiers[boss as usize];
+        let mut got = Vec::new();
+        for _ in 0..n {
+            let (id, cat) = roll_item(d, tier, st);
+            let ok = give_item(r, id);
+            got.push(format!("{}·{}{}", RAR_ZH[tier], CAT_ZH[cat], if ok { "" } else { "（没有发货表，没发）" }));
+        }
+        log(&format!("竞技场：无尽试炼第 {abs} 波肃清，发进背包 {n} 件：{}", got.join("、")));
+        return;
+    }
     let boss = r.lineup[r.wave].iter().any(|&m| c.parts[m].boss);
     let n_ash = if boss { d.ash_b } else { 0 };
     let (tier, n_items) = wave_items(d, c, &r.lineup, r.wave);
@@ -1356,9 +1729,15 @@ fn wave_reward(d: &Def, st: &mut St, r: &mut Run) {
 
 /// 死了：这次发的道具全部收回（tick 里等发货队列发完再扣），提示失败
 fn fail(st: &mut St, r: &Run, why: &str) {
-    log(&format!("竞技场：试炼失败（{why}），打到第 {} / {} 波，收回这次发的 {} 件物品、{} 个骨灰", r.wave + 1, r.waves, r.n_items, r.n_ashes));
-    st.takeback.extend(r.given.iter().copied());
-    crate::notes::push("arena fail");
+    if r.endless > 0 {
+        // 无尽试炼：死了不收回奖励，进度留在上次保存的那一波
+        log(&format!("竞技场：无尽试炼结束（{why}），打到第 {} 波；奖励不收回（这次发了 {} 件），进度留在上次保存的那一波",
+                     r.endless + r.wave as u32, r.n_items));
+    } else {
+        log(&format!("竞技场：试炼失败（{why}），打到第 {} / {} 波，收回这次发的 {} 件物品、{} 个骨灰", r.wave + 1, r.waves, r.n_items, r.n_ashes));
+        st.takeback.extend(r.given.iter().copied());
+        crate::notes::push("arena fail");
+    }
     crate::nightmare::unforce();
     crate::foefx::release(FX_TAG);
     clear_run_file();
@@ -1367,7 +1746,11 @@ fn fail(st: &mut St, r: &Run, why: &str) {
 
 /// 没死就结束了（选了离开 / 打完 / 用别的办法出了竞技场）：奖励保留
 fn finish(st: &mut St, r: &Run, why: &str) {
-    log(&format!("竞技场：试炼结束（{why}），打完 {} / {} 波，奖励保留：{} 件物品、{} 个骨灰", r.cleared, r.waves, r.n_items, r.n_ashes));
+    if r.endless > 0 {
+        log(&format!("竞技场：无尽试炼结束（{why}），这次从第 {} 波打到第 {} 波，奖励保留：{} 件物品", r.endless, r.endless + r.cleared as u32 - 1, r.n_items));
+    } else {
+        log(&format!("竞技场：试炼结束（{why}），打完 {} / {} 波，奖励保留：{} 件物品、{} 个骨灰", r.cleared, r.waves, r.n_items, r.n_ashes));
+    }
     crate::nightmare::unforce();
     crate::foefx::release(FX_TAG);
     clear_run_file();
@@ -1572,6 +1955,7 @@ fn lead_step(d: &Def, st: &mut St, r: &mut Run, in_arena: bool, hp: i32, revived
                     })).collect();
                     log(&format!("竞技场：联机：{}", s.join("；")));
                 }
+                endless_extend(d, st, r, 0);
                 start_wave(d, st, r, 0, now);
             }
         }
@@ -1613,6 +1997,7 @@ fn lead_step(d: &Def, st: &mut St, r: &mut Run, in_arena: bool, hp: i32, revived
                     wave_reward(d, st, r);
                 }
                 r.cleared = r.wave + 1;
+                endless_cleared(d, st, r);
                 crate::nightmare::unforce();
                 crate::foefx::release(FX_TAG);
                 if r.wave + 1 >= r.waves {
@@ -1625,7 +2010,7 @@ fn lead_step(d: &Def, st: &mut St, r: &mut Run, in_arena: bool, hp: i32, revived
                     r.why = "clear";
                     r.at = now;
                 } else {
-                    note(d, st, r.ci, "cleared");
+                    note(d, st, r.ci, if r.endless > 0 { "endless cleared" } else { "cleared" });
                     r.phase = Phase::Ask;
                     r.at = now;
                     r.asked = false;
@@ -1678,6 +2063,7 @@ fn lead_step(d: &Def, st: &mut St, r: &mut Run, in_arena: bool, hp: i32, revived
                 }
                 Some(false) => {
                     log("竞技场：选择离开");
+                    endless_save(d, st, r);
                     r.phase = Phase::Leaving;
                     r.why = "leave";
                     r.at = now - LEAVE_WAIT + Duration::from_secs(1);
@@ -1688,6 +2074,7 @@ fn lead_step(d: &Def, st: &mut St, r: &mut Run, in_arena: bool, hp: i32, revived
         Phase::Next => {
             if now - r.at >= NEXT_WAIT {
                 let i = r.wave + 1;
+                endless_extend(d, st, r, i);
                 start_wave(d, st, r, i, now);
             }
         }
@@ -1718,6 +2105,12 @@ fn client_step(d: &Def, st: &mut St, r: &mut Run, in_arena: bool, hp: i32, reviv
     let Role::Client { paid, seen, hs, .. } = &r.role else { return false };
     let (paid, hs) = (*paid, hs.clone());
     let lost = now.duration_since(*seen) > HOST_LOST;
+    // 无尽试炼：出场顺序房主每波现排，照它发来的接上
+    if r.endless > 0 && hs.lineup.len() > r.lineup.len() {
+        if let Some(l) = lineup_idx(c, &hs.lineup) {
+            r.lineup = l;
+        }
+    }
     // 和房主断了：结束（奖励保留，倒下了照样收回）
     if lost && r.phase != Phase::Leaving {
         log(&format!("竞技场：{} 秒没收到房主的进度，试炼结束", HOST_LOST.as_secs()));
@@ -1892,7 +2285,7 @@ fn client_rewards(d: &Def, st: &mut St, r: &mut Run, hs: &HostState, paid: bool)
                 note(d, st, r.ci, "clear");
             }
         } else {
-            note(d, st, r.ci, "cleared");
+            note(d, st, r.ci, if r.endless > 0 { "endless cleared" } else { "cleared" });
         }
         r.at = Instant::now();
         r.asked = false;
@@ -1933,6 +2326,7 @@ fn host_state(d: &Def, r: &Run, mate: u64) -> HostState {
         clr: r.cleared,
         ask: asking && r.phase == Phase::Ask,
         why: if r.phase == Phase::Leaving { r.why.to_string() } else { String::new() },
+        e: r.endless,
     }
 }
 
@@ -2100,6 +2494,33 @@ fn dev_req(d: &Def, st: &mut St, wcm: &mut WorldChrMan, now: Instant) {
                 if let Some(r) = st.run.as_mut() {
                     r.dev = true;
                 }
+            }
+            ["无尽", x, n] => {
+                let (Ok(x), Ok(n)) = (x.parse::<u32>(), n.parse::<u32>()) else { continue };
+                let Some(ci) = d.colos.iter().position(|c| c.x == x) else {
+                    log(&format!("竞技场：开发工具：arena.txt 里没有竞技场 {x}"));
+                    continue;
+                };
+                if st.run.is_some() {
+                    log("竞技场：开发工具：已经在试炼中");
+                    continue;
+                }
+                if crate::coop::client() {
+                    log("竞技场：开发工具：本机是联机队员，试炼要房主开始");
+                    continue;
+                }
+                let n = n.max(1);
+                start_endless(d, st, ci, 0, n, &format!("开发工具：直接进无尽试炼第 {n} 波（不看难度档，离开时传到雕像 0 旁）"), now);
+                if let Some(r) = st.run.as_mut() {
+                    r.dev = true;
+                }
+            }
+            ["无尽清", x] => {
+                let Ok(x) = x.parse::<u32>() else { continue };
+                let best = st.prog.by_x.get(&x).map_or(0, |p| p.1);
+                st.prog.by_x.insert(x, (1, best));
+                prog_save(&st.prog);
+                log(&format!("竞技场：开发工具：竞技场 {x} 的无尽试炼进度清掉了（最高第 {best} 波保留）"));
             }
             ["清场"] => {
                 let Some(r) = st.run.as_ref().filter(|r| r.phase == Phase::Fight) else {
@@ -2488,6 +2909,7 @@ fn body(d: &Def, st: &mut St, now: Instant) -> bool {
     let in_ci = (blk[0] == 45).then(|| d.colos.iter().position(|c| c.x == blk[1] as u32)).flatten();
     notes_tick(d, st, in_ci);
     takeback_tick(st);
+    prog_tick(d, st);
     if flag_get(d.req) == Some(true) {
         request(d, st, blk, now);
     }
@@ -2707,6 +3129,52 @@ part\t1\t11\ts\t45013011\t99300111\t6\tc4191_9003\npart\t1\t12\ts\t45013012\t993
         assert_eq!(wave_items(&d, c, &lu, 3), (3, 2));
     }
 
+    /// 无尽试炼：endless 行；出场顺序：偶数波 Boss、先挑这一场没出过的、都出过了挑最久没出场的；粪金龟一场只出一次
+    #[test]
+    fn endless_lineup() {
+        let extra = "endless\t92596\t92597\t7319974\t0.05\t10\t2607\t6,7\nscarab\t100\npart\t1\t9\ts\t45013009\t99300109\t5\tc4191_9000\n";
+        let d = parse(&format!("{SAMPLE}{extra}")).unwrap();
+        let e = d.endless.clone().unwrap();
+        assert_eq!((e.req, e.has0, e.sp, e.cap, e.local, e.tiers.clone()), (92596, 92597, 7319974, 10, 2607, vec![6, 7]));
+        assert!((e.step - 0.05).abs() < 1e-6);
+        assert!(parse(SAMPLE).unwrap().endless.is_none());
+        let c = &d.colos[0];
+        let mut st = St::fresh(3);
+        let mut lu: Vec<Vec<usize>> = Vec::new();
+        for i in 0..40 {
+            let w = endless_pick(&d, c, &lu, 1, i, &mut st);
+            if (1 + i) % 2 == 0 {
+                assert!(w.len() == 1 && c.parts[w[0]].boss, "第 {} 波 {w:?}", i + 1);
+            } else {
+                assert!(!w.is_empty() && w.iter().all(|&m| !c.parts[m].boss), "第 {} 波 {w:?}", i + 1);
+                let names: HashSet<&str> = w.iter().map(|&m| c.parts[m].name.as_str()).collect();
+                let spots: HashSet<i32> = w.iter().map(|&m| c.parts[m].spot).collect();
+                assert_eq!((names.len(), spots.len()), (w.len(), w.len()));
+            }
+            lu.push(w);
+        }
+        // Boss 只有 2 个：第 2、4 波各出一个，之后轮着（最久没出场的先）
+        assert_ne!(lu[1][0], lu[3][0]);
+        assert_eq!((lu[5][0], lu[7][0]), (lu[1][0], lu[3][0]));
+        // 精英：没出过的先（第 1、3 波不重样）
+        let first: HashSet<usize> = lu[0].iter().copied().filter(|&m| !c.parts[m].scarab).collect();
+        assert!(lu[2].iter().all(|m| !first.contains(m)), "{:?} / {:?}", lu[0], lu[2]);
+        // 粪金龟一场只出一次
+        assert_eq!(lu.iter().flatten().filter(|&&m| c.parts[m].scarab).count(), 1);
+        // 从第 2 波续上：第一波就是 Boss 波
+        let w = endless_pick(&d, c, &[], 2, 0, &mut st);
+        assert!(w.len() == 1 && c.parts[w[0]].boss);
+    }
+
+    /// 无尽进度的记录：名字对不上的不认；下次第 0 波当第 1 波
+    #[test]
+    fn endless_progress_file() {
+        let t = "# 说明\nname\t褪色者\ncolo\t2\t13\t20\ncolo\t0\t0\t5\nbad\tline\n";
+        let m = prog_parse(t, "褪色者").unwrap();
+        assert_eq!((m.get(&2), m.get(&0), m.len()), (Some(&(13, 20)), Some(&(1, 5)), 2));
+        assert!(prog_parse(t, "别人").is_none());
+    }
+
     fn run_for(d: &Def) -> Run {
         let lu = vec![vec![2, 5, 7], vec![0]];
         new_run(0, 0, 1, 1, lu, d.runs[0], 2, 77, Role::Solo, Instant::now())
@@ -2723,7 +3191,7 @@ part\t1\t11\ts\t45013011\t99300111\t6\tc4191_9003\npart\t1\t12\ts\t45013012\t993
         assert_eq!(lineup_idx(c, &ks), Some(lu.clone()));
         assert_eq!(lineup_idx(c, &[vec![99]]), None, "对不上的部件");
         let hs = HostState { id: 123456789012345, x: 1, v: 0, code: 2, lineup: ks, ph: "fight".into(), w: 2, spawned: true, go: false, clr: 2, ask: true,
-                             why: String::new() };
+                             why: String::new(), e: 7 };
         let pk = hs.packet();
         assert_eq!(pk.kind, Kind::Arena);
         let back = Packet::decode(&pk.encode()).unwrap();

@@ -1071,6 +1071,17 @@ impl App {
                     self.send_arena(&format!("进 {x} {code}"));
                 }
             }
+            // 无尽试炼（dark_core 不看难度档；从第 N 波，血量照那一波算）
+            for n in [1, 10, 30] {
+                ui.same_line();
+                if ui.button(format!("无尽第 {n} 波##arE{x}_{n}")) {
+                    self.send_arena(&format!("无尽 {x} {n}"));
+                }
+            }
+            ui.same_line();
+            if ui.button(format!("清无尽进度##arEc{x}")) {
+                self.send_arena(&format!("无尽清 {x}"));
+            }
         }
         if ui.button("清场（这一波的敌人血量设 0）") {
             self.send_arena("清场");

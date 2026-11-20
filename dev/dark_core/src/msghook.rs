@@ -192,7 +192,7 @@ fn parse_hole(text: &[u16], labels: &[Vec<u16>; 2]) -> Option<(u32, u8, usize)> 
 }
 
 /// i 处是不是确认框占位的左括号：「〔#I7 …〕」「[#SA …]」……→ (右括号的位置, (记号, 种类), 是不是中文)。
-/// #I 的种类 0~9、A~G（10~16），#S 是一位十六进制
+/// #I 的种类 0~9、A~Z（10~35；H 起给斗技场的无尽试炼，arena.rs），#S 是一位十六进制
 fn marker_at(text: &[u16], i: usize) -> Option<(usize, (u8, u8), bool)> {
     let open = text[i];
     let zh = open == ZH_OPEN;
@@ -206,7 +206,7 @@ fn marker_at(text: &[u16], i: usize) -> Option<(usize, (u8, u8), bool)> {
     let k = u8::try_from(*text.get(i + 3)?).ok()?;
     let kind = match (marker, k) {
         (_, b'0'..=b'9') => k - b'0',
-        (b'I', b'A'..=b'G') | (b'S', b'A'..=b'F') => k - b'A' + 10,
+        (b'I', b'A'..=b'Z') | (b'S', b'A'..=b'F') => k - b'A' + 10,
         _ => return None,
     };
     let close = if zh { ZH_CLOSE } else { b']' as u16 };
@@ -493,7 +493,9 @@ mod tests {
     fn markers_and_compose() {
         let t = u("要鉴定吗？\n〔#I7 正在清点背包……      〕\n[#SA estimating...   ] 〔#IG 送给队友 5　　〕〔#IH x〕〔#I7 没有右括号");
         let at: Vec<_> = (0..t.len()).filter_map(|i| marker_at(&t, i).map(|(_, k, zh)| (k, zh))).collect();
-        assert_eq!(at, vec![((b'I', 7), true), ((b'S', 10), false), ((b'I', 16), true)], "H 不是种类、没有右括号的不算");
+        assert_eq!(at, vec![((b'I', 7), true), ((b'S', 10), false), ((b'I', 16), true), ((b'I', 17), true)], "H 起是无尽试炼的（17~35）、没有右括号的不算");
+        assert_eq!(marker_at(&u("〔#IZ x〕"), 0).map(|m| m.1), Some((b'I', 35)));
+        assert_eq!(marker_at(&u("[#SG x]"), 0), None, "#S 只到 F");
         assert!(has_marker(&t) && !has_marker(&u("普通的文字 [x] 〔#I〕")));
         let mut c = HashMap::new();
         assert_eq!(compose(&t, &c), t, "还没有文字的照原样");

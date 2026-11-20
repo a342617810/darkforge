@@ -37,6 +37,13 @@ SCALE0 = 7800001                      # 随机器的缩放效果：7800001 + 4 �
 NOTE_TEXT0 = 80099200                 # 竞技场里的提示（EventTextForMap）
 HPW_SP0, HPW_N = 7319970, 4           # 血量随波次的效果行：第 j 档（1 起）= HPW_SP0 + j − 1，最大血量 ×(1 + hp_step × j)（dark_core 出场时挂）
 HPW_TEMPLATE = 90030                  # 效果行的底子（同 rr/hpunify.py：去掉「咒死无效」那一位）
+# 无尽试炼（用户 2026-11-19，提案 dev\item_system\无尽模式提案.md）：只在死亡以上（difficulty 里标了 lock 的档）开放、不花碎片；
+# 每波敌人血量 +endless_hp_step（第 1 波不加、不封顶：dark_core 每波开打前把 ENDLESS_SP 这一行的 maxHpRate 改成这一波的倍数）；
+# 每波奖励最多 endless_items_cap 件、不给骨灰；死了不收回；每波之后可以保存进度离开（进度、最高波数在 dark_core 的角色记录里）。
+# ENDLESS_REQ：雕像菜单选了无尽（场次位 1 = 继续、2 = 从第 1 波开始）；ENDLESS_HAS0 + X：竞技场 X 有保存的进度（dark_core 进存档时写，
+# 菜单按它列不列「继续」）；92596~92599 扫过没人用（92582~92595 是咒痕碎片）。ENDLESS_LOCAL：竞技场里 F + 2607 = 无尽试炼进行中
+# （dark_core 出场时点亮，问继续的事件换成无尽的那句）
+ENDLESS_REQ, ENDLESS_HAS0, ENDLESS_LOCAL, ENDLESS_SP = 92596, 92597, 2607, 7319974
 CLASSES_BOSS = ('Boss', 'MinorBoss', 'Miniboss', 'NightMiniboss', 'Evergaol')
 BAD_BOSS_TAGS = {'noplace', 'norandom', 'immortal', 'friendly', 'uniquearena', 'scalephase', 'npcpart', 'size:3', 'excludemultiphase'}
 DLC_MAP_PREFIX = ('m20', 'm21', 'm22', 'm25', 'm28', 'm40', 'm41', 'm42', 'm43', 'm61')
@@ -97,6 +104,7 @@ DEFAULT = dict(enabled=True, tiers=[31, 13, 8], bosses=8, elite_kinds=4, elite_f
                cost=[1, 2, 3], waves=[2, 4, 8],
                items_elite=2, items_boss=1, ash_boss=1, clear_bonus=[1, 2, 4], refund=[0, 1, 2], elite_two=[0, 0, 10, 15, 20, 30, 40, 50],
                reward_tiers=[[4, 4], [3, 4], [2, 3]], reward_scale=[2, 1, 1], hp_every=2, hp_step=0.1, wave_fx=[],
+               endless=True, endless_hp_step=0.05, endless_items_cap=10,
                ash_weights=[[0, 30, 40, 30], [0, 70, 20, 10], [50, 35, 10, 5]],
                difficulty_mult=[[1.6, 1.2, 0.7, 0.4], [1.3, 1.1, 0.85, 0.6], [1, 1, 1, 1], [0.85, 1, 1.15, 1.3],
                                 [0.7, 0.95, 1.3, 1.7], [0.55, 0.9, 1.45, 2.2], [0.4, 0.8, 1.6, 2.8], [0.3, 0.7, 1.7, 3.5]])
@@ -366,11 +374,23 @@ def build(ctx):
         put(row, 'maxHpRate', 1.0 + float(c['hp_step']) * j)
         put(row, 'spCategory', 0)
         S_sp.add_row(rid, bytes(row))
+    lock = endless_tiers(ctx) if c.get('endless') else []
+    if lock:
+        if ENDLESS_SP in S_sp.rows:
+            raise RuntimeError('斗技场试炼：无尽试炼的血量效果编号 %d 已经有人用了' % ENDLESS_SP)
+        row = bytearray(S_sp.rows[HPW_TEMPLATE])
+        o, bit = LS['disableCurse'][2], LS['disableCurse'][3]
+        row[o] &= ~(1 << bit)
+        put(row, 'iconId', -1)
+        put(row, 'effectEndurance', -1.0)
+        put(row, 'maxHpRate', 1.0)
+        put(row, 'spCategory', 0)
+        S_sp.add_row(ENDLESS_SP, bytes(row))
     ctx.bnd.put('SpEffectParam.param', S_sp.serialize())
     band = lambda t: next((i for i, b in enumerate(ctx.S.get('tier_bands') or []) if t <= b.get('max_tier', 99)), len(ctx.S.get('tier_bands') or []) - 1)
     for co in colos:
         co['gen'] = gen_of(co)
-    ctx.arena = dict(cfg=c, colos=colos, band=[band(co['tier']) for co in colos])
+    ctx.arena = dict(cfg=c, colos=colos, band=[band(co['tier']) for co in colos], endless=lock)
     keep = ('k', 'kind', 'src_map', 'part', 'model', 'ent', 'npc', 'name', 'spot')
     ctx.features['arena'] = dict(colos=[dict(x=co['x'], map=co['map'], flag=co['flag'], warp=co['warp'], gen=co['gen'],
                                              parts=[{k: p[k] for k in keep} for p in co['parts']],
@@ -383,6 +403,9 @@ def build(ctx):
                                  req=REQ, len0=LEN0, warp=WARP, shard=SHARD, cost=c['cost'], waves=c['waves'],
                                  spawn=SPAWN, dead=DEAD, ask=ASK, leave=LEAVE, run=RUN, banner=BANNER, note_bits=NOTE_BITS, note_n=NOTE_N, note_text0=NOTE_TEXT0,
                                  ready=READY, engage=ENGAGE, mydead=MYDEAD,
+                                 # 无尽试炼：死亡以上那几档的当前档标记（菜单按它列不列）、请求 / 有进度的标记、竞技场里的进行中标记
+                                 endless=dict(req=ENDLESS_REQ, has0=ENDLESS_HAS0, local=ENDLESS_LOCAL, lock_flags=[f for _i, f in lock],
+                                              step=float(c['endless_hp_step']), cap=int(c['endless_items_cap'])) if lock else None,
                                  notes=note_rows(c))
     def cover(co):
         """几批加起来轮到的 Boss 模型、精英族（候选里的）"""
@@ -403,7 +426,19 @@ def build(ctx):
                 '%s%s(%d→%d)' % ({'b': 'B', 's': 'S'}.get(p['kind'], 'E'), p['part'], p['tier'], co['tier'])
                 for p in parts if not ((p['kind'], p['src']) in seen or seen.add((p['kind'], p['src']))))))
     ctx.report.append('  血量：' + hp_msg)
+    ctx.report.append('  无尽试炼：%s' % ('死亡以上（%s）开放，每波敌人血量 +%g%%（效果 %d），每波最多 %d 件' % (
+        '、'.join(str(i) for i, _f in lock), float(c['endless_hp_step']) * 100, ENDLESS_SP, int(c['endless_items_cap'])) if lock else '不做（关了，或者难度里没有标 lock 的档）'))
     inline_packs(ctx, c)
+
+
+def endless_tiers(ctx):
+    """无尽试炼开放的难度档：[(第几档, 当前档标记)]（difficulty 里标了 lock 的，死亡 / 不可能）；难度没开就没有"""
+    if not ctx.features.get('difficulty'):
+        return []
+    from . import difficulty as dif
+    from .hpunify import CUR0
+    _, ts = dif.tiers(ctx.S)
+    return [(i, CUR0 + i) for i, t in enumerate(ts) if t.get('lock')]
 
 
 def gen_of(co):
@@ -602,6 +637,12 @@ def note_rows(c):
             rows.append(('wave %d %d' % (m, n), '斗技场试炼　第 %d / %d 波：%s' % (n, m, kind[0]), 'Colosseum Trial  wave %d / %d: %s' % (n, m, kind[1])))
     rows.append(('clear', '斗技场试炼完成！', 'Colosseum Trial complete!'))
     rows.append(('cleared', '本波已肃清，奖励已放进背包（途中死亡会收回）', 'Wave cleared. Rewards added to your inventory (taken back if you die)'))
+    if c.get('endless'):
+        # 无尽试炼：第几波是 dark_core 交给取文字钩子的占位「〔#IQ …〕」（msghook.rs）
+        rows.append(('endless elite', '无尽试炼　第〔#IQ ?〕波：魇化精英', 'Endless Trial  wave [#IQ ?]: Nightmare elites'))
+        rows.append(('endless boss', '无尽试炼　第〔#IQ ?〕波：Boss', 'Endless Trial  wave [#IQ ?]: Boss'))
+        rows.append(('endless cleared', '本波已肃清，奖励已放进背包', 'Wave cleared. Rewards added to your inventory'))
+        rows.append(('endless saved', '进度已保存，下次从第〔#IQ ?〕波继续', 'Progress saved. Next time you continue from wave [#IQ ?]'))
     if len(rows) >= 1 << NOTE_N:
         raise RuntimeError('斗技场试炼：提示 %d 条，%d 位放不下' % (len(rows), NOTE_N))
     return rows
@@ -628,6 +669,10 @@ def def_lines(ctx):
         out.append('dmult\t%d\t%s' % (d, '\t'.join('%g' % v for v in mm)))
     for d, v in enumerate(c['elite_two']):
         out.append('two\t%d\t%g' % (d, v))
+    if a.get('endless'):
+        # endless <请求标记> <竞技场 X 有进度的标记起点> <血量效果> <每波血量 +> <每波最多几件> <竞技场里进行中的标记（F + …）> <开放的难度档,…>
+        out.append('endless\t%d\t%d\t%d\t%g\t%d\t%d\t%s' % (ENDLESS_REQ, ENDLESS_HAS0, ENDLESS_SP, float(c['endless_hp_step']),
+                                                         int(c['endless_items_cap']), ENDLESS_LOCAL, ','.join(str(i) for i, _f in a['endless'])))
     if float(c['hp_step']) > 0:
         out.append('hpwave\t%d\t%d\t%d' % (max(1, int(c['hp_every'])), HPW_SP0, HPW_N))
     out += wave_fx_lines(ctx, c)
