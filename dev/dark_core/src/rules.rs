@@ -105,15 +105,21 @@ const MIKIRI_ARC: f32 = 60.0;
 const ATTACK_ANIMS: std::ops::Range<i32> = 3000..4000;
 /// Boss 的武器长、横扫和转身出招多（用户 2026-11-16「见切对于米塔恩 原版梅瑟莫二阶段…不生效」：日志里梅瑟莫二阶段的出招判定在，
 /// 被够得着 4.5 米、夹角 60° 挡掉的占多数）：Boss 够得着再加这么多米、夹角放宽到这么多度
+/// （夹角用户 2026-11-19「见切boss的角度收紧」：110° → 75°；够得着 11-18 已经单独改过。普通敌人成立的 87 次里九成在 21° 以内）。
+/// 贴身（离 Boss ≤ 体型 + MIKIRI_BOSS_CLOSE 米）还是 110°：人挤在 Boss 身边时「中心→玩家」的夹角不准，
+/// 梅瑟莫那次就是离 0.8 米、夹角 83°
 const MIKIRI_BOSS_REACH: f32 = 1.0;
-const MIKIRI_BOSS_ARC: f32 = 110.0;
+const MIKIRI_BOSS_ARC: f32 = 75.0;
+const MIKIRI_BOSS_CLOSE: f32 = 1.0;
+const MIKIRI_BOSS_CLOSE_ARC: f32 = 110.0;
 /// 人形敌人第一次出现时的诊断日志最多写几个（见切）
 const HUMANOID_DIAG_MAX: usize = 12;
 
-/// 见切的够得着距离、夹角上限（Boss 放宽）
-fn mikiri_limits(f: &Foe) -> (f32, f32) {
+/// 见切的够得着距离、夹角上限（Boss 放宽；Boss 贴身时夹角再放宽），flat = 离玩家的水平距离
+fn mikiri_limits(f: &Foe, flat: f32) -> (f32, f32) {
     if f.boss {
-        (MIKIRI_REACH + MIKIRI_BOSS_REACH + f.radius, MIKIRI_BOSS_ARC)
+        let arc = if flat <= f.radius + MIKIRI_BOSS_CLOSE { MIKIRI_BOSS_CLOSE_ARC } else { MIKIRI_BOSS_ARC };
+        (MIKIRI_REACH + MIKIRI_BOSS_REACH + f.radius, arc)
     } else {
         (MIKIRI_REACH + f.radius, MIKIRI_ARC)
     }
@@ -1311,7 +1317,7 @@ fn mikiri_reason(d: &Def, fr: &Frame, used: &HashMap<usize, i32>) -> Option<(Str
                 }
             }
             let (flat, ang) = foe_geom(fr, f);
-            let (reach, arc) = mikiri_limits(f);
+            let (reach, arc) = mikiri_limits(f, flat);
             if flat > reach {
                 continue;
             }
@@ -1370,7 +1376,7 @@ impl RollDbg {
                 Some(w) => w.is_some(),
                 None => is_attack(a),
             };
-            let (reach, arc) = mikiri_limits(f);
+            let (reach, arc) = mikiri_limits(f, flat);
             for (a, play) in f.anim.map(|a| (a, f.play)).into_iter().chain(f.layers.iter().copied()).filter(|&(a, _)| attacking(a)) {
                 Self::keep(&mut self.atk, flat, || {
                     format!("{who}{} 动作 {a} {} 距离 {flat:.1}（够得着 {reach:.1}）夹角 {ang:.0}°（上限 {arc:.0}°，反过来算 {:.0}°）",
@@ -4773,8 +4779,13 @@ mod tests {
             let a = s.step(&d, &w, &["roll"], None, 50);
             a.first().and_then(|x| if let Act::Log(m) = x { m.strip_prefix("见切：").map(String::from) } else { None })
         };
-        assert!(hit(true, 2.0, 83.0).is_some_and(|m| m.contains("（Boss）")), "Boss 夹角 83°：算");
-        assert_eq!(hit(false, 2.0, 83.0), None, "不是 Boss：照旧 60°");
+        // 夹角收紧（用户 2026-11-19）：拉开距离 75°，贴身（体型 0.5 + 1 = 1.5 米以内）还是 110°
+        assert!(hit(true, 1.2, 83.0).is_some_and(|m| m.contains("（Boss）")), "Boss 贴身 1.2 米、夹角 83°（梅瑟莫那次）：算");
+        assert!(hit(true, 1.2, 105.0).is_some(), "Boss 贴身、夹角 105°：算");
+        assert_eq!(hit(true, 2.0, 83.0), None, "Boss 2 米、夹角 83°：超过 75° 不算");
+        assert!(hit(true, 2.0, 70.0).is_some(), "Boss 2 米、夹角 70°：算");
+        assert_eq!(hit(false, 2.0, 70.0), None, "不是 Boss：照旧 60°");
+        assert_eq!(hit(false, 1.2, 83.0), None, "不是 Boss 贴身也是 60°");
         assert!(hit(true, 3.4, 10.0).is_some(), "Boss 3.4 米：2 + 1 + 体型 0.5 够得着");
         assert_eq!(hit(false, 3.4, 10.0), None, "不是 Boss：2.5 米");
         assert!(hit(false, 2.4, 10.0).is_some(), "不是 Boss 2.4 米：2 + 体型 0.5 够得着");
