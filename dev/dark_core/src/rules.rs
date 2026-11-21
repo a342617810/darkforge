@@ -1554,11 +1554,13 @@ struct Engine {
     /// tick 用：上一帧背包里每种弹药 / 投掷道具的数量（没戴要返还的词条时是 None）
     ammo_cnt: Option<HashMap<(u8, u32), u32>>,
     /// while 的 poise_radius（千钧）：满蓄力这一击的窗口到什么时候（含刚结束的 POISE_GRACE）；挂了 poise_fx 的普通敌人；
-    /// 这一击已经先扣过架势的 Boss；其中还没被打中的 → 扣了多少（没打中就加回去）；扣了架势的 Boss → (保持在多少, 保持到什么时候)
+    /// 这一击已经先扣过架势的 Boss；其中还没被打中的 → (扣了多少, 扣到多少)（没打中就加回去）；扣了架势的 Boss → (保持在多少, 保持到什么时候)；
+    /// 上一帧满蓄力的条件成立没有（再出现 = 新的一击）
     poise_until: Option<Instant>,
     poise_fx_on: HashSet<usize>,
     poise_hit: HashSet<usize>,
-    poise_pre: HashMap<usize, f32>,
+    poise_pre: HashMap<usize, (f32, f32)>,
+    poise_on: bool,
     poise_hold: HashMap<usize, (f32, Instant)>,
     /// tick 用：翻滚中上一帧的动作和播放时间（连滚的下一段）
     roll_anim: Option<(i32, f32)>,
@@ -1674,6 +1676,8 @@ const EXTRA_RANGE: f32 = 20.0;
 const POISE_HOLD: Duration = Duration::from_secs(15);
 /// 千钧：满蓄力的标记消失后这一击还算多久（命中标记晚 LAND_HOLD 到，连击值扫全场晚 HIT_SELF_WAIT）
 const POISE_GRACE: Duration = Duration::from_millis(500);
+/// 千钧：先扣过的 Boss 架势比扣后的值低这么多，就算这一击打中了（这一击自己的削韧到了）
+const POISE_HIT_EPS: f32 = 0.5;
 /// 连击值：hit_self 到了以后等多久看有没有正常的命中标记（命中标记还要等 LAND_HOLD）
 const HIT_SELF_WAIT: Duration = Duration::from_millis(150);
 
@@ -2461,7 +2465,45 @@ impl Engine {
                     // · Boss（方案 A）：出手时先扣上限的 poise_boss_pct%（最低 1），打中时引擎连同这一击自己的削韧一起判崩；
                     //   这一击结束还没打中（也没崩）就加回去。扣了的保持 POISE_HOLD（没挨打时游戏回架势很快）：
                     //   回上来的压回去，被打得更低的按更低的保持、重新计时；崩了 / 到时间交还给游戏
+                    // 用户 2026-11-20 反馈「连续蓄力不总扣、打中了还加回去」：
+                    // · 满蓄力的条件刚成立（上一帧不成立）就是新的一击：上一击先收尾（没打中的加回去），再给这一击扣。以前要等满蓄力的标记
+                    //   消失 POISE_GRACE 以后才算上一击结束，连招里两下满蓄力隔得近就被当成同一击，第二下不先扣；
+                    // · 算打中：命中标记 / 打崩，或者架势比先扣后的值还低（这一击自己的削韧到了；命中标记可能被别的命中时触发顶掉）；
+                    // · 范围按到敌人体型边缘的距离（体型半径 chr_hit_radius）：大体型 Boss 打在腿上时，到中心的距离可能超过 poise_radius
                     if *poise_radius > 0.0 {
+                        let fresh = on && !self.poise_on;
+                        self.poise_on = on;
+                        let open = self.poise_until.is_some_and(|t| now <= t);
+                        if open {
+                            // 被这一击打中 / 打崩的 Boss：扣掉的不再加回去
+                            for f in fr.foes.iter() {
+                                if f.landed || f.broke || self.poise_pre.get(&f.id).is_some_and(|&(_, low)| f.poise < low - POISE_HIT_EPS) {
+                                    self.poise_pre.remove(&f.id);
+                                }
+                            }
+                        }
+                        // 上一击收尾时加回去的（同一帧接着给新的一击扣，要从加回去以后的值算）
+                        let mut restored = HashMap::new();
+                        if !open || fresh {
+                            let mut ids: Vec<usize> = self.poise_fx_on.drain().collect();
+                            ids.sort_unstable();
+                            acts.extend(ids.into_iter().map(|id| Act::FoeRemove(id, poise_fx[r])));
+                            self.poise_hit.clear();
+                            // 这一击没打中的 Boss：扣掉的加回去（期间别人打掉的照算），不再保持；不在场的直接放掉
+                            for f in fr.foes.iter() {
+                                let Some((taken, _)) = self.poise_pre.remove(&f.id) else { continue };
+                                self.poise_hold.remove(&f.id);
+                                if !f.broke && f.poise > 0.0 {
+                                    let back = (f.poise + taken).min(f.poise_max);
+                                    restored.insert(f.id, back);
+                                    acts.push(Act::FoePoise(f.id, back));
+                                    acts.push(Act::Log(format!("{}：没打中 Boss（NPC {}），架势加回 {:.0} → {:.0}", rule.key, f.npc, f.poise, back)));
+                                }
+                            }
+                            for (id, _) in self.poise_pre.drain() {
+                                self.poise_hold.remove(&id);
+                            }
+                        }
                         if on {
                             self.poise_until = Some(now + POISE_GRACE);
                         }
@@ -2469,21 +2511,22 @@ impl Engine {
                         let mut just = HashSet::new();
                         if on {
                             let mut n = 0;
-                            for f in fr.foes.iter().filter(|f| f.hostile && f.dist <= *poise_radius && f.poise_max > 0.0) {
+                            for f in fr.foes.iter().filter(|f| f.hostile && f.dist - f.radius <= *poise_radius && f.poise_max > 0.0) {
                                 if !f.boss {
                                     if poise_fx[r] > 0 && self.poise_fx_on.insert(f.id) {
                                         acts.push(Act::FoeApply(f.id, poise_fx[r]));
                                         n += 1;
                                     }
                                 } else if self.poise_hit.insert(f.id) {
-                                    let low = (f.poise - f.poise_max * pct).max(1.0);
-                                    if low < f.poise {
+                                    let cur = restored.get(&f.id).copied().unwrap_or(f.poise);
+                                    let low = (cur - f.poise_max * pct).max(1.0);
+                                    if low < cur {
                                         acts.push(Act::FoePoise(f.id, low));
                                         acts.push(Act::Log(format!(
                                             "{}：满蓄力，Boss（NPC {}）架势先扣 {:.0} → {:.0}（上限 {:.0}），没打中就加回去",
-                                            rule.key, f.npc, f.poise, low, f.poise_max
+                                            rule.key, f.npc, cur, low, f.poise_max
                                         )));
-                                        self.poise_pre.insert(f.id, f.poise - low);
+                                        self.poise_pre.insert(f.id, (cur - low, low));
                                         self.poise_hold.insert(f.id, (low, now + POISE_HOLD));
                                         just.insert(f.id);
                                     }
@@ -2491,30 +2534,6 @@ impl Engine {
                             }
                             if n > 0 {
                                 acts.push(Act::Log(format!("{}：满蓄力，身边 {n} 个敌人这一击打中就崩架势", rule.key)));
-                            }
-                        }
-                        if self.poise_until.is_some_and(|t| now <= t) {
-                            // 被这一击打中 / 打崩的 Boss：扣掉的不再加回去
-                            for f in fr.foes.iter().filter(|f| f.landed || f.broke) {
-                                self.poise_pre.remove(&f.id);
-                            }
-                        } else {
-                            let mut ids: Vec<usize> = self.poise_fx_on.drain().collect();
-                            ids.sort_unstable();
-                            acts.extend(ids.into_iter().map(|id| Act::FoeRemove(id, poise_fx[r])));
-                            self.poise_hit.clear();
-                            // 这一击没打中的 Boss：扣掉的加回去（期间别人打掉的照算），不再保持；不在场的直接放掉
-                            for f in fr.foes.iter() {
-                                let Some(taken) = self.poise_pre.remove(&f.id) else { continue };
-                                self.poise_hold.remove(&f.id);
-                                if !f.broke && f.poise > 0.0 {
-                                    let back = (f.poise + taken).min(f.poise_max);
-                                    acts.push(Act::FoePoise(f.id, back));
-                                    acts.push(Act::Log(format!("{}：没打中 Boss（NPC {}），架势加回 {:.0} → {:.0}", rule.key, f.npc, f.poise, back)));
-                                }
-                            }
-                            for (id, _) in self.poise_pre.drain() {
-                                self.poise_hold.remove(&id);
                             }
                         }
                         self.poise_hold.retain(|_, h| now < h.1);
@@ -5355,6 +5374,53 @@ mod tests {
         assert_eq!(s.step(&d, &w, &[], None, 40_000),
                    vec![Act::FoeRemove(1, 95), Act::FoePoise(4, 50.0), Act::Log("dr_thousand：没打中 Boss（NPC 0），架势加回 1 → 50".into()),
                         Act::Apply(91)]);
+    }
+
+    /// 千钧（用户 2026-11-20 反馈）：连招里两下满蓄力隔得近也各扣一次；没有命中标记、架势比扣后的低也算打中；
+    /// 上一击没打中的同一帧先加回去再从加回去的值扣；范围按到体型边缘的距离
+    #[test]
+    fn thousandweight_chained_strikes() {
+        let d = parse(
+            "mark\tcharged\t911\n\
+             aff\tdr_thousand\t-1,-1,-1,90\nrule\tdr_thousand\twhile\tcond=charged\tpoise_radius=6\tpoise_boss_pct=40\tpoise_fx=-1,-1,-1,95\n\
+             rule\tdr_thousand\twhile\tunless=charged\teffect=-1,-1,-1,91\n",
+        );
+        let w = worn(&[("dr_thousand", 3)]);
+        let mut s = Sim::new();
+        // Boss A 在身边；Boss B 体型大（半径 4），中心 9 米外，边缘 5 米：也算在范围里
+        let mut a = foe(2, 3.0, vec![], false);
+        (a.boss, a.poise, a.poise_max) = (true, 200.0, 200.0);
+        let mut b = foe(4, 9.0, vec![], false);
+        (b.boss, b.poise, b.poise_max, b.radius) = (true, 100.0, 100.0, 4.0);
+        s.foes = vec![a, b];
+        let pre = |from: f32, to: f32, max: f32| Act::Log(format!("dr_thousand：满蓄力，Boss（NPC 0）架势先扣 {from:.0} → {to:.0}（上限 {max:.0}），没打中就加回去"));
+        assert_eq!(s.step(&d, &w, &[], None, 0), vec![Act::Apply(91)]);
+        // 第一下满蓄力：A 200 → 120，B 100 → 60
+        assert_eq!(s.step(&d, &w, &["charged"], None, 100),
+                   vec![Act::FoePoise(2, 120.0), pre(200.0, 120.0, 200.0), Act::FoePoise(4, 60.0), pre(100.0, 60.0, 100.0), Act::Remove(91)]);
+        (s.foes[0].poise, s.foes[1].poise) = (120.0, 60.0);
+        // A 被打中，但没有命中标记（被别的命中时触发顶掉了）：架势 120 → 95，比扣后的低 → 算打中
+        s.foes[0].poise = 95.0;
+        assert!(s.step(&d, &w, &["charged"], None, 200).is_empty());
+        // 满蓄力结束，0.2 秒后连招的第二下满蓄力（还在上一击的 POISE_GRACE 里）：上一击收尾——B 没打中，先加回 60 → 100，
+        // 再给这一击扣：A 95 → 15，B 从加回去的 100 扣到 60
+        assert_eq!(s.step(&d, &w, &[], None, 300), vec![Act::Apply(91)]);
+        assert_eq!(s.step(&d, &w, &["charged"], None, 500),
+                   vec![Act::FoePoise(4, 100.0), Act::Log("dr_thousand：没打中 Boss（NPC 0），架势加回 60 → 100".into()),
+                        Act::FoePoise(2, 15.0), pre(95.0, 15.0, 200.0), Act::FoePoise(4, 60.0), pre(100.0, 60.0, 100.0), Act::Remove(91)]);
+        (s.foes[0].poise, s.foes[1].poise) = (15.0, 60.0);
+        // 这一下打中 A（有命中标记），B 没打中：结束后只加回 B
+        s.foes[0].landed = true;
+        assert!(s.step(&d, &w, &["charged"], None, 600).is_empty());
+        s.foes[0].landed = false;
+        assert_eq!(s.step(&d, &w, &[], None, 700), vec![Act::Apply(91)]);
+        assert_eq!(s.step(&d, &w, &[], None, 1300),
+                   vec![Act::FoePoise(4, 100.0), Act::Log("dr_thousand：没打中 Boss（NPC 0），架势加回 60 → 100".into())]);
+        // 体型半径不算的话 B 在 9 米外：范围外的不扣
+        s.foes[1].radius = 0.5;
+        s.foes[1].poise = 100.0;
+        let acts = s.step(&d, &w, &["charged"], None, 3000);
+        assert!(!acts.iter().any(|a| matches!(a, Act::FoePoise(4, _))), "{acts:?}");
     }
 
     /// 发狂发作扣架势：只在发狂刚出现的那一帧扣上限的 30%，最低 1；别的异常、友方、还挂着的不扣

@@ -252,15 +252,18 @@ end
 
 -- 重击蓄力（重击处决）：按住重击的状态（Attack*Heavy*Start）每帧调。蓄力中（TAE 的蓄力标志，或原版效果 100280）发 charging；
 -- 蓄力段过完还在这个状态 = 没中途松开、满蓄力放出，之后每帧发 charged（中途松开会转到 Heavy1End 出招，不发）。
--- 每次重新进这个状态要从「没蓄力过」算起：Update 每帧加 DR_Frame，上一帧没调过就是刚进来
+-- 每次重新进这个状态要从「没蓄力过」算起：Update 每帧加 DR_Frame，上一帧没调过就是刚进来；换了状态（连招里满蓄力的 Heavy1Start
+-- 直接接 Heavy2Start，帧是连着的）也算刚进来（用户 2026-11-20：以前满蓄力带进下一下的起手，下一下蓄力前就发 charged，千钧当成同一击不再扣）
 DR_Frame = 0
 DR_HeavySeen = -1
+DR_HeavyState = ""
 DR_Charged = FALSE
-function DR_HeavyFrame()
-    if DR_HeavySeen ~= DR_Frame - 1 and DR_HeavySeen ~= DR_Frame then
+function DR_HeavyFrame(st)
+    if (DR_HeavySeen ~= DR_Frame - 1 and DR_HeavySeen ~= DR_Frame) or DR_HeavyState ~= st then
         DR_Charged = FALSE
     end
     DR_HeavySeen = DR_Frame
+    DR_HeavyState = st
     if env(GetGeneralTAEFlag, TAE_FLAG_CHARGING) == 1 or env(GetSpEffectID, 100280) == TRUE then
         DR_Charged = TRUE
         DR_Event("charging")
@@ -669,7 +672,9 @@ AFFIX_STATE_PULSE = [
     (r'^function Throw(Atk|BackStab)_onUpdate\(\)$', '    DR_Event("crit") -- Dark Reforged: 事件「致命一击」'),
     # 处决、被抓的动作和对方同步，这时不能变速（处刑、致命舞、转念；dark_core 的 runtime.rs）
     (r'^function Throw(Atk|BackStab|Def|Escape)_onUpdate\(\)$', '    DR_Event("sync") -- Dark Reforged: 事件「同步动作」'),
-    (r'^function Attack(Right|Both)Heavy(Special)?[12]Start_onUpdate\(\)$', '    DR_HeavyFrame() -- Dark Reforged: 事件「重击蓄力 / 满蓄力」'),
+    # 带上状态名：连招从一个蓄力重击状态直接接到下一个（Heavy1Start → Heavy2Start）时也从「没蓄力过」算起（用户 2026-11-20 千钧连续蓄力不扣）
+    (r'^function (Attack(Right|Both)Heavy(Special)?[12]Start)_onUpdate\(\)$',
+     lambda m: '    DR_HeavyFrame("%s") -- Dark Reforged: 事件「重击蓄力 / 满蓄力」' % m.group(1)),
     # 相杀（用户 2026-11-04）：轻击 / 重击（含冲刺、翻滚 / 后撤、跳跃、防御反击，不含战技、处决、射击），各状态每帧发 clash_<l|h|hc>_<r|l>
     (r'^function Attack(Right|Both)Heavy(Special)?[12]Start_onUpdate\(\)$', '    DR_ClashFrame("s", FALSE) -- Dark Reforged: 相杀（满蓄力出手后）'),
     (r'^function Attack(Right|Both)(Heavy[12]End|HeavyDash|HeavyCounter|HeavySpecial[12]End)_onUpdate\(\)$',
@@ -961,8 +966,9 @@ def affix_patch(s, a):
             out.append('    DR_SkillArmor() -- Dark Reforged: 霸王')
             n += 1
         for rx, add, cnt in pulses:
-            if rx.match(line.rstrip()):
-                out.append(add)
+            m = rx.match(line.rstrip())
+            if m:
+                out.append(add(m) if callable(add) else add)
                 cnt[0] += 1
     if n < 20:
         raise RuntimeError('玩家脚本里的战技状态只找到 %d 个（新词条霸王）' % n)
