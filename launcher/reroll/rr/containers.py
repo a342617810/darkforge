@@ -28,6 +28,10 @@ LABEL = {'zh': '装备的文字没有显示出来，请用启动器重新启动�
 LANGS = (('zh', 'zhocn'), ('en', 'engus'))
 DELIVER_ROWS, DELIVER_FROM = 32, 10900         # 发货表：一次最多 32 件；从 10900 起找连续空号
 DELIVER_FLAG, IDENTIFY_FLAG = 93501, 93502     # 发货（DLL 点亮、公共事件发完熄灭）、一键鉴定请求（赐福菜单点亮、DLL 处理完熄灭）
+# 死亡惩罚遗失的未鉴定物品，取回卢恩时发回来（用户 2026-11-21「捡回死亡掉落的卢恩和物品时不要弹确认框 用闪烁提示」）：不走发货表（游戏会弹「获得物品」框），
+# dark_core（gear/deathloss.rs）每轮按种类点亮计数标记（每种 DEATHBACK_PER 个，亮一个 = 1 件，种类照 deathback_goods 的顺序）、再点亮请求；
+# 公共事件（sc/identify.py DEATHBACK_EVENT）用 2003:43 直接放进背包（不弹框）、熄灭这些标记；件数多的分几轮。标记在扫过没人用的 92638~92999（2026-11-21）
+DEATHBACK_REQ, DEATHBACK_BIT0, DEATHBACK_PER = 92640, 92641, 8
 DEFAULT_N = {'weapon': 3000, 'armor': 6000, 'talisman': 600}
 # 定向鉴定（用户 2026-11-03）：赐福「暗黑重铸」→「鉴定」里选武器类型、稀有度，每件 directed_identify.cost 卢恩（sc/identify.py、dark_core gear.rs）。
 # 请求标记；类型序号写进 6 位、稀有度写进 3 位（0~4 = 普通 / 稀有 / 史诗 / 传说 / 传说（幽影之地），5 = 全部）；一件都没鉴定时 DLL 点亮的标记（dev\event_flags\说明.md）
@@ -175,7 +179,8 @@ def build(ctx):
     ctx.containers = dict(ids=ids, sizes={'w': W.row_size, 'p': Pp.row_size, 'a': A.row_size}, keep={'w': keep, 'p': '', 'a': ''},
                           deliver=base)
     ctx.features['identify'] = {'deliver_lot': base, 'deliver_rows': DELIVER_ROWS, 'deliver_flag': DELIVER_FLAG,
-                                'identify_flag': IDENTIFY_FLAG}
+                                'identify_flag': IDENTIFY_FLAG,
+                                'deathback': {'req': DEATHBACK_REQ, 'bit0': DEATHBACK_BIT0, 'per': DEATHBACK_PER, 'goods': deathback_goods()}}
     ctx.dirident = directed(ctx)
     if ctx.dirident:
         ctx.features['identify']['dir'] = ctx.dirident
@@ -205,6 +210,11 @@ def add_pool(ctx, srcs, cat, tiers, pct, lot_cat, item_id, n=1, name=''):
     3 防具 / 4 护符，编号 item_id，n 个）。固定物品不占容器，到了照样扣未鉴定道具。往鉴定 / 许愿里加东西只调这个，不用改 DLL"""
     if pct > 0:
         ctx.unid_pool = getattr(ctx, 'unid_pool', []) + [(','.join(srcs), cat, ','.join(map(str, tiers)), float(pct), lot_cat, item_id, n, name)]
+
+
+def deathback_goods():
+    """遗失后能发回来的未鉴定物品（全部种类、全部档），计数标记照这个顺序分（items.txt 的 deathback 行、sc/identify.py 的事件两边一样）"""
+    return [goods_id(ci, t) for ci in range(len(CATS)) for t in range(len(TIERS))]
 
 
 def death_pct(S):
@@ -255,6 +265,9 @@ def write_def(ctx, path):
     if dp > 0:
         lines.append('# deathloss <几 %>：死亡惩罚（settings 的 death_penalty，用户 2026-11-19），真死了按这个比例随机扣掉背包里的未鉴定物品（gear/deathloss.rs）')
         lines.append('deathloss\t%g' % dp)
+    lines.append('# deathback <请求标记> <第一个计数标记> <每种几个> <道具编号,…>：遗失的未鉴定物品取回卢恩时直接放进背包、不弹框（gear/deathloss.rs、sc/identify.py），'
+                 '第 i 种的计数标记是 第一个 + i × 每种几个 起这么多个，亮一个 = 1 件')
+    lines.append('deathback\t%d\t%d\t%d\t%s' % (DEATHBACK_REQ, DEATHBACK_BIT0, DEATHBACK_PER, ','.join(map(str, deathback_goods()))))
     lines += ['deliver\t%d\t%d\t%d' % (c['deliver'], DELIVER_ROWS, DELIVER_FLAG), 'identify\t%d' % IDENTIFY_FLAG,
               'lotlayout\t%d\t%d\t%d\t%d\t%d\t%d' % (ctx.P_mp.row_size, erlib.LOT_ID, erlib.LOT_CAT, erlib.LOT_PT, erlib.LOT_NUM, erlib.LOT_FLAG)]
     starts = getattr(ctx, 'start_items', None) or []

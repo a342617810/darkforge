@@ -204,6 +204,8 @@ struct Items {
     pools: Vec<batch::Pool>,
     /// 死亡惩罚（deathloss 行，gear/deathloss.rs）：真死了扣掉背包里未鉴定道具的百分比；0 = 不扣
     deathloss: f64,
+    /// 遗失的未鉴定物品直接放回背包、不弹框（deathback 行，gear/deathloss.rs、sc/identify.py）；没有这行（老的重随包）照旧走发货表
+    deathback: Option<deathloss::Back>,
 }
 
 /// 定向鉴定：请求标记、类型序号写进的标记（第一个、几位）、稀有度写进的标记（第一个、几位；5 = 全部）、
@@ -271,6 +273,9 @@ struct Overlimit {
     /// 从中位到超限上限几颗：武器 / 防具（防具没写就同武器；用户 2026-11-04 防具减半）
     steps: u32,
     asteps: u32,
+    /// 法杖、圣印记以外的武器每把的超限上限 × 1 ± 这个数的截断正态（用户 2026-11-21「其他武器加一个上限的随机范围 为正负20%的截断正态」）；
+    /// 没写（老的重随包）是 0 = 不随机
+    wspread: f32,
 }
 
 impl Overlimit {
@@ -725,6 +730,8 @@ fn parse_items(text: &str) -> Option<Items> {
             ("identify", 2..) => d.identify_flag = f[1].parse().ok()?,
             // 看不懂当没有（别的定义照用）
             ("deathloss", 2..) => d.deathloss = f[1].parse::<f64>().ok().filter(|v| v.is_finite() && *v > 0.0).map_or(0.0, |v| v.min(100.0)),
+            // 看不懂当没有（照旧走发货表）
+            ("deathback", 5..) => d.deathback = deathloss::Back::parse(&f),
             // 掉落池一行看不懂只丢这一行（别的定义照用）
             ("pool", 7..) => d.pools.extend(batch::Pool::parse(&f)),
             ("dirident", 9..) => {
@@ -763,7 +770,8 @@ fn parse_items(text: &str) -> Option<Items> {
             ("overlimit", 4..) => {
                 let steps: u32 = f[3].parse().ok()?;
                 let asteps = f.get(4).and_then(|x| x.parse().ok()).filter(|&x: &u32| x > 0).unwrap_or(steps);
-                d.overlimit = Some(Overlimit { gw: f[1].parse().ok()?, ga: f[2].parse().ok()?, steps, asteps }).filter(|o| o.steps > 0)
+                let wspread = f.get(5).and_then(|x| x.parse::<f32>().ok()).filter(|x| x.is_finite()).map_or(0.0, |x| x.clamp(0.0, 0.9));
+                d.overlimit = Some(Overlimit { gw: f[1].parse().ok()?, ga: f[2].parse().ok()?, steps, asteps, wspread }).filter(|o| o.steps > 0)
             }
             ("inherit", 4..) => {
                 let num = |i: usize| f.get(i).and_then(|x| x.parse().ok()).unwrap_or(0);

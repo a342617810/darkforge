@@ -102,20 +102,39 @@ pub(super) fn cap_w(lib: &Lib, r: usize, cor: &[f32; 5]) -> Option<(f32, f32, f3
     lib.ovlw.get(&(r, n)).or_else(|| lib.ovlw.get(&(r, 2))).copied()
 }
 
+/// 这把武器自己的超限上限倍率（用户 2026-11-21）：法杖、圣印记（有法器倍率的，wcast）是 1；别的武器按记录抽
+/// 1 ± spread 的截断正态（同法器倍率的抽法，种子不同：同一把一直一样，不用存）
+pub(super) fn cap_mult(lib: &Lib, rec: &Rec, spread: f32) -> f32 {
+    let Recipe::W { base, .. } = &rec.recipe else { return 1.0 };
+    if spread <= 0.0 || lib.wcast.contains_key(base) {
+        return 1.0;
+    }
+    let s = spread as f64;
+    trunc_normal(1.0 - s, 1.0 + s, 0x0C4F_7A11_CA9E_0001u64 ^ (rec.idx as u64) << 24 ^ (rec.tier as u64) << 56 ^ *base as u64) as f32
+}
+
+/// 武器的 (中位, 原上限, 这把的超限上限, 每颗的步长)：步长按没随机的超限上限算（每颗加的量同稀有度一样），到这把自己的上限为止
+pub(super) fn cap_rec(lib: &Lib, rec: &Rec, o: &Overlimit) -> Option<(f32, f32, f32, f32)> {
+    let Recipe::W { cor, .. } = &rec.recipe else { return None };
+    let (med, hi, cap) = cap_w(lib, rec.rar(), cor)?;
+    Some((med, hi, cap * cap_mult(lib, rec, o.wspread), (cap - med) / o.steps_for(rec).max(1) as f32))
+}
+
 /// 防具现在的减伤倍率：超限过的存在记录里，没有就按记录算（armor_mult）
 pub(super) fn armor_now(lib: &Lib, rec: &Rec) -> Option<f64> {
     let Recipe::P { base, sps, mult, .. } = &rec.recipe else { return None };
     mult.or_else(|| lib.pdef[rec.rar()].map(|(lo, hi)| armor_mult(lo, hi, rec, *base, sps)))
 }
 
-/// 用最多 n 颗以后的配方、实际用了几颗（每项各自到上限为止，全部到顶就停）；已经到顶 / 没有上限数据 None
-pub(super) fn step(lib: &Lib, rec: &Rec, n: u32, steps: u32) -> Option<(Rec, u32)> {
+/// 用最多 n 颗以后的配方、实际用了几颗（每项各自到上限为止，全部到顶就停）；已经到顶 / 没有上限数据 None。
+/// 武器到这把自己的超限上限（cap_rec）；已经高过它的项（上限抽得低、以前超限过的）不降，只是不再涨
+pub(super) fn step(lib: &Lib, rec: &Rec, n: u32, o: &Overlimit) -> Option<(Rec, u32)> {
     let r = rec.rar();
+    let steps = o.steps_for(rec);
     let mut new = rec.clone();
     let used = match &mut new.recipe {
         Recipe::W { cor, ovl, .. } => {
-            let (med, _, cap) = cap_w(lib, r, cor)?;
-            let s = (cap - med) / steps.max(1) as f32;
+            let (_, _, cap, s) = cap_rec(lib, rec, o)?;
             if s <= 0.0 {
                 return None;
             }
@@ -145,8 +164,8 @@ pub(super) fn step(lib: &Lib, rec: &Rec, n: u32, steps: u32) -> Option<(Rec, u32
 }
 
 /// 到超限上限还要几颗
-pub(super) fn need(lib: &Lib, rec: &Rec, steps: u32) -> u32 {
-    step(lib, rec, u32::MAX, steps).map_or(0, |x| x.1)
+pub(super) fn need(lib: &Lib, rec: &Rec, o: &Overlimit) -> u32 {
+    step(lib, rec, u32::MAX, o).map_or(0, |x| x.1)
 }
 
 /// 用之前 → 之后（结果提示用）：武器各项补正、防具倍率
@@ -187,13 +206,12 @@ pub(super) fn apply(d: &Defs, st: &mut St, pgd: &mut PlayerGameData, who: &(i32,
     if have < 1 {
         return Err([format!("没有{}", stone[0]), format!("you have no {}", stone[1])]);
     }
-    let steps = o.steps_for(&old);
-    let (mut new, mut used) = step(&d.lib, &old, n.min(have), steps).ok_or_else(|| e("已经到超限上限了", "already at the overlimit cap"))?;
+    let (mut new, mut used) = step(&d.lib, &old, n.min(have), &o).ok_or_else(|| e("已经到超限上限了", "already at the overlimit cap"))?;
     write_row(d, st, &new).map_err(|x| [format!("改写失败：{x}"), format!("failed to rewrite: {x}")])?;
     let got = remove_goods(pgd, goods, used);
     if got < used {
         // 只扣掉一部分：按扣掉的颗数重算；一颗都没扣掉就改回去
-        match step(&d.lib, &old, got, steps).filter(|_| got > 0) {
+        match step(&d.lib, &old, got, &o).filter(|_| got > 0) {
             Some((r2, u2)) if write_row(d, st, &r2).is_ok() => (new, used) = (r2, u2),
             _ => {
                 let _ = write_row(d, st, &old);
@@ -223,13 +241,53 @@ mod tests {
         l
     }
 
+    /// 50 颗到顶、不随机上限（原来的规则）
+    const O50: Overlimit = Overlimit { gw: 9242, ga: 9243, steps: 50, asteps: 50, wspread: 0.0 };
+
     fn wrec(cor: [f32; 5]) -> Rec {
+        wrec_at(1, 1, cor)
+    }
+
+    fn wrec_at(idx: u32, base: u32, cor: [f32; 5]) -> Rec {
         Rec {
             cat: 0,
-            idx: 1,
+            idx,
             tier: 3,
-            recipe: Recipe::W { base: 1, var: 0, skill: -1, cor, req: [0; 5], curve: [0; CURVE_N], st: [-1; 3], res: [-1; 2], glow: -1, spec: -1, atk: 0, ovl: false, elem: 0, share: 0 },
+            recipe: Recipe::W { base, var: 0, skill: -1, cor, req: [0; 5], curve: [0; CURVE_N], st: [-1; 3], res: [-1; 2], glow: -1, spec: -1, atk: 0, ovl: false, elem: 0, share: 0 },
         }
+    }
+
+    /// 随机上限：法杖、圣印记（wcast）和 spread 0 是 1；别的武器在 0.8~1.2、同一把一直一样、平均约 1；每颗加的量不变，到这把自己的上限为止；
+    /// 上限低过现在补正的不降、用不了
+    #[test]
+    fn weapon_cap_rand() {
+        let mut l = lib();
+        l.wcast.insert(7, (true, false));
+        let o = Overlimit { wspread: 0.2, ..O50 };
+        assert_eq!(cap_mult(&l, &wrec_at(3, 7, [110.0, 145.0, 0.0, 0.0, 0.0]), 0.2), 1.0, "法杖不随机");
+        assert_eq!(cap_mult(&l, &wrec_at(3, 1, [110.0, 145.0, 0.0, 0.0, 0.0]), 0.0), 1.0, "没写 spread 不随机");
+        let ms: Vec<f32> = (0..2000).map(|i| cap_mult(&l, &wrec_at(i, 1000000 + i % 7 * 100, [110.0, 0.0, 0.0, 0.0, 0.0]), 0.2)).collect();
+        assert!(ms.iter().all(|m| (0.8..=1.2).contains(m)));
+        let mean = ms.iter().sum::<f32>() / ms.len() as f32;
+        assert!((mean - 1.0).abs() < 0.01, "{mean}");
+        assert!(ms.iter().any(|&m| m < 0.85) && ms.iter().any(|&m| m > 1.15), "两头都抽得到");
+        let r = wrec_at(5, 1000000, [110.0, 145.0, 0.0, 0.0, 0.0]);
+        assert_eq!(cap_mult(&l, &r, 0.2), cap_mult(&l, &r.clone(), 0.2), "同一把一样");
+        let m = cap_mult(&l, &r, 0.2);
+        let (med, hi, cap, s) = cap_rec(&l, &r, &o).unwrap();
+        assert_eq!((med, hi), (125.0, 150.0));
+        assert!((cap - 165.0 * m).abs() < 1e-3 && (s - 0.8).abs() < 1e-6, "{cap} {s}");
+        let (top, _) = step(&l, &r, u32::MAX, &o).unwrap_or((r.clone(), 0));
+        let Recipe::W { cor, .. } = &top.recipe else { panic!() };
+        assert!(cor[0] <= cap + 1e-3 && cor[0] >= 110.0, "{cor:?} {cap}");
+        // 上限比现在的补正低：不降，用不了
+        let low = (0..2000).map(|i| wrec_at(i, 1000000, [160.0, 0.0, 0.0, 0.0, 0.0])).find(|r| 165.0 * cap_mult(&l, r, 0.2) < 160.0).unwrap();
+        assert!(step(&l, &low, 5, &o).is_none());
+        assert_eq!(need(&l, &low, &o), 0);
+        // 法杖照旧到 165
+        let (staff, u) = step(&l, &wrec_at(5, 7, [110.0, 0.0, 0.0, 0.0, 0.0]), u32::MAX, &o).unwrap();
+        let Recipe::W { cor, .. } = &staff.recipe else { panic!() };
+        assert_eq!((cor[0], u), (165.0, 69));
     }
 
     /// 武器：每颗各项加 (165 − 125) ÷ 50 = 0.8，各自到 165 为止；补正 110 到顶要 69 颗；到顶后不能再用；标上超限过
@@ -237,16 +295,16 @@ mod tests {
     fn weapon_steps() {
         let l = lib();
         let r = wrec([110.0, 145.0, 0.0, 0.0, 0.0]);
-        assert_eq!(need(&l, &r, 50), 69);
-        let (n1, u) = step(&l, &r, 1, 50).unwrap();
+        assert_eq!(need(&l, &r, &O50), 69);
+        let (n1, u) = step(&l, &r, 1, &O50).unwrap();
         assert_eq!(u, 1);
         let Recipe::W { cor, ovl, .. } = n1.recipe else { panic!() };
         assert!((cor[0] - 110.8).abs() < 1e-4 && (cor[1] - 145.8).abs() < 1e-4 && cor[2] == 0.0 && ovl);
-        let (top, u) = step(&l, &r, u32::MAX, 50).unwrap();
+        let (top, u) = step(&l, &r, u32::MAX, &O50).unwrap();
         assert_eq!(u, 69);
         let Recipe::W { cor, .. } = &top.recipe else { panic!() };
         assert_eq!((cor[0], cor[1]), (165.0, 165.0));
-        assert!(step(&l, &top, 1, 50).is_none());
+        assert!(step(&l, &top, 1, &O50).is_none());
         assert_eq!(rec_parse(&rec_line(&top)), Some(top.clone())); // 记录里存得下「超限过」
         assert_eq!(rec_parse(&rec_line(&r)).map(|x| x.recipe), Some(r.recipe.clone())); // 没超限的格式不变
         // 全能按五项的上限
@@ -260,14 +318,14 @@ mod tests {
         let r = Rec { cat: 1, idx: 7, tier: 3, recipe: Recipe::P { base: 470200, sps: vec![(7210425, "dr_bulwark".into())], mult: None, pos: Vec::new() } };
         let m0 = armor_now(&l, &r).unwrap();
         assert!((1.6..=1.8).contains(&m0));
-        let (r1, u) = step(&l, &r, 10, 50).unwrap();
+        let (r1, u) = step(&l, &r, 10, &O50).unwrap();
         assert_eq!(u, 10);
         let m1 = armor_now(&l, &r1).unwrap();
         assert!((m1 - (m0 + 0.092)).abs() < 1e-9, "{m0} {m1}");
         assert_eq!(rec_parse(&rec_line(&r1)).and_then(|x| armor_now(&l, &x)).map(|m| (m - m1).abs() < 1e-9), Some(true));
-        let (top, _) = step(&l, &r1, u32::MAX, 50).unwrap();
+        let (top, _) = step(&l, &r1, u32::MAX, &O50).unwrap();
         assert_eq!(armor_now(&l, &top), Some(2.16));
-        assert_eq!(need(&l, &top, 50), 0);
+        assert_eq!(need(&l, &top, &O50), 0);
     }
 
     /// 防具词条升一档：效果编号换成下一档的；减伤倍率先定住（换了效果编号也不变）；跳过词条库里没有的档；传说不能再升；武器不行；颗数 1 / 2 / 3

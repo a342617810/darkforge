@@ -6,6 +6,7 @@
 选空容器、按词条库生成、改写参数行和文字，把这批容器写进发货表、点亮 deliver_flag。
 提示框关掉时请求标记还亮着 = DLL 没加载：熄灭标记、改弹「没有加载 dark_core」。
 发货事件 DELIVER_EVENT（公共事件）每 0.5 秒看一次 deliver_flag：亮着就发发货表那一串（deliver_lot 起，每 LOT_CHAIN 行发一次），再熄灭标记。
+死亡惩罚遗失的未鉴定物品取回时不走发货表（游戏会弹「获得物品」框，用户 2026-11-21 要闪烁提示）：DEATHBACK_EVENT 按计数标记直接放进背包。
 事件编号在不存档的 1040490 块（见 dev\\event_flags\\说明.md），标记在 93000 块。
 用户 2026-11-03：「暗黑重铸」里这一项改成「鉴定」子菜单——「一键鉴定」（上面那套）和各武器类型的「定向鉴定：<类型>」并列；
 定向鉴定选了类型再选稀有度（普通 / 稀有 / 史诗 / 传说 / 传说（幽影之地）/ 全部，用户 2026-11-03），弹这一类型、这一稀有度的确认框
@@ -26,6 +27,11 @@ RAR_NAMES = {'zh': ('普通', '稀有', '史诗', '传说', '传说（幽影之�
              'en': ('Common', 'Rare', 'Epic', 'Legendary', 'Legendary (Shadow)', 'All rarities')}
 RAR_COLOR = ('#DADADA', '#A0B4F3', '#BB2DC2', '#D4A900', '#D4A900', None)     # 同装备名字的颜色（sc/gracelook.py RARITY）
 DELIVER_EVENT = 1040490960
+# 遗失的未鉴定物品发回来（features identify.deathback，rr/containers.py；用户 2026-11-21 不要弹「获得物品」框）：每 0.5 秒看一次请求标记，
+# 亮着就按计数标记逐个 2003:43（亮一个给 1 件，直接放进背包、不弹框；原版公共事件 701 也这样还东西），再熄灭计数标记和请求。
+# 1040490961~999 是 bossaward 的槽位（事件结束标记），878 扫过没人用（2026-11-21）
+DEATHBACK_EVENT = 1040490878
+GOODS_TYPE = 3                                      # 2003:43 的物品种类：3 = 道具
 LOT_CHAIN = 10                                     # 发一张掉落表，游戏最多连着发这么多行（之后的行要另发）
 FIELD_LEN = {'zh': 44, 'en': 72}                   # 含两端括号的字符数（DLL 连括号整段改写；「背包里 199 件待鉴定；还能再生成 武器 2693 防具 589 护符 812」要 40 个字）
 
@@ -205,16 +211,32 @@ def texts(cx, key):
 
 
 def events(cx, e, ev0):
-    """发货：每 0.5 秒看一次发货标记，亮着就发发货表那一串、熄灭标记（DLL 改好发货表后才点亮）"""
-    if not on(cx) or any(ev['id'] == DELIVER_EVENT for ev in e['events']):
+    """发货：每 0.5 秒看一次发货标记，亮着就发发货表那一串、熄灭标记（DLL 改好发货表后才点亮）；遗失的未鉴定物品发回来（DEATHBACK_EVENT）"""
+    if not on(cx):
         return
     d = cx.feat['identify']
-    lot, flag, rows = int(d['deliver_lot']), int(d['deliver_flag']), int(d.get('deliver_rows') or 32)
-    # 游戏发一张掉落表最多连着发 LOT_CHAIN 行：按这么多行一段，每段开头发一次（以前只发第一段，每批只到 10 件，2026-11-01 查日志）
-    awards = [emevd.ins(2003, 4, ('s32', lot + k)) for k in range(0, rows, LOT_CHAIN)]
-    body = [emevd.ins(1003, 1, ('u8', len(awards) + 1), ('u8', 0), ('u8', 0), ('u32', flag)),   # 标记没亮：跳过下面几行
-            *awards,
-            emevd.ins(2003, 66, ('u8', 0), ('u32', flag), ('u8', 0)),
-            emevd.ins(1001, 0, ('f32', 0.5)), emevd.ins(1000, 4, ('u8', 1))]           # 等 0.5 秒，重新开始
-    e['events'].append({'id': DELIVER_EVENT, 'rest': 0, 'ins': body, 'params': []})
-    ev0['ins'].append(emevd.ins(2000, 0, ('s32', 0), ('u32', DELIVER_EVENT), ('u32', 0)))
+    if not any(ev['id'] == DELIVER_EVENT for ev in e['events']):
+        lot, flag, rows = int(d['deliver_lot']), int(d['deliver_flag']), int(d.get('deliver_rows') or 32)
+        # 游戏发一张掉落表最多连着发 LOT_CHAIN 行：按这么多行一段，每段开头发一次（以前只发第一段，每批只到 10 件，2026-11-01 查日志）
+        awards = [emevd.ins(2003, 4, ('s32', lot + k)) for k in range(0, rows, LOT_CHAIN)]
+        body = [emevd.ins(1003, 1, ('u8', len(awards) + 1), ('u8', 0), ('u8', 0), ('u32', flag)),   # 标记没亮：跳过下面几行
+                *awards,
+                emevd.ins(2003, 66, ('u8', 0), ('u32', flag), ('u8', 0)),
+                emevd.ins(1001, 0, ('f32', 0.5)), emevd.ins(1000, 4, ('u8', 1))]           # 等 0.5 秒，重新开始
+        e['events'].append({'id': DELIVER_EVENT, 'rest': 0, 'ins': body, 'params': []})
+        ev0['ins'].append(emevd.ins(2000, 0, ('s32', 0), ('u32', DELIVER_EVENT), ('u32', 0)))
+    db = d.get('deathback')
+    if db and not any(ev['id'] == DEATHBACK_EVENT for ev in e['events']):
+        req, bit0, per, goods = int(db['req']), int(db['bit0']), int(db['per']), [int(g) for g in db['goods']]
+        last = bit0 + per * len(goods) - 1
+        gives = [emevd.ins(2003, 43, ('u8', GOODS_TYPE), ('s32', g), ('u32', bit0 + per * i + j), ('u32', 1))
+                 for i, g in enumerate(goods) for j in range(per)]
+        tail = [emevd.ins(2003, 22, ('u32', bit0), ('u32', last), ('u8', 0)),
+                emevd.ins(2003, 66, ('u8', 0), ('u32', req), ('u8', 0))]
+        if len(gives) + len(tail) > 255:
+            raise ValueError('遗失物品发回事件太长：%d 条（跳过最多 255 条）' % (len(gives) + len(tail)))
+        body = [emevd.ins(1003, 1, ('u8', len(gives) + len(tail)), ('u8', 0), ('u8', 0), ('u32', req)),   # 请求没亮：跳过
+                *gives, *tail,
+                emevd.ins(1001, 0, ('f32', 0.5)), emevd.ins(1000, 4, ('u8', 1))]
+        e['events'].append({'id': DEATHBACK_EVENT, 'rest': 0, 'ins': body, 'params': []})
+        ev0['ins'].append(emevd.ins(2000, 0, ('s32', 0), ('u32', DEATHBACK_EVENT), ('u32', 0)))

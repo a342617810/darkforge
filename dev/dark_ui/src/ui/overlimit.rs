@@ -391,9 +391,14 @@ impl Workshop {
         };
         let armor = matches!(it, OItem::A(..));
         let pct = bars.first().map_or(0.0, |(_, c)| if c[2] > 0.0 { (c[3] / c[2] - 1.0) * 100.0 } else { 0.0 });
+        // 法杖、圣印记以外的武器每把的超限上限各有高低（dark_core overlimit::cap_rec），抽得低的会比原上限还低
+        let low = pct.round() < 0.0;
+        let (lp, lz) = (-pct, pct.abs());
         let desc = match (armor, l) {
-            (false, 0) => format!("每颗让所有有补正的能力各提高一点，最多到原上限再高 {pct:.0}%。超限过的武器不能再重铸。"),
-            (false, _) => format!("Each stone raises every attribute scaling by one step, up to {pct:.0}% above the original cap. Overlimited armaments can't be reforged."),
+            (false, 0) if low => format!("每颗让所有有补正的能力各提高一点，最多到这把的超限上限（比原上限低 {lz:.0}%）。超限过的武器不能再重铸。"),
+            (false, _) if low => format!("Each stone raises every attribute scaling by one step, up to this armament's overlimit cap ({lp:.0}% below the original cap). Overlimited armaments can't be reforged."),
+            (false, 0) => format!("每颗让所有有补正的能力各提高一点，最多到原上限再高 {pct:.0}%（这把的超限上限）。超限过的武器不能再重铸。"),
+            (false, _) => format!("Each stone raises every attribute scaling by one step, up to {pct:.0}% above the original cap (this armament's overlimit cap). Overlimited armaments can't be reforged."),
             (true, 0) => format!("每颗让减伤倍率（八种减伤一起）提高一点，最多到原上限再高 {pct:.0}%。"),
             (true, _) => format!("Each stone raises the negation multiplier (all eight types) by one step, up to {pct:.0}% above the original cap."),
         };

@@ -18,8 +18,13 @@ TEMPLATE = 10100                         # 锻造石【1】：强化材料（goo
 ICON_FROM = {GOODS_W: 10140, GOODS_A: 10200}   # 古龙岩锻造石 / 古龙岩失色锻造石的图标（自制图标在菜单包里时 dark_core 换上）
 SORT = {GOODS_W: 160102, GOODS_A: 160103}      # 排在武器重铸石（160101）后面
 DUMMY_NPC = 56009900                     # 训练木桩的敌人参数（rr/dummy.py 的 NPC_ID），死了不掉
+# 随机器分类里这几类的敌人参数死了不掉（用户 2026-11-21「修复一下死亡难度以上小动物也会掉超限锻造石的问题」）：野生动物 = 羊、鹿、鸟、乌龟、
+# 幽影之地的 c54xx 动物等不主动打人的（data\\enemy_classes.json 的 wildlife；狼、野狗、老鼠、蛞蝓这些会打人的是 small_animal，照旧掉）
+NO_DROP_CLASSES = ('wildlife',)
 # armor_stones：防具从中位到超限上限几颗（用户 2026-11-04「减少防具超限满所需个数 当前数量/2」：50 → 25；武器照旧 stones）
-DEFAULT = dict(weapon_cap=1.1, armor_cap=1.2, stones=50, armor_stones=25)
+# weapon_cap_spread（用户 2026-11-21「法杖的可以保持不变 其他武器加一个上限的随机范围 为正负20%的截断正态」）：法杖、圣印记以外的武器，
+# 每把的超限上限 × 1 ± 这个数的截断正态（dark_core gear/overlimit.rs cap_mult，按记录抽、同一把一直一样）；每颗加的量不变
+DEFAULT = dict(weapon_cap=1.1, armor_cap=1.2, stones=50, armor_stones=25, weapon_cap_spread=0.2)
 # 按 lock 档的顺序：死亡、不可能（用户 2026-11-03）；boss_stones 2026-11-04「超限锻造石boss掉落数量翻5倍」1 / 2 → 5 / 10（武器 / 防具轮流给，第一颗随机）
 # remembrance_stones：掉落追忆的头目（data\\remembrance_bosses.json 的 base / dlc 位置，不算 dlc_extra）的颗数（用户 2026-11-09「死亡追忆boss掉10个两种碎片吧 不可能20个」）
 DROP_DEFAULT = dict(mob_pct=[10, 20], boss_stones=[5, 10], remembrance_stones=[10, 20], range=0)
@@ -33,6 +38,10 @@ def cfg(S):
     out.update({k: c[k] for k in DEFAULT if k in c})
     out['stones'] = max(1, int(out['stones']))
     out['armor_stones'] = max(1, int(out['armor_stones']))
+    try:
+        out['weapon_cap_spread'] = max(0.0, min(0.9, float(out['weapon_cap_spread'])))
+    except (TypeError, ValueError):
+        out['weapon_cap_spread'] = DEFAULT['weapon_cap_spread']
     out['drops'] = dict(DROP_DEFAULT, **(c.get('drops') or {}))
     return out
 
@@ -47,15 +56,21 @@ def caps(S, lo, hi, which):
 def texts(c):
     """（名字, 简介, 说明）× 武器 / 防具：中文、英文"""
     wp, ap, n, na = round((c['weapon_cap'] - 1) * 100), round((c['armor_cap'] - 1) * 100), c['stones'], c['armor_stones']
+    ws = round(float(c.get('weapon_cap_spread', 0)) * 100)
+    cap_zh = ('，最多到这个稀有度原上限再高 %d%%（一般约 %d 颗到顶）' % (wp, n) if ws <= 0 else
+              '。能推到多高看武器：法杖、圣印记都到这个稀有度原上限再高 %d%%，其他武器每把在这个数上下浮动，最多差 %d%%；一般约 %d 颗到顶' % (wp, ws, n))
+    cap_en = ('up to %d%% above the original cap for its rarity (usually about %d stones to max out)' % (wp, n) if ws <= 0 else
+              'up to a cap that depends on the armament: %d%% above the original cap for its rarity for staves and seals, '
+              'and up to %d%% higher or lower than that for each other armament (usually about %d stones to max out)' % (wp, ws, n))
     drop_zh = '在「死亡」「不可能」难度里击败敌人时有几率获得；每个头目在每个难度第一次被击败时必定获得数颗，掉落追忆的头目给得更多。'
     drop_en = 'Dropped by enemies on the Death and Impossible difficulties; every boss gives several the first time it falls on each of those difficulties, remembrance bosses more.'
     zh = {
         GOODS_W: ('超限锻造石（武器）', '装备工坊「超限」消耗的材料（武器）',
                   '命定之死的封印解开后才出现的锻造石，带有些微死亡的气息。能将武器强化至超过原本的上限。\n\n'
                   '圆桌厅堂的铁匠修古向玛莉卡女王立下誓言，要锻造弒神武器。无论锻造出多少把，他都只说一句：\n　这种东西哪能杀害神祇？\n\n'
-                  '在赐福「暗黑重铸」→「装备工坊」的「超限」里，选背包里的一把新武器：每颗让它所有有补正的能力各提高一点，'
-                  '最多到这个稀有度原上限再高 %d%%（一般约 %d 颗到顶）。超过原上限的部分显示为金色。\n\n'
-                  '超限过的武器不能再重铸。超限是武器本身的属性，任何难度都有效。\n\n%s' % (wp, n, drop_zh)),
+                  '在赐福「暗黑重铸」→「装备工坊」的「超限」里，选背包里的一把新武器：每颗让它所有有补正的能力各提高一点'
+                  '%s。超过原上限的部分显示为金色。\n\n'
+                  '超限过的武器不能再重铸。超限是武器本身的属性，任何难度都有效。\n\n%s' % (cap_zh, drop_zh)),
         GOODS_A: ('超限锻造石（防具）', '装备工坊「超限」消耗的材料（防具）',
                   '命定之死的封印解开后才出现的锻造石，带有些微死亡的气息。能将防具的减伤率强化至超过原本的上限。\n\n'
                   '在交界地，防具向来不在锻造之列。据说最先这么做的，是步入死亡次数最多的褪色者。\n\n'
@@ -68,10 +83,9 @@ def texts(c):
                   'A smithing stone that appears only once the seal on Destined Death is broken, bearing a faint air of death. Reinforces an armament beyond its original limit.\n\n'
                   'Hewg, blacksmith of the Roundtable Hold, swore to Queen Marika that he would forge a godslaying armament. However many he forged, he said only this:\n  This\'ll never kill a god.\n\n'
                   'At a site of grace, "Darkforge" -> "Gear Workshop" -> "Overlimit": each stone raises every attribute scaling '
-                  'of a new armament in your inventory by one step, up to %d%% above the original cap for its rarity '
-                  '(usually about %d stones to max out). Values beyond the original cap are shown in gold.\n\n'
+                  'of a new armament in your inventory by one step, %s. Values beyond the original cap are shown in gold.\n\n'
                   'An overlimited armament can no longer be reforged. Overlimit is part of the armament and works on every difficulty.\n\n%s'
-                  % (wp, n, drop_en)),
+                  % (cap_en, drop_en)),
         GOODS_A: ('Overlimit Smithing Stone (Armor)', 'Material used by Overlimit in the Gear Workshop (armor)',
                   'A smithing stone that appears only once the seal on Destined Death is broken, bearing a faint air of death. Reinforces the damage negation of armor beyond its original limit.\n\n'
                   'In the Lands Between, armor was never counted among the things to be smithed. It is said the first to try were the Tarnished who had died the most.\n\n'
@@ -129,6 +143,16 @@ def build(ctx):
                           ' / '.join('%g' % float(x) for x in dr['mob_pct']), ' / '.join(str(x) for x in dr['boss_stones']) + '（追忆 %s）' % ' / '.join(str(x) for x in dr['remembrance_stones']), float(dr['range'])))
 
 
+def critters(ctx):
+    """最终的敌人参数表里属于 NO_DROP_CLASSES 的（敌人随机时 stage3 复制出来的参数和原参数在同一个 10000 段里，按族也认得出）；
+    没跑过 enemies.hp（没有分类）就是 []"""
+    ec = getattr(ctx, 'enemy_class', None)
+    if ec is None:
+        return []
+    P = erlib.Param(ctx.bnd.get('NpcParam.param'))
+    return sorted(nid for nid in P.rows if ec(nid) in NO_DROP_CLASSES)
+
+
 def drop_lines(ctx):
     """dll\\dark_core\\ovldrop.txt（格式见 dark_core 的 ovldrop.rs）；没开超限、没有 lock 档就没有"""
     from .hpunify import flags as lock_flags
@@ -162,7 +186,7 @@ def drop_lines(ctx):
         pass
     ents = sorted(ents)
     out += ['bossent ' + ' '.join(map(str, ents[i:i + 20])) for i in range(0, len(ents), 20)]
-    nodrop = sorted(set(getattr(ctx, 'summon_npcs', ()) or ()) | {DUMMY_NPC})
+    nodrop = sorted(set(getattr(ctx, 'summon_npcs', ()) or ()) | {DUMMY_NPC} | set(critters(ctx)))
     out += ['nodrop ' + ' '.join(map(str, nodrop[i:i + 20])) for i in range(0, len(nodrop), 20)]
     # 骨灰掉落（rr/ashcont.py 的 boss_drop）：ash 各档个数；ashes 随机挑的原版骨灰（+0），进背包后 dark_core 照常换成带稀有度的容器
     a = getattr(ctx, 'ashcont', None)
@@ -179,5 +203,6 @@ def lines(ctx):
     c = getattr(ctx, 'overlimit', None)
     if not c:
         return []
-    return ['# overlimit <武器石> <防具石> <武器从中位到超限上限几颗> <防具几颗>（rr/overlimit.py；各稀有度的上限在 affixes.txt 的 ovlw / ovlp 行）',
-            'overlimit\t%d\t%d\t%d\t%d' % (GOODS_W, GOODS_A, c['stones'], c['armor_stones'])]
+    return ['# overlimit <武器石> <防具石> <武器从中位到超限上限几颗> <防具几颗> <法杖、圣印记以外的武器每把超限上限的随机幅度 ±>'
+            '（rr/overlimit.py；各稀有度的上限在 affixes.txt 的 ovlw / ovlp 行）',
+            'overlimit\t%d\t%d\t%d\t%d\t%g' % (GOODS_W, GOODS_A, c['stones'], c['armor_stones'], c['weapon_cap_spread'])]

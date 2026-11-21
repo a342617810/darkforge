@@ -109,6 +109,7 @@ def hp(ctx):
     members, enemy_class, npc_tier, summons, helper_ents, ec, tier_of = classify(ctx, P_npc, P_sp)
     ctx.enemy_bands = members
     ctx.summon_npcs = sorted(summons)          # Boss 战的召唤物：超限锻造石掉落不算（rr/overlimit.py drop_lines）
+    ctx.enemy_class = enemy_class              # 敌人参数 → 随机器分类（basic / wildlife / small_animal …）：野生动物不掉超限锻造石（同上）
     # 高难度血量补正（rr/hpunify.py）：改血量之前的参数血量（Boss 的肉度按原版算）+ 下面两种模式各自收集的位置
     HU = dict(mobs=[], bosses=[], final={}, inv=set())
     ctx.hpu_src = dict(U=HU, hp0={nid: struct.unpack_from('<I', row, NPC_HP)[0] for nid, row in P_npc.rows.items()})

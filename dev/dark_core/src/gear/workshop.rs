@@ -432,11 +432,11 @@ fn weapon_lines(d: &Defs, st: &St, pgd: &PlayerGameData, repo: &mut Option<&mut 
         out.push_str(&format!("wreq\t{k}\t{}\n", r.join("\t")));
         // 超限：配方里的补正 × 强化倍率 × 法器倍率 = 面板上的数（中位、上限、每颗也按同样换算）
         if let Recipe::W { cor, ovl, .. } = &rec.recipe {
-            let need = d.items.overlimit.map_or(0, |o| overlimit::need(&d.lib, rec, o.steps_for(rec)));
+            let need = d.items.overlimit.map_or(0, |o| overlimit::need(&d.lib, rec, &o));
             out.push_str(&format!("wovl\t{k}\t{}\t{need}\n", *ovl as u8));
-            if let (Some(o), Some((med, hi, cap))) = (d.items.overlimit, overlimit::cap_w(&d.lib, rar, cor)) {
+            // 超限上限是这把自己的（法杖、圣印记以外的武器每把 × 1 ± wspread，overlimit::cap_rec）
+            if let Some((med, hi, cap, s)) = d.items.overlimit.and_then(|o| overlimit::cap_rec(&d.lib, rec, &o)) {
                 let cm = cast_base(&d.lib, rec).map_or(1.0, |b| b / 100.0) as f32;
-                let s = (cap - med) / o.steps.max(1) as f32;
                 for (i, &c) in cor.iter().enumerate().filter(|x| *x.1 > 0.0) {
                     let f = info.cor_rate[i] * cm;
                     out.push_str(&format!("wocap\t{k}\t{i}\t{:.2}\t{:.2}\t{:.2}\t{:.2}\t{:.3}\n", c * f, med * f, hi * f, cap * f, s * f));
@@ -867,7 +867,7 @@ fn armor_lines(d: &Defs, st: &St, repo: &mut Option<&mut SoloParamRepository>, f
         // 超过原上限才算（升词条也会把倍率定住存进记录，只看存没存分不出来）
         let ovl = m > hi + 1e-6;
         let s = (cap - med) / o.steps.max(1) as f64;
-        let need = overlimit::need(&d.lib, rec, o.steps_for(rec));
+        let need = overlimit::need(&d.lib, rec, &o);
         out.push_str(&format!("aovl\t{}\t{m:.4}\t{med:.4}\t{hi:.4}\t{cap:.4}\t{s:.5}\t{need}\t{}\n", a.idx, ovl as u8));
         if let Some(c) = repo.as_deref().and_then(|r| base_cuts(r, base_of(rec))) {
             out.push_str(&format!("acut\t{}\t{}\n", a.idx, c.map(|x| format!("{x:.4}")).join("\t")));

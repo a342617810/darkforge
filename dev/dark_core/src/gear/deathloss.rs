@@ -11,6 +11,11 @@
 //!   血迹变成了另一摊（没取回又死了）就永久没了，同卢恩。死后 NO_STAIN 一直没有新血迹（献祭细枝、身上没有卢恩）就直接还回来。
 //!   记在角色记录 遗失的未鉴定物品_<格子>.txt，退出游戏再进来照样认。
 //! - 联机：只动自己的背包，各台电脑各算各的，不用房主定（联机计划 13.2 的 G 规则管的是敌人身上的效果和抽签）。
+//! - 发回来不弹框（用户 2026-11-21「捡回死亡掉落的卢恩和物品时不要弹确认框 用闪烁提示」）：发货表（gift_n）走游戏的「获得物品」框，
+//!   这里改成 items.txt 的 deathback 行那套：每轮按种类点亮计数标记（每种 per 个，亮一个 = 1 件）、再点亮请求，公共事件
+//!   （sc/identify.py DEATHBACK_EVENT）用 2003:43 直接放进背包、熄灭标记；请求熄了数背包 + 仓库核对，少了的走发货表补上，
+//!   再发下一轮；全部发完提示 death back（闪烁提示）。还没发完的记在记录的 b 行，退出再进来接着发。
+//!   请求 ROUND_WAIT 一直亮着（游戏脚本包没挂上，事件没跑）：熄掉标记，剩下的走发货表。没有 deathback 行（老的重随包）也走发货表。
 use std::time::{Duration, Instant};
 
 use super::*;
@@ -19,6 +24,69 @@ use super::*;
 const NO_STAIN: Duration = Duration::from_secs(60);
 /// 角色记录里的文件名：遗失的未鉴定物品_<格子>.txt
 const LOST_PREFIX: &str = "遗失的未鉴定物品_";
+/// 一轮请求亮着最多等这么久（公共事件每 0.5 秒看一次）；还亮着 = 事件没跑
+const ROUND_WAIT: Duration = Duration::from_secs(10);
+
+/// 直接放回背包的那套（items.txt 的 deathback 行：请求标记、第一个计数标记、每种几个、道具编号）
+#[derive(Debug, Clone, PartialEq)]
+pub(super) struct Back {
+    req: u32,
+    bit0: u32,
+    per: u32,
+    goods: Vec<u32>,
+}
+
+impl Back {
+    pub(super) fn parse(f: &[&str]) -> Option<Back> {
+        let num = |i: usize| f.get(i)?.parse::<u32>().ok();
+        let goods: Vec<u32> = f.get(4)?.split(',').map(|x| x.parse().ok()).collect::<Option<_>>()?;
+        let b = Back { req: num(1)?, bit0: num(2)?, per: num(3)?, goods };
+        (b.per > 0 && !b.goods.is_empty() && b.req > 0 && b.bit0 > 0).then_some(b)
+    }
+
+    /// 第 i 种的第 j 个计数标记
+    fn bit(&self, i: usize, j: u32) -> u32 {
+        self.bit0 + self.per * i as u32 + j
+    }
+
+    fn clear_bits(&self) {
+        for i in 0..self.goods.len() {
+            for j in 0..self.per {
+                flag_set(self.bit(i, j), false);
+            }
+        }
+    }
+}
+
+/// 正在发的一轮：点亮请求的时间、这轮每种发几件、发之前背包 + 仓库里各有几件
+#[derive(Debug)]
+struct Round {
+    t0: Instant,
+    sent: Vec<(u32, u32)>,
+    before: Vec<u32>,
+}
+
+/// 这一轮发哪些：back 里每种最多 per 件（不在 goods 里的不发，留给发货表）
+fn round_plan(back: &[(u32, u32)], b: &Back) -> Vec<(usize, u32, u32)> {
+    back.iter().filter_map(|&(g, n)| Some((b.goods.iter().position(|&x| x == g)?, g, n.min(b.per)))).filter(|x| x.2 > 0).collect()
+}
+
+/// 从 v 里减掉 g 的 n 件（减到 0 就去掉）
+fn take_out(v: &mut Vec<(u32, u32)>, g: u32, n: u32) {
+    if let Some(x) = v.iter_mut().find(|x| x.0 == g) {
+        x.1 = x.1.saturating_sub(n);
+    }
+    v.retain(|x| x.1 > 0);
+}
+
+fn add_to(v: &mut Vec<(u32, u32)>, items: &[(u32, u32)]) {
+    for &(g, n) in items {
+        match v.iter_mut().find(|x| x.0 == g) {
+            Some(x) => x.1 += n,
+            None => v.push((g, n)),
+        }
+    }
+}
 
 /// 一摊血迹（认是不是同一摊：所在地图、位置取到 0.1 米、卢恩数）
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -89,7 +157,7 @@ fn total(v: &[(u32, u32)]) -> u32 {
 fn save_lost(ds: &DeathSt) {
     let Some((slot, name)) = &ds.who else { return };
     let p = lost_path(*slot);
-    if ds.lost.is_empty() && ds.fresh.is_empty() {
+    if ds.lost.is_empty() && ds.fresh.is_empty() && ds.back.is_empty() {
         if p.is_file() {
             let _ = std::fs::remove_file(&p);
         }
@@ -109,6 +177,9 @@ fn save_lost(ds: &DeathSt) {
     for (g, n) in &ds.fresh {
         s += &format!("f\t{g}\t{n}\n");
     }
+    for (g, n) in &ds.back {
+        s += &format!("b\t{g}\t{n}\n");
+    }
     let _ = std::fs::create_dir_all(data_dir());
     let tmp = p.with_extension("tmp");
     if std::fs::write(&tmp, s).and_then(|_| std::fs::rename(&tmp, &p)).is_err() {
@@ -116,12 +187,15 @@ fn save_lost(ds: &DeathSt) {
     }
 }
 
-/// 读记录（名字对不上的不认）：(跟着血迹的那批, 血迹, 还没认出血迹的那批, 死之前的血迹)
-fn parse_lost(text: &str, name: &str) -> Option<(Vec<(u32, u32)>, Option<Stain>, Vec<(u32, u32)>, Option<Stain>)> {
+/// 读出来的记录
+type Rec = (Vec<(u32, u32)>, Option<Stain>, Vec<(u32, u32)>, Option<Stain>, Vec<(u32, u32)>);
+
+/// 读记录（名字对不上的不认）：(跟着血迹的那批, 血迹, 还没认出血迹的那批, 死之前的血迹, 还没发完的)
+fn parse_lost(text: &str, name: &str) -> Option<Rec> {
     if rec_text_name(text).as_deref() != Some(name) {
         return None;
     }
-    let (mut lost, mut stain, mut fresh, mut before) = (Vec::new(), None, Vec::new(), None);
+    let (mut lost, mut stain, mut fresh, mut before, mut back) = (Vec::new(), None, Vec::new(), None, Vec::new());
     for l in text.lines().map(|l| l.trim_end_matches('\r')) {
         let f: Vec<&str> = l.split('\t').collect();
         let num = |i: usize| f.get(i).and_then(|v| v.parse::<i64>().ok());
@@ -132,22 +206,43 @@ fn parse_lost(text: &str, name: &str) -> Option<(Vec<(u32, u32)>, Option<Stain>,
                     if f[0] == "stain" { stain = t } else { before = t }
                 }
             }
-            "g" | "f" => {
+            "g" | "f" | "b" => {
                 if let (Some(g), Some(n)) = (num(1), num(2)) {
-                    if g > 0 && n > 0 {
-                        if f[0] == "g" { lost.push((g as u32, n as u32)) } else { fresh.push((g as u32, n as u32)) }
+                    if g > 0 && n > 0 && g <= u32::MAX as i64 && n <= u32::MAX as i64 {
+                        let v = match f[0] {
+                            "g" => &mut lost,
+                            "f" => &mut fresh,
+                            _ => &mut back,
+                        };
+                        v.push((g as u32, n as u32));
                     }
                 }
             }
             _ => {}
         }
     }
-    Some((lost, stain, fresh, before))
+    Some((lost, stain, fresh, before, back))
 }
 
-/// 发回来（排进发货队列）；发不了（没有发货表）返回 false
-fn give_back(v: &[(u32, u32)]) -> bool {
+/// 排进发货队列（会弹「获得物品」框）；发不了（没有发货表）返回 false
+fn gift_back(v: &[(u32, u32)]) -> bool {
     v.iter().all(|&(g, n)| gift_n(1, g as i32, n))
+}
+
+/// 发回来：有 deathback 行就排进 back（直接放回背包、不弹框，back_tick 发，发完提示）；没有就走发货表（note = 这就提示 death back）。
+/// 发不了返回 false
+fn give_back(d: &Defs, ds: &mut DeathSt, v: &[(u32, u32)], note: bool) -> bool {
+    let Some(b) = d.items.deathback.as_ref() else {
+        let ok = gift_back(v);
+        if ok && note {
+            let _ = crate::notes::push("death back");
+        }
+        return ok;
+    };
+    let (direct, other): (Vec<(u32, u32)>, Vec<(u32, u32)>) = v.iter().copied().partition(|x| b.goods.contains(&x.0));
+    add_to(&mut ds.back, &direct);
+    ds.back_note |= note;
+    other.is_empty() || gift_back(&other)
 }
 
 /// 血量 0 停这么久还没被馈赠复活顶掉就算死了（同 arena.rs DEATH_HOLD）
@@ -176,6 +271,12 @@ pub(super) struct DeathSt {
     wait_from: Option<Instant>,
     /// 活着时最后看到的血迹（死的时候记成 before）
     alive_stain: Option<Stain>,
+    /// 要直接放回背包、还没发完的（道具编号, 件数）：每轮发完才减（记录的 b 行）
+    back: Vec<(u32, u32)>,
+    /// 正在发的一轮
+    round: Option<Round>,
+    /// 全部发完后提示 death back
+    back_note: bool,
 }
 
 #[derive(Debug, Default)]
@@ -305,16 +406,24 @@ fn apply(d: &Defs, pgd: &mut PlayerGameData, pct: f64, rng: &mut Rng) -> Vec<(u3
 }
 
 /// 遗失的两批：换了角色读记录，活着时看血迹，该还的还、该丢的丢
-fn lost_tick(st: &mut St, present_alive: bool, now: Instant) {
+fn lost_tick(d: &Defs, st: &mut St, present_alive: bool, now: Instant) {
     let ds = &mut st.death;
     if ds.who.is_none() {
         let Some(w) = st.who.clone().filter(|w| crate::who::is_confirmed(w)) else { return };
-        if let Some((lost, stain, fresh, before)) = std::fs::read_to_string(lost_path(w.0)).ok().and_then(|t| parse_lost(&t, &w.1)) {
-            if !lost.is_empty() || !fresh.is_empty() {
-                log(&format!("死亡惩罚：格子 {}「{}」有遗失还没取回的未鉴定物品：跟着血迹的 {} 件、刚遗失的 {} 件", w.0, w.1, total(&lost), total(&fresh)));
+        if let Some((lost, stain, fresh, before, back)) = std::fs::read_to_string(lost_path(w.0)).ok().and_then(|t| parse_lost(&t, &w.1)) {
+            if !lost.is_empty() || !fresh.is_empty() || !back.is_empty() {
+                log(&format!("死亡惩罚：格子 {}「{}」有遗失还没取回的未鉴定物品：跟着血迹的 {} 件、刚遗失的 {} 件、取回了还没发完的 {} 件",
+                             w.0, w.1, total(&lost), total(&fresh), total(&back)));
             }
-            (ds.lost, ds.stain, ds.fresh, ds.before) = (lost, stain, fresh, before);
+            (ds.lost, ds.stain, ds.fresh, ds.before, ds.back) = (lost, stain, fresh, before, back);
+            ds.back_note = !ds.back.is_empty();
         }
+        // 上次没发完的一轮（退出时请求、计数标记还亮着，会跟着存档）：熄掉，照记录重新发
+        if let Some(b) = d.items.deathback.as_ref() {
+            flag_set(b.req, false);
+            b.clear_bits();
+        }
+        ds.round = None;
         ds.who = Some(w);
     }
     if !present_alive {
@@ -338,7 +447,9 @@ fn lost_tick(st: &mut St, present_alive: bool, now: Instant) {
                 save_lost(ds);
             }
             Lost::NoStain => {
-                let ok = give_back(&ds.fresh);
+                let fresh = std::mem::take(&mut ds.fresh);
+                let ok = give_back(d, ds, &fresh, false);
+                ds.fresh = fresh;
                 log(&format!("死亡惩罚：死后 {} 秒没有新血迹（献祭细枝、或者身上没有卢恩），遗失的 {} 件{}", NO_STAIN.as_secs(), total(&ds.fresh),
                              if ok { "直接发回来" } else { "要发回来，但没有发货表，发不了" }));
                 ds.fresh.clear();
@@ -353,12 +464,9 @@ fn lost_tick(st: &mut St, present_alive: bool, now: Instant) {
     let Some(stain) = ds.stain.filter(|_| !ds.lost.is_empty()) else { return };
     match judge_linked(cur, stain) {
         Lost::Back => {
-            let ok = give_back(&ds.lost);
-            log(&format!("死亡惩罚：血迹没了（卢恩取回了），遗失的 {} 件{}：{}", total(&ds.lost), if ok { "发回来" } else { "要发回来，但没有发货表，发不了" }, fmt_list(&ds.lost)));
-            if ok {
-                let _ = crate::notes::push("death back");
-            }
-            ds.lost.clear();
+            let lost = std::mem::take(&mut ds.lost);
+            let ok = give_back(d, ds, &lost, true);
+            log(&format!("死亡惩罚：血迹没了（卢恩取回了），遗失的 {} 件{}：{}", total(&lost), if ok { "发回来" } else { "要发回来，但没有发货表，发不了" }, fmt_list(&lost)));
             ds.stain = None;
             save_lost(ds);
         }
@@ -373,6 +481,97 @@ fn lost_tick(st: &mut St, present_alive: bool, now: Instant) {
     }
 }
 
+/// 直接放回背包：一轮一轮发（见文件开头），全部发完提示 death back
+fn back_tick(d: &Defs, st: &mut St, pgd: &PlayerGameData, alive: bool, now: Instant) {
+    if st.death.who.is_none() {
+        return;
+    }
+    let busy = st.pending.is_some() || st.gift_wait.is_some();
+    let ds = &mut st.death;
+    let Some(b) = d.items.deathback.as_ref() else {
+        // 换成了没有 deathback 行的重随包，记录里还有没发完的：走发货表
+        if !ds.back.is_empty() {
+            let v = std::mem::take(&mut ds.back);
+            let ok = gift_back(&v);
+            log(&format!("死亡惩罚：取回了还没发完的 {} 件改走发货表{}：{}", total(&v), if ok { "" } else { "，但没有发货表，发不了" }, fmt_list(&v)));
+            if ok && std::mem::take(&mut ds.back_note) {
+                let _ = crate::notes::push("death back");
+            }
+            save_lost(ds);
+        }
+        return;
+    };
+    if let Some(r) = ds.round.as_ref() {
+        match flag_get(b.req) {
+            Some(false) => {
+                let r = ds.round.take().unwrap_or_else(|| unreachable!());
+                let mut short = Vec::new();
+                for (&(g, n), &was) in r.sent.iter().zip(&r.before) {
+                    let got = count_lot_item(pgd, 1, g as i32).saturating_sub(was);
+                    if got < n {
+                        short.push((g, n - got));
+                    }
+                    take_out(&mut ds.back, g, n);
+                }
+                log(&format!("死亡惩罚：直接放回背包 {} 件（{}），还剩 {} 件", total(&r.sent), fmt_list(&r.sent), total(&ds.back)));
+                if !short.is_empty() {
+                    let ok = gift_back(&short);
+                    log(&format!("死亡惩罚：其中 {} 件背包里没多出来（可能放不下），改走发货表{}：{}", total(&short), if ok { "" } else { "，但没有发货表，发不了" }, fmt_list(&short)));
+                }
+                save_lost(ds);
+            }
+            Some(true) if now - r.t0 >= ROUND_WAIT => {
+                flag_set(b.req, false);
+                b.clear_bits();
+                ds.round = None;
+                let v = std::mem::take(&mut ds.back);
+                let ok = gift_back(&v);
+                log(&format!("死亡惩罚：放回背包的请求 {} 秒没人处理（游戏脚本包没挂上？），剩下的 {} 件改走发货表{}：{}",
+                             ROUND_WAIT.as_secs(), total(&v), if ok { "" } else { "，但没有发货表，发不了" }, fmt_list(&v)));
+                save_lost(ds);
+            }
+            _ => return,
+        }
+    }
+    if ds.round.is_some() {
+        return;
+    }
+    if ds.back.is_empty() {
+        if ds.back_note && alive && crate::notes::push("death back") {
+            ds.back_note = false;
+        }
+        return;
+    }
+    // 新一轮：活着、在场，别的发货没在进行（核对件数时不受它们影响）
+    if !alive || busy || flag_get(b.req) != Some(false) {
+        return;
+    }
+    let plan = round_plan(&ds.back, b);
+    if plan.is_empty() {
+        // 剩下的都不在 deathback 的种类里：走发货表
+        let v = std::mem::take(&mut ds.back);
+        let ok = gift_back(&v);
+        log(&format!("死亡惩罚：{} 件不能直接放回背包，改走发货表{}：{}", total(&v), if ok { "" } else { "，但没有发货表，发不了" }, fmt_list(&v)));
+        save_lost(ds);
+        return;
+    }
+    b.clear_bits();
+    let mut sent = Vec::new();
+    let mut before = Vec::new();
+    for &(i, g, k) in &plan {
+        for j in 0..k {
+            flag_set(b.bit(i, j), true);
+        }
+        sent.push((g, k));
+        before.push(count_lot_item(pgd, 1, g as i32));
+    }
+    if flag_set(b.req, true) {
+        ds.round = Some(Round { t0: now, sent, before });
+    } else {
+        b.clear_bits();
+    }
+}
+
 pub(super) fn tick(d: &Defs, st: &mut St, pgd: &mut PlayerGameData) {
     let pct = d.items.deathloss;
     let now = Instant::now();
@@ -383,7 +582,9 @@ pub(super) fn tick(d: &Defs, st: &mut St, pgd: &mut PlayerGameData) {
     });
     let (present, hp, just, colos) = me.map_or((false, 0, false, false), |(h, j, c)| (true, h, j, c));
     // 遗失还没取回的照样看（关掉死亡惩罚以后也要把欠着的还回来）
-    lost_tick(st, present && hp > 0 && st.death.w.zero_at.is_none(), now);
+    let alive = present && hp > 0 && st.death.w.zero_at.is_none();
+    lost_tick(d, st, alive, now);
+    back_tick(d, st, pgd, alive, now);
     if pct <= 0.0 {
         return;
     }
@@ -523,16 +724,37 @@ mod tests {
 
     #[test]
     fn lost_record() {
-        let text = "# 说明\nname\t褪色者\nstain\t1010040000\t12\t-34\t56\t2500\nbefore\t1\t2\t3\t4\t5\ng\t9203\t2\ng\t9212\t1\nf\t9221\t3\ng\tx\t1\n";
-        let (lost, stain, fresh, before) = parse_lost(text, "褪色者").unwrap();
+        let text = "# 说明\nname\t褪色者\nstain\t1010040000\t12\t-34\t56\t2500\nbefore\t1\t2\t3\t4\t5\ng\t9203\t2\ng\t9212\t1\nf\t9221\t3\ng\tx\t1\nb\t9200\t11\n";
+        let (lost, stain, fresh, before, back) = parse_lost(text, "褪色者").unwrap();
         assert_eq!(lost, vec![(9203, 2), (9212, 1)]);
         assert_eq!(stain, Some(Stain { block: 1010040000, pos: [12, -34, 56], runes: 2500 }));
         assert_eq!(fresh, vec![(9221, 3)]);
         assert_eq!(before, Some(Stain { block: 1, pos: [2, 3, 4], runes: 5 }));
+        assert_eq!(back, vec![(9200, 11)]);
         // 别的角色的记录不认
         assert!(parse_lost(text, "别人").is_none());
         assert_eq!(total(&lost), 3);
         assert_eq!(fmt_list(&lost), "9203×2、9212×1");
+    }
+
+    /// deathback 行；每轮每种最多 per 件，不在种类里的不发；发完一轮减掉
+    #[test]
+    fn back_rounds() {
+        let f: Vec<&str> = "deathback\t92640\t92641\t8\t9200,9201,9202".split('\t').collect();
+        let b = Back::parse(&f).unwrap();
+        assert_eq!((b.req, b.bit0, b.per, b.goods.clone()), (92640, 92641, 8, vec![9200, 9201, 9202]));
+        assert_eq!((b.bit(0, 0), b.bit(1, 0), b.bit(2, 7)), (92641, 92649, 92664));
+        assert!(Back::parse(&"deathback\t92640\t92641\t0\t9200".split('\t').collect::<Vec<_>>()).is_none());
+        assert!(Back::parse(&"deathback\t92640\t92641\t8\t9200,x".split('\t').collect::<Vec<_>>()).is_none());
+        let mut back = vec![(9201, 11), (9999, 2), (9200, 3)];
+        assert_eq!(round_plan(&back, &b), vec![(1, 9201, 8), (0, 9200, 3)]);
+        take_out(&mut back, 9201, 8);
+        take_out(&mut back, 9200, 3);
+        assert_eq!(back, vec![(9201, 3), (9999, 2)]);
+        assert_eq!(round_plan(&back, &b), vec![(1, 9201, 3)]);
+        let mut v = vec![(9200, 1)];
+        add_to(&mut v, &[(9200, 2), (9201, 1)]);
+        assert_eq!(v, vec![(9200, 3), (9201, 1)]);
     }
 
     #[test]
