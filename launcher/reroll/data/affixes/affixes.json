@@ -1,7 +1,7 @@
 {
  "_说明": "词条库（阶段 1：迁移原包的词条）。由 dev\\item_system\\extract_affixes.py 从 RNG Lands 原包提取，不要手改；规则见 dev\\item_system\\词条一览.md、设计文档.md 第 8 节。权重 / 分布里的数字都是原包里的件数。",
  "source": "packs\\Ruby\\recommended increased difficulty",
- "time": "2026-11-20 11:56:28",
+ "time": "2026-11-20 21:11:05",
  "rarities": [
   "Common",
   "Rare",
@@ -11680,34 +11680,34 @@
    },
    "vals": {
     "Common": [
-     "5"
+     "33"
     ],
     "Rare": [
-     "8"
+     "53"
     ],
     "Legendary": [
-     "15"
+     "100"
     ],
     "Epic": [
-     "11"
+     "73"
     ]
    },
    "text": {
     "Common": {
-     "en": "Increase spells duration by 5%",
-     "zh": "魔法、祷告的有效时间延长5％"
+     "en": "Increase spells duration by 33%",
+     "zh": "魔法、祷告的有效时间延长33％"
     },
     "Rare": {
-     "en": "Increase spells duration by 8%",
-     "zh": "魔法、祷告的有效时间延长8％"
+     "en": "Increase spells duration by 53%",
+     "zh": "魔法、祷告的有效时间延长53％"
     },
     "Legendary": {
-     "en": "Increase spells duration by 15%",
-     "zh": "魔法、祷告的有效时间延长15％"
+     "en": "Increase spells duration by 100%",
+     "zh": "魔法、祷告的有效时间延长100％"
     },
     "Epic": {
-     "en": "Increase spells duration by 11%",
-     "zh": "魔法、祷告的有效时间延长11％"
+     "en": "Increase spells duration by 73%",
+     "zh": "魔法、祷告的有效时间延长73％"
     }
    },
    "tal": {
@@ -11746,27 +11746,27 @@
      "0": {
       "prec": 0.1,
       "c": {
-       "Common": 5.0,
-       "Rare": 8.0,
-       "Epic": 11.0,
-       "Legendary": 15.0
+       "Common": 33.0,
+       "Rare": 53.0,
+       "Epic": 73.0,
+       "Legendary": 100.0
       }
      }
     },
     "r": {
      "Common": {
-      "lo": 3.125,
-      "hi": 6.875,
-      "c": 5.0,
-      "mu": 5.0,
-      "sigma": 0.9375,
+      "lo": 20.5,
+      "hi": 45.5,
+      "c": 33.0,
+      "mu": 33.0,
+      "sigma": 6.25,
       "tpl": [
        "魔法、祷告的有效时间延长{0}％",
        "Increase spells duration by {0}%"
       ],
       "span": [
-       "魔法、祷告的有效时间延长3.1~6.9％",
-       "Increase spells duration by 3.1~6.9%"
+       "魔法、祷告的有效时间延长20.5~45.5％",
+       "Increase spells duration by 20.5~45.5%"
       ],
       "rows": [
        7003280
@@ -11784,18 +11784,18 @@
       ]
      },
      "Rare": {
-      "lo": 6.125,
-      "hi": 9.875,
-      "c": 8.0,
-      "mu": 8.0,
-      "sigma": 0.9375,
+      "lo": 40.5,
+      "hi": 65.5,
+      "c": 53.0,
+      "mu": 53.0,
+      "sigma": 6.25,
       "tpl": [
        "魔法、祷告的有效时间延长{0}％",
        "Increase spells duration by {0}%"
       ],
       "span": [
-       "魔法、祷告的有效时间延长6.1~9.9％",
-       "Increase spells duration by 6.1~9.9%"
+       "魔法、祷告的有效时间延长40.5~65.5％",
+       "Increase spells duration by 40.5~65.5%"
       ],
       "rows": [
        7003290
@@ -11813,18 +11813,18 @@
       ]
      },
      "Epic": {
-      "lo": 9.0625,
-      "hi": 13.4375,
-      "c": 11.0,
-      "mu": 10.88575,
-      "sigma": 1.21875,
+      "lo": 60.0625,
+      "hi": 89.4375,
+      "c": 73.0,
+      "mu": 72.18592,
+      "sigma": 8.21875,
       "tpl": [
        "魔法、祷告的有效时间延长{0}％",
        "Increase spells duration by {0}%"
       ],
       "span": [
-       "魔法、祷告的有效时间延长9.1~13.4％",
-       "Increase spells duration by 9.1~13.4%"
+       "魔法、祷告的有效时间延长60.1~89.4％",
+       "Increase spells duration by 60.1~89.4%"
       ],
       "rows": [
        7003300
@@ -11842,18 +11842,18 @@
       ]
      },
      "Legendary": {
-      "lo": 12.5,
-      "hi": 17.5,
-      "c": 15.0,
-      "mu": 15.0,
-      "sigma": 1.25,
+      "lo": 83.125,
+      "hi": 116.875,
+      "c": 100.0,
+      "mu": 100.0,
+      "sigma": 8.4375,
       "tpl": [
        "魔法、祷告的有效时间延长{0}％",
        "Increase spells duration by {0}%"
       ],
       "span": [
-       "魔法、祷告的有效时间延长12.5~17.5％",
-       "Increase spells duration by 12.5~17.5%"
+       "魔法、祷告的有效时间延长83.1~116.9％",
+       "Increase spells duration by 83.1~116.9%"
       ],
       "rows": [
        7003310

@@ -1,4 +1,4 @@
-词条库提取  2026-11-20 11:56:28  来源 packs\Ruby\recommended increased difficulty  用时 2.9 秒
+词条库提取  2026-11-20 21:11:05  来源 packs\Ruby\recommended increased difficulty  用时 3.2 秒
 原包护符 / 防具词条：110 种（防具上出现过的 86 种）
 合并 魔法流派增伤 11 条 → 魔法伤害＋#％：各稀有度数值 5 / 7 / 9 / 12（取件数加权最常见的）
 合并 祷告流派增伤 7 条 → 祷告伤害＋#％：各稀有度数值 4 / 6 / 9 / 12（取件数加权最常见的）
@@ -35,6 +35,7 @@
 数值调整 削减敌人强韧度的能力＋#％：saAttackPowerRate 加成 ×0.5 → 5 / 8.5 / 13 / 18
 数值直接定 血量全满时，造成的伤害＋#％：physicsAttackRate、magicAttackRate、fireAttackRate、thunderAttackRate、darkAttackRate → 7 / 10 / 15 / 20
 数值直接定 蓄力使用魔法、祷告、战技时的伤害＋#％：physicsAttackRate、magicAttackRate、fireAttackRate、thunderAttackRate、darkAttackRate → 6 / 9 / 14 / 20
+数值直接定 魔法、祷告的有效时间延长#％：extendLifeRate → 33 / 53 / 73 / 100
 数值直接定 计算咏唱速度时灵巧额外＋#（缩短魔法、祷告的咏唱时间）：dexterityCancelSystemOnlyAddDexterity → 40 / 55 / 75 / 99
 词条改造 斩击优化 → 战技优化：maxStaminaRate 改回 1，说明「战技消耗的专注值减少#％」（4 / 7 / 12 / 18）
 词条改造 咏唱优化 → 咏唱优化：maxHpRate 改回 1，说明「魔法、祷告消耗的专注值减少#％」（4 / 7 / 12 / 18）

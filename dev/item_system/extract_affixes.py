@@ -88,8 +88,10 @@ RESCALE = {'increase_posture_damage_by_pct': ('saAttackPowerRate', 0.5)}
 # 强韧力气（血量全满时伤害）4 / 6 / 9 / 12 → 7 / 10 / 15 / 20（用户 2026-11-02「强韧力气词条伤害提升至20%」，其他档按同比例 ×5/3 取整）
 ATK_RATES = ('physicsAttackRate', 'magicAttackRate', 'fireAttackRate', 'thunderAttackRate', 'darkAttackRate')
 # 满蓄力（蓄力魔法 / 祷告 / 战技）4 / 6 / 9 / 13 → 6 / 9 / 14 / 20（用户 2026-11-13「满蓄力数值提升到20%」，其他档同比例取整）
+# 延迟魔法（魔法、祷告的有效时间）5 / 8 / 11 / 15 → 33 / 53 / 73 / 100（用户 2026-11-20「魔法持续时间延长那个词条传说改为+100% 其他缩放」，都 ×100/15 取整）
 RESET = {'increase_dealt_damage_when_at_full_hp_by_pct': (ATK_RATES, {'Common': 7, 'Rare': 10, 'Epic': 15, 'Legendary': 20}),
-         'increase_damage_of_fully_charged_skills_or_spell': (ATK_RATES, {'Common': 6, 'Rare': 9, 'Epic': 14, 'Legendary': 20})}
+         'increase_damage_of_fully_charged_skills_or_spell': (ATK_RATES, {'Common': 6, 'Rare': 9, 'Epic': 14, 'Legendary': 20}),
+         'increase_spells_duration_by_pct': (('extendLifeRate',), {'Common': 33, 'Rare': 53, 'Epic': 73, 'Legendary': 100})}
 # 直接定数值的（字段本身就是这个数，不是倍率）：词条 → (字段, {稀有度: 数值})。咏唱加速：用户 2026-11-06「虚拟灵巧那个词条传说改为+99」「其他稀有度缩放一下」（字段 s8，以前 20 / 28 / 38 / 50，都 ×99/50）
 RESET_VAL = {'adds_virtual_dex_toward_speed_casting': ('dexterityCancelSystemOnlyAddDexterity', {'Common': 40, 'Rare': 55, 'Epic': 75, 'Legendary': 99})}
 # 词条改造：词条 →（后缀（英, 中）、改回 1 的倍率字段（去掉这部分效果）、新说明（英, 中；# 按原说明的数值顺序填））
