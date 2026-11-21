@@ -5,7 +5,8 @@
 //!   仿身泪滴是多一个仿身，原版 5 只的变 6 只；ELDEN VINS 的仿身泪滴一次 5 个仿身，用玩家形象的也能多个），改写容器的参数行，扣掉原版那个，走发货表发容器的同一等级（游戏里弹「获得物品」）。
 //! - 容器 c：道具 / 召唤效果 goods0 + 100c + L（L = 强化等级，照原版那一级的道具行复制；强化接下一级、改稀有度、节俭改消耗），
 //!   强化加成 dop0 + 11c + L（照原版那一级的加成复制，没有的用 neutral；血量 × 稀有度倍率 × (1 + 坚韧)、攻击 × 稀有度倍率 × (1 + 锋锐)、
-//!   各减伤 × (1 − 坚甲)、受到的削韧 × (1 − 稳固)、七种异常抗性 × (1 + 清明)、再生：每秒扣 −# % 血量 = 回血），
+//!   各减伤 × (1 − 坚甲)、受到的削韧 × (1 − 稳固)、七种异常抗性 × (1 + 清明)、再生：每秒扣 −# % 血量 = 回血、
+//!   挑衅：目标优先度 ＋ #/100，敌人更容易先打召唤物），
 //!   召唤参数 buddy0 + per·c + k（照原版那几行复制，触发效果换成容器的、强化加成换成容器的；集结多复制一行，换个站位；用不到的行触发 −1）。
 //! - 文字：容器每一级的名字 / 简介 / 说明 / 血条名字写进占位（同装备容器的 #DRC 占位，血条名字的编号 = 道具编号 + info2_off）。
 //!   名字「稀有度 [集结·]原版名＋等级」，说明是原版说明后面接稀有度加成和词条（上稀有度的颜色）。
@@ -49,6 +50,8 @@ enum Field {
     Resist,
     Regen,
     Cost,
+    /// 挑衅：强化加成行的目标优先度 ＋ #/100（原版召唤物挂着 −0.5 / −0.25，玩家 0，几个效果的值相加）
+    Taunt,
 }
 
 impl Field {
@@ -61,6 +64,7 @@ impl Field {
             "resist" => Field::Resist,
             "regen" => Field::Regen,
             "cost" => Field::Cost,
+            "taunt" => Field::Taunt,
             _ => return None,
         })
     }
@@ -629,6 +633,7 @@ fn write_container(def: &Def, rec: &AshRec) -> Result<(), String> {
         total(def, rec, Field::Regen),
         total(def, rec, Field::Cost),
     );
+    let taunt = total(def, rec, Field::Taunt);
     for lv in 0..k.levels {
         let id = cbase + lv;
         let src = param_bytes::<EquipParamGoods>(repo, k.base + lv).ok_or_else(|| format!("原版骨灰 {} 不在参数里", k.base + lv))?;
@@ -707,6 +712,9 @@ fn write_container(def: &Def, rec: &AshRec) -> Result<(), String> {
         if regen > 0.0 && s.change_hp_rate() == 0.0 {
             s.set_change_hp_rate(-regen);
             s.set_motion_interval(1.0);
+        }
+        if taunt > 0.0 {
+            s.set_target_priority(s.target_priority() + taunt / 100.0);
         }
     }
     }
@@ -1460,5 +1468,23 @@ mod tests {
         assert_eq!((num(1.5), num(20.0), num(0.8)), ("1.5".to_string(), "20".to_string(), "0.8".to_string()));
         assert_eq!(total(&d, &rec, Field::Hp), 30.0);
         assert_eq!(scale_i16(55, 20.0), 44);
+    }
+
+    /// 挑衅：定义里认 taunt 字段，按稀有度取数（写进强化加成时 ÷100 加到目标优先度上）
+    #[test]
+    fn taunt_field() {
+        assert_eq!(Field::of("taunt"), Some(Field::Taunt));
+        let d = parse(concat!(
+            "cont\t150000000\t120\t7320000\t7319999\t39900000\t6\t10000000\npool\t1\t0\t120\nrar\t0\t40\t1\t1\t0\t0\n",
+            "aff\thp\thp\t10,15,20,30\t召唤物的血量上限＋#％\tSummon max HP +#%\n",
+            "aff\ttaunt\ttaunt\t50,75,100,150\t召唤物吸引敌人仇恨的程度＋#％\tSummons draw +#% enemy aggression\n",
+            "kind\t200000\t11\t0\t20000000\t“黑刀”狄希\tBlack Knife Tiche\ti\ti\tc\tc\t狄希\tTiche\n",
+        ))
+        .unwrap();
+        assert_eq!(d.affs.iter().map(|a| a.field).collect::<Vec<_>>(), vec![Field::Hp, Field::Taunt]);
+        for (rar, want) in [(0, 50.0), (2, 100.0), (3, 150.0)] {
+            let rec = AshRec { idx: 1, kind: 200000, rar, affs: vec!["taunt".into(), "hp".into()], rally: false, pre: None, src: None };
+            assert_eq!(total(&d, &rec, Field::Taunt), want);
+        }
     }
 }

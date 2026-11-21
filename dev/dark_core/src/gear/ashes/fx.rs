@@ -9,7 +9,8 @@
 //!   战意：召唤者参数米内的敌对角色血量变 0 → 活着的召唤物各回血（只有战意的召唤物在场时才看附近）。
 //! - 强化加成（稀有度、坚韧这些在容器的强化加成效果里，召唤参数的 dopingSpEffect 挂）：召唤 CHECK_AFTER 后核对血量上限，
 //!   等于「敌人参数的血量」（一点加成都没有，2026-11-10 用户测的 +0 狄希就是这样）就自己把容器这一级的强化加成挂上、补满血；
-//!   日志里同时记游戏给这只召唤物记的召唤参数编号和挂的加成（SummonBuddyManager 的 groups）。
+//!   日志里同时记游戏给这只召唤物记的召唤参数编号和挂的加成（SummonBuddyManager 的 groups），
+//!   以及它身上各效果的目标优先度加起来多少（词条「挑衅」生效没有；补挂加成之前读的，没加成时不含挑衅）。
 //! - 召唤物倒下 = 之前见过它血量 > 0、这次 ≤ 0（刚召唤出来那一下血量可能还没设好，不算）；被收回、走远消失的不算倒下。
 //! - 日志（「骨灰召唤：」，每次进游戏最多 MAX_LINES 行）：召唤了哪个骨灰（容器、稀有度、前缀、词条、专注消耗和原版的比）、
 //!   每只召唤物第一次出现（血量上限和「敌人参数的血量 × 容器这一级的加成」比，看第一期的数值有没有生效）、
@@ -192,6 +193,23 @@ fn gear_diff(wcm: &WorldChrMan, addr: usize) -> Option<String> {
     } else {
         format!("装备和召唤者不一样的 {} 格（召唤者→召唤物）：{}", diff.len(), diff.join("，"))
     })
+}
+
+/// 召唤物身上各效果的目标优先度（敌人选目标用，几个效果的值相加；原版召唤物挂 296010 −0.5 / 296011 −0.25，词条「挑衅」加在强化加成上）
+fn priority(wcm: &WorldChrMan, addr: usize) -> String {
+    let Some(repo) = (unsafe { SoloParamRepository::instance() }).ok() else { return "目标优先度读不到（参数还没载入）".into() };
+    let Some(c) = wcm.summon_buddy_chr_set.characters().find(|c| &**c as *const ChrIns as usize == addr) else {
+        return "目标优先度读不到（召唤物不在了）".into();
+    };
+    let mut tot = 0.0f32;
+    let mut parts = Vec::new();
+    for e in c.special_effect.entries() {
+        if let Some(p) = repo.get::<SpEffectParam>(e.param_id as u32).map(|s| s.target_priority()).filter(|p| p.abs() > 1e-4) {
+            tot += p;
+            parts.push(format!("{} {:+.2}", e.param_id, p));
+        }
+    }
+    if parts.is_empty() { "目标优先度 0（身上的效果都没有）".into() } else { format!("目标优先度合计 {tot:+.2}（{}）", parts.join("，")) }
 }
 
 /// 核对强化加成：(敌人参数的血量, 容器这一级的加成倍率, 原版这一级的加成倍率, 容器这一级的加成效果)
@@ -387,6 +405,7 @@ pub(super) fn tick(def: &Def, a: &AshSt) {
         let gs = groups(wcm);
         for (addr, npc, hp, max) in checks {
             let g = gs.get(&addr).map_or("游戏的召唤记录里没找到它".to_string(), |(b, s)| format!("游戏记的召唤参数 {b}、强化加成 {s}"));
+            let g = format!("{g}；{}", priority(wcm, addr));
             // 用玩家形象的：血量照召唤者算，不按敌人参数核对；记装备
             if let Some(gear) = gear_diff(wcm, addr) {
                 say(fx, format!("用玩家形象的召唤物（敌人参数 {npc}）：血 {hp}/{max}（照召唤者算，不核对强化加成）；{g}；{gear}"));

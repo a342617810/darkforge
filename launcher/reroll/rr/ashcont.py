@@ -38,7 +38,8 @@ BUDDY0, PER = 39900000, 6       # 召唤参数（原版一种骨灰最多 5 只�
 LEVELS = 11
 TRIGGER_TEMPLATE, DOP_TEMPLATE, BUDDY_TEMPLATE = 200000, 290000, 20000000    # 「黑刀」狄希的召唤效果、原版 +0 加成、召唤参数
 DEFAULT = dict(enabled=True, pools=[300, 120, 60, 30, 36, 12], weights=[40, 30, 20, 10], mult=[1.0, 1.05, 1.1, 1.2], suffixes=[1, 1, 2, 2], rally=True,
-               prefix_chance=[0, 30, 60, 100], mimic_pools=[8, 8], boss_drop=[1, 1], reserve=True)
+               prefix_chance=[0, 30, 60, 100], mimic_pools=[8, 8], boss_drop=[1, 1], reserve=True, aff_vals={})
+# aff_vals：改数值词条的四档数值，{键: [普通, 稀有, 史诗, 传说]}（比如 {"taunt": [50, 75, 100, 150]}）；不写的照 AFFIXES
 # reserve：原版骨灰的获取格（地图 / 敌人掉落、商店）直接放容器（用户 2026-11-11「去掉一下原版骨灰的掉落 … 应该是以我们的作为替换」）：
 # def_lines 写 src 行，dark_core 进存档时给还没拿的每一格抽好一个、把格子改成它，地上捡起、商店里看到的就是带稀有度、词条的
 # boss_drop：难度里标了 lock 的档（死亡 / 不可能）每个 Boss 战第一次击败掉几个随机原版骨灰（dark_core 的 ovldrop 发，进背包照常换容器；
@@ -53,6 +54,9 @@ AFFIXES = [
     ('resist', 'resist', (20, 35, 50, 80), '召唤物所有异常状态的抗性＋#％', 'Summon status resistance +#%'),
     ('regen', 'regen', (0.5, 0.8, 1.2, 1.5), '召唤物每秒恢复 #％ 的血量', 'Summons restore #% HP per second'),
     ('cost', 'cost', (10, 15, 20, 30), '召唤消耗的专注值－#％', 'Summoning FP cost -#%'),
+    # 挑衅（用户 2026-11-21「给骨灰新增一个可以大幅增强吸引敌人仇恨的词条」）：强化加成行的目标优先度 targetPriority ＋ #/100。
+    # 原版召唤物挂着 −0.5 / −0.25（296010 / 296011），玩家 0，沙布里黎的悲叹 +0.1；几个效果的值相加
+    ('taunt', 'taunt', (50, 75, 100, 150), '召唤物吸引敌人仇恨的程度＋#％', 'Summons draw +#% enemy aggression'),
 ]
 RALLY = ('集结', 'Rallying', '召唤数量＋1', 'Summons one more spirit')
 BONUS = ('召唤物的血量上限、攻击力＋#％（稀有度）', 'Summon max HP and attack +#% (rarity)')
@@ -96,6 +100,7 @@ CODEX = {
     'resist': ('清明', 'Lucid', 18170),            # 健壮角饰品
     'regen': ('再生', 'Regenerating', 18630),      # 恩惠露滴护符
     'cost': ('节俭', 'Frugal', 18480),             # 源辉石刀
+    'taunt': ('挑衅', 'Taunting', 18730),          # 沙布里黎的悲叹
     'blast': ('爆裂', 'Bursting', 18250),          # 火对蝎
     'martyr': ('殉道', "Martyr's", 18750),        # 牺牲细枝
     'fury': ('激昂', 'Frenzied', 18270),           # 红羽七刃剑
@@ -111,6 +116,18 @@ def cfg(S):
         return None
     out = dict(DEFAULT)
     out.update({k: c[k] for k in DEFAULT if k in c and k != 'enabled'})
+    return out
+
+
+def affixes(c):
+    """AFFIXES，四档数值换成 settings 的 aff_vals 里写了的（要正好四个数，不对的照原样）"""
+    over = (c or {}).get('aff_vals') or {}
+    out = []
+    for k, f, vals, zh, en in AFFIXES:
+        v = over.get(k)
+        if isinstance(v, (list, tuple)) and len(v) == 4 and all(isinstance(x, (int, float)) for x in v):
+            vals = tuple(v)
+        out.append((k, f, vals, zh, en))
     return out
 
 
@@ -350,8 +367,8 @@ def def_lines(ctx):
     out.append('# rar <稀有度 0~3> <权重> <血量 / 攻击倍率> <数值词条几条> <带不带集结> <带机制前缀的几率 %>')
     out += ['rar\t%d\t%d\t%g\t%d\t%d\t%g' % (r, int(c['weights'][r]), float(c['mult'][r]), int(c['suffixes'][r]), 1 if c['rally'] and r == 3 else 0,
                                           float(c['prefix_chance'][r])) for r in range(4)]
-    out.append('# aff <键> <字段 hp/atk/cut/poise/resist/regen/cost> <四档数值> <说明中文> <说明英文>（# 换成数值）；bonus 同格式（稀有度的血量、攻击加成那一行）')
-    out += ['aff\t%s\t%s\t%s\t%s\t%s' % (k, f, ','.join('%g' % v for v in vals), esc(zh), esc(en)) for k, f, vals, zh, en in AFFIXES]
+    out.append('# aff <键> <字段 hp/atk/cut/poise/resist/regen/cost/taunt> <四档数值> <说明中文> <说明英文>（# 换成数值）；bonus 同格式（稀有度的血量、攻击加成那一行）')
+    out += ['aff\t%s\t%s\t%s\t%s\t%s' % (k, f, ','.join('%g' % v for v in vals), esc(zh), esc(en)) for k, f, vals, zh, en in affixes(c)]
     out.append('bonus\t%s\t%s' % (esc(BONUS[0]), esc(BONUS[1])))
     out.append('rally\t%s\t%s\t%s\t%s' % tuple(esc(x) for x in RALLY))
     out.append('# pre <键> <做法 blast/martyr/fury/shelter/resonance/zeal> <四档数值> <参数> <四档编号：爆裂 = 子弹、激昂 / 庇护 / 共鸣 = 效果> '
@@ -440,6 +457,6 @@ def codex_lines(ctx, c):
     for k, kind, vals, arg, ids, _, _, tzh, ten, nzh, nen in a.get('pre') or []:
         out.append(line(k, '1', [(tzh.replace('#', '%g' % vals[r]) + '\n' + nzh, ten.replace('#', '%g' % vals[r]) + '\n' + nen)
                                  if float(c['prefix_chance'][r]) > 0 else ('', '') for r in range(4)]))
-    for k, f, vals, zh, en in AFFIXES:
-        out.append(line(k, '0', [(zh.replace('#', '%g' % v), en.replace('#', '%g' % v)) for v in vals]))
+    for k, f, vals, zh, en in affixes(c):
+        out.append(line(k, '0',[(zh.replace('#', '%g' % v), en.replace('#', '%g' % v)) for v in vals]))
     return out
