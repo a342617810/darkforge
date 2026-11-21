@@ -64,6 +64,7 @@ mod shots;
 mod speed;
 mod runebank;
 mod runtime;
+mod saveunlock;
 mod scaling;
 mod skillmult;
 mod slotdiag;
@@ -279,8 +280,8 @@ pub unsafe extern "system" fn DllMain(hmodule: u64, reason: u32, _reserved: *mut
         };
         log(&format!("dark_core 已加载：{}；{}；{}；{}；{}（{combat}）；{}；{}；{}；{}；{}；{}；{}；{}；{}；{}；{}；{}；{}；{}；{}；{}；{}；{}；{}；{scaling}", arena::describe(), foefx::describe(), festive::describe(), gear::describe(), runtime::describe(),
                      rules::describe(), procs::describe(), boat::describe(), attrstack::describe(), skillmult::describe(), spellbase::describe(), hpunify::describe(), ovldrop::describe(), fusion::describe(), nightmare::describe(), curses::describe(), notes::describe(), plague::describe(), wishstone::describe(), shopstage::describe(), clash::describe(), bossmode::describe(), glow::describe(), runebank::describe()));
-        // 34..=38：帧统计、帧耗时统计、玩家角色、唤声船（帧开头）、难度屏障（帧开头）
-        let mut errs = [0u32; 39];
+        // 34..=38：帧统计、帧耗时统计、玩家角色、唤声船（帧开头）、难度屏障（帧开头）；39：存档解锁
+        let mut errs = [0u32; 40];
         let mut th_fb = Vec::new();
         task.run_recurring(
             move |_: &FD4TaskData| {
@@ -308,6 +309,8 @@ pub unsafe extern "system" fn DllMain(hmodule: u64, reason: u32, _reserved: *mut
                 guarded("融锻之心掉落", &mut errs[14], fusion::tick);
                 guarded("魇化", &mut errs[11], nightmare::tick);
                 guarded("咒痕", &mut errs[12], curses::tick);
+                // 存档里有角色七道咒痕都反转了 → 进「死亡」以上不用先击败黑剑（每次认准一个角色判断一次，读存档在后台）
+                guarded("存档解锁", &mut errs[39], saveunlock::tick);
                 guarded("原版提示", &mut errs[13], notes::tick);
                 guarded("疫病护符", &mut errs[15], plague::tick);
                 guarded("无形", &mut errs[23], unseen::tick);

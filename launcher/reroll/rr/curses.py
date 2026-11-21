@@ -118,6 +118,9 @@ OPEN_NOTES = (('你迎向了命定之死。', 'You have gone forth to meet Desti
               ('身上刻下了七道咒痕。', 'Seven cursemarks have been carved into you.'))
 ALL_NOTE = ('七道咒痕尽数化为祝福。', 'All seven cursemarks have become blessings.')
 OPEN_SEEN = 93686                                         # 开场提示放过了（存档，每个角色一份；dev\event_flags\说明.md）
+# 存档解锁（用户 2026-11-20「给存档里有死亡难度下反转完七道咒痕角色的存档解锁死亡以上难度 不再需要打败黑剑解锁了」）：
+# dark_core saveunlock.rs 每次认准角色时读存档文件，有角色七道都反转了就点亮、没有就熄灭；sc/difficulty.py 的门槛看到它亮着就不要求击败黑剑
+SAVE_UNLOCK = 93093
 GLOOM_REMOVE = (600, 610, 620, 630, 640, 649, 650, 651)   # 大卢恩的激活效果（葛瑞克 600、拉塔恩 610、蒙葛特 620、拉卡德 630、蒙格 640 / 649、玛莲妮亚 650 / 651）
 GLOOM_DOUBLE = {600: 7304070, 610: 7304071, 620: 7304072, 630: 7304073}
 GLOOM_SOUL, GLOOM_SOUL_DOUBLE = 500030, 7304074           # 拉卡德：杀敌时挂的回血（applyIdOnGetSoul），翻倍的副本
@@ -285,7 +288,8 @@ def build(ctx):
     ctx.curses = c
     ctx.features['curses'] = {'listen': LISTEN, 'open': OPEN, 'tiers': lock_flags(ctx.S),   # tiers：入口只在这几档列出来
                               'vary': {s: VARY_MARK0 + i for i, s in enumerate(VARY_STATES)},          # sc/hks.py 的千变招式标记
-                              'revive': [REVIVE_READY, REVIVE_JUST] if c['revive'] else None}   # sc/hks.py 的 DR_Revive
+                              'revive': [REVIVE_READY, REVIVE_JUST] if c['revive'] else None,   # sc/hks.py 的 DR_Revive
+                              'unlock': SAVE_UNLOCK}                                             # sc/difficulty.py 的门槛
     ctx.report.append('咒痕：标了 lock 的难度档里七道咒痕（效果 %d~%d），区域 Boss 每档第一次击败给 1 片碎片、%d 片反转（标记 %d~%d、%d~%d）' % (
         LISTEN, GLOOM_SOUL_DOUBLE, int(c['shards']), SHARD_FLAGS[0], SHARD_FLAGS[6], SHARD_FLAGS[7], SHARD_FLAGS[-1]))
     if c['revive']:
@@ -320,7 +324,7 @@ def def_lines(ctx):
         v = {'revive_secs': '%g' % float(c['revive_secs'])}
         out += ['revive %d %d %d' % (REVIVE_READY, REVIVE_JUST, REVIVE_USED),
                 'gift\t%s\t%s\t%s\t%s' % (GIFT[0], GIFT[1], GIFT[2].format(**v), GIFT[3].format(**v))]
-    out += ['lore\t%s\t%s\t%s' % (k, z, e) for k, (z, e) in LORE.items()] + ['openseen %d' % OPEN_SEEN]
+    out += ['lore\t%s\t%s\t%s' % (k, z, e) for k, (z, e) in LORE.items()] + ['openseen %d' % OPEN_SEEN, 'unlock %d' % SAVE_UNLOCK]
     regions = json.load(open(os.path.join(ctx.data_dir, 'boss_curse_regions.json'), encoding='utf-8'))['bosses']
     out += ['boss %s %d' % (k, v['region']) for k, v in sorted(regions.items(), key=lambda kv: int(kv[0]))]
     return out

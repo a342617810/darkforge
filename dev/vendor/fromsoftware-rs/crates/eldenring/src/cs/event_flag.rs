@@ -72,6 +72,16 @@ impl CSFD4VirtualMemoryFlag {
         }
     }
 
+    /// Index of a flag group in the holder array (`flag_blocks`), for groups stored there
+    /// (location_mode 1, the ones that get saved). The save's event flag table is this array,
+    /// `event_flag_holder_size` bytes per group (Dark Reforged: saveunlock.rs reads other slots with it).
+    pub fn holder_index(&self, group: u32) -> Option<u32> {
+        self.flag_block_descriptors
+            .find(&group)
+            .filter(|d| d.location_mode == 1)
+            .map(|d| unsafe { d.location.holder_offset })
+    }
+
     /// Retrieves the event flag current state.
     pub fn get_flag(&self, flag: impl Into<EventFlag>) -> bool {
         let flag: EventFlag = flag.into();

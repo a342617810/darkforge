@@ -253,7 +253,7 @@ def write_dll_defs(ctx):
     write_def(os.path.join(CORE_DIR, 'shopstage.txt'), '暗黑商店分阶段解锁（rr/darkshop.py stage_lines）：note 提示的键；gate 追忆 Boss 击败标记 区域',
               darkshop.stage_lines(ctx))
     # 咒痕（dark_core 的 curses 模块）
-    write_def(os.path.join(CORE_DIR, 'curses.txt'), '咒痕（rr/curses.py）：tier；listen；shards；region 序号 诅咒 碎片标记 名字；text；burn / gaze / erode / brand / vary / gloom / echo；boss 击败标记 区域',
+    write_def(os.path.join(CORE_DIR, 'curses.txt'), '咒痕（rr/curses.py）：tier；listen；shards；region 序号 诅咒 碎片标记 名字；text；burn / gaze / erode / brand / vary / gloom / echo；boss 击败标记 区域；unlock 存档解锁的标记',
               curses.def_lines(ctx))
     # 词条疫病（dark_core 的 plague 模块：戴着时给在场的敌人摘免疫效果、挂抗性倍率效果）
     write_def(os.path.join(CORE_DIR, 'plague.txt'), '词条疫病（rr/plague.py）：mark / raise 各稀有度的标记效果、敌人抗性加多少 %；status 序号 免疫效果 抗性倍率效果起点 行数；n 敌人参数 中毒第几行 腐败第几行 位（参数里挂着免疫效果）',

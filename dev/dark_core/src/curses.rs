@@ -144,6 +144,8 @@ struct Def {
     lore: HashMap<String, Vec<String>>,
     /// 开场提示放过了的标记（存档；0 = 没有开场）
     open_seen: u32,
+    /// 存档解锁的标记（saveunlock.rs：存档里有角色七道都反转了，进「死亡」以上不用先击败黑剑；0 = 没有）
+    unlock: u32,
 }
 
 static DEF: OnceLock<Option<Def>> = OnceLock::new();
@@ -201,6 +203,7 @@ fn parse(text: &str, runtime: &str) -> Option<Def> {
             ["boss", ..] if f.len() >= 3 => _ = d.bosses.insert(n(1)? as u32, n(2)? as usize),
             ["revive", ..] if f.len() >= 4 => d.revive = (n(1)? as i32, n(2)? as i32, n(3)? as u32),
             ["openseen", ..] => d.open_seen = n(1)? as u32,
+            ["unlock", ..] => d.unlock = n(1)? as u32,
             _ => {}
         }
     }
@@ -232,6 +235,17 @@ pub fn describe() -> String {
         Some(d) => format!("咒痕（{} 档，{} 场 Boss 掉碎片，{} 个事件标记）", d.tiers.len(), d.bosses.len(), d.marks.len()),
         None => "咒痕（没有 curses.txt，不管）".into(),
     }
+}
+
+/// saveunlock.rs 用：（存档解锁的标记, 几片算反转, 七个区域各自的碎片标记（低位在前））；curses.txt 没有 unlock 行就是 None
+pub fn unlock_def() -> Option<(u32, u32, Vec<Vec<u32>>)> {
+    let d = def().filter(|d| d.unlock > 0)?;
+    Some((d.unlock, d.shards, d.regions.iter().map(|g| g.flags.clone()).collect()))
+}
+
+/// 现在这个角色七道咒痕都反转了没有（游戏里的标记）
+pub fn all_reversed() -> bool {
+    def().is_some_and(|d| (0..d.regions.len()).all(|r| shards(d, r) >= d.shards))
 }
 
 fn shards(d: &Def, r: usize) -> u32 {
@@ -1162,8 +1176,11 @@ mod tests {
         t += "text\tgaze\t众目\tMany Eyes\t诅咒\t祝福\tcurse\tbless\nburn 7304010 7304011\ngaze 7304020 7304021\n\
               erode 7304030 10 7304031,7304032\nbrand 7304040 7304041 15 20 20 5\nvary 7304051,7304052 7304061\nvarymark 7304200 3\nvaryramp 2.5\ngloom 600,610 600:7304070\n\
               echo 20 3 1 30\nboss 10000800 0\nrevive 7304090 7304091 93488\ngift\t名\tName\t说明\tDesc\n";
+        assert_eq!(parse(&t, "").unwrap().unlock, 0, "没有 unlock 行：不做存档解锁");
+        t += "unlock 93093\n";
         let d = parse(&t, "mark\thit\t7210756\nmark\tattack\t7210755\n").unwrap();
         assert_eq!((d.tiers.len(), d.listen, d.shards, d.regions.len()), (2, 7304000, 5, 7));
+        assert_eq!(d.unlock, 93093);
         assert_eq!(d.revive, (7304090, 7304091, 93488));
         assert_eq!(d.gift, ["名", "Name", "说明", "Desc"]);
         assert_eq!(d.regions[1].flags, vec![103, 104, 105]);

@@ -15,6 +15,7 @@
 - LOCK 没亮时选 lock 档：确认框只显示前 3 行（用户 2026-11-06），分 3 个框：效果（DESC_FIRST_TEXT）、敌人变化 + 建议（CONFIRM_MID_TEXT）、
   不可逆警告 + 最后确认（CONFIRM2_TEXT），三次都选「是」才点亮 LOCK、切档、熄灭头目复活列表里所有 Boss 的击败标记（复活），最后提示（LOCK_DONE）；任何一次「否」回到列表。
 - 门槛（用户 2026-11-13）：LOCK 没亮时选 lock 档，「黑剑」玛利喀斯的击败标记 RELEASE_FLAG 没亮就只提示「命定之死尚未被释放」（GATE_NOTE），回到列表。
+  存档解锁（用户 2026-11-20）：同一个存档里有角色七道咒痕都反转了，不看黑剑——dark_core saveunlock.rs 读存档后点亮 features 里咒痕的 unlock 标记。
 - LOCK 亮着时：列表里没标 lock 的档变灰、后面写「（已锁定）」，选了只提示一句（LOCKED_NOTE）；lock 档之间照旧只弹效果说明，不复活，也不看门槛。
 复活列表照头目复活（data\\gracemenu\\grace_more.esd，Vawser 的 Boss Resurrection - Lite）：它的几个「复活一个 Boss」子状态机把除最后一个参数
 （传送用）外的参数都设成 0，这里把所有调用的这些参数收齐，一次熄灭（每个状态 REVIVE_CHUNK 条，串起来）。
@@ -213,6 +214,9 @@ def esd(cx, groups):
         st[10 + k] = state([dict(conf_call, args=[i32(DESC_TEXT + k)])], [to(10 + n + k, yes_eval), to(0, no_eval)])
         st[10 + n + k] = state(switch(k) + [dialog(DONE_TEXT + k)], [to(9, DIALOG_WAIT)])
     if lk:
+        # 门槛：黑剑没击败、存档也没解锁（同一个存档里有角色七道咒痕都反转了，dark_core saveunlock.rs 点亮；没有咒痕就只看黑剑）才拦下
+        unlock = (cx.feat.get('curses') or {}).get('unlock')
+        gate = both(flag_is_off(RELEASE_FLAG), flag_is_off(unlock)) if unlock else flag_is_off(RELEASE_FLAG)
         # 2：锁了的列表等选择：lock 档之间照旧（10 + 档位，只弹效果说明、不复活），别的提示已锁定（30 + 档位）
         st[2] = state([], [to((10 if k in lk else 30) + k, menu_pick(k + 1)) for k in range(n)] + [to(9, ALWAYS)])
         for cur in range(n):
@@ -221,7 +225,7 @@ def esd(cx, groups):
             if k not in lk:
                 st[30 + k] = state([dialog(LOCKED_NOTE)], [to(0, DIALOG_WAIT)])
                 continue
-            st[GATE0 + k] = state([], [to(GATE_SAY, flag_is_off(RELEASE_FLAG)), to(70 + k, ALWAYS)])
+            st[GATE0 + k] = state([], [to(GATE_SAY, gate), to(70 + k, ALWAYS)])
             st[70 + k] = state([dict(conf_call, args=[i32(DESC_FIRST_TEXT + k)])], [to(100 + k, yes_eval), to(0, no_eval)])
             st[100 + k] = state([dict(conf_call, args=[i32(CONFIRM_MID_TEXT + k)])], [to(80 + k, yes_eval), to(0, no_eval)])
             st[80 + k] = state([dict(conf_call, args=[i32(CONFIRM2_TEXT + k)])], [to(90 + k, yes_eval), to(0, no_eval)])
@@ -233,8 +237,9 @@ def esd(cx, groups):
             st[REVIVE0 + j] = state([set_flag(f, 0) for f in ch], [to(REVIVE0 + j + 1 if j + 1 < len(chunks) else REVIVE_DONE, ALWAYS)])
         st[REVIVE_DONE] = state([dialog(LOCK_DONE)], [to(9, DIALOG_WAIT)])
         st[GATE_SAY] = state([dialog(GATE_NOTE)], [to(0, DIALOG_WAIT)])
-        cx.notes.append('难度：%s 要先击败黑剑（标记 %d）才能进入，进入后锁定（标记 %d），进入时复活 %d 个标记（含 Boss 房赐福 %d 个的传送 / 点亮标记 %d 个）' % (
-            '、'.join(ts[k]['name'] for k in lk), RELEASE_FLAG, LOCK, len(flags), len(boss_graces()), len(boss_grace_flags())))
+        cx.notes.append('难度：%s 要先击败黑剑（标记 %d%s）才能进入，进入后锁定（标记 %d），进入时复活 %d 个标记（含 Boss 房赐福 %d 个的传送 / 点亮标记 %d 个）' % (
+            '、'.join(ts[k]['name'] for k in lk), RELEASE_FLAG, '；存档解锁标记 %d 亮着不用' % unlock if unlock else '', LOCK, len(flags),
+            len(boss_graces()), len(boss_grace_flags())))
     groups[gid] = st
     register(cx, 'difficulty', TEXT, gid)          # 收进赐福最上面的「暗黑重铸」（sc/forge.py）
 
