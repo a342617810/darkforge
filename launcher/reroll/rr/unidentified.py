@@ -909,6 +909,8 @@ def no_vanilla_gear(ctx):
     except Exception:
         finals = []
     q_ok, q_miss = [], []
+    # 每条支线接上的那 3 行从哪一号起（features.json 的 quest_final_rows，{原奖励表: 第一行}）：sc/varrefix.py 白面具那一段卡住时只发这几行
+    q_rows = ctx.features.setdefault('quest_final_rows', {})
     for f in finals:
         rows = chain(f['lot'])
         if not rows:
@@ -923,6 +925,7 @@ def no_vanilla_gear(ctx):
             erlib.lot_set_slot(row, 0, 1, goods_id(ci, 4 if f.get('dlc') else 3), 1000, num=n_q, luck=False, slotflag=0)
             struct.pack_into('<I', row, erlib.LOT_FLAG, erlib.lot_flag(first))
             P.add_row(end + 1 + ci, bytes(row))
+        q_rows[str(f['lot'])] = end + 1
         q_ok.append(f['npc'])
     medal = '支线最后一环多给未鉴定传说武器、防具、护符各 %d 件：%d 条支线%s' % (n_q, len(q_ok), '；没加：' + '、'.join(q_miss) if q_miss else '')
     quest_txt = ('支线奖励（%d~%d，Boss 奖励表除外，含任务事件直接发放的）里的 %d 件换成同本体的生成装备 %d 件、未鉴定物品 %d 件，' % (lo, hi, n_quest, qg[0], qg[1])
