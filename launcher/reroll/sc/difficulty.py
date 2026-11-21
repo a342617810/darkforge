@@ -16,6 +16,7 @@
   不可逆警告 + 最后确认（CONFIRM2_TEXT），三次都选「是」才点亮 LOCK、切档、熄灭头目复活列表里所有 Boss 的击败标记（复活），最后提示（LOCK_DONE）；任何一次「否」回到列表。
 - 门槛（用户 2026-11-13）：LOCK 没亮时选 lock 档，「黑剑」玛利喀斯的击败标记 RELEASE_FLAG 没亮就只提示「命定之死尚未被释放」（GATE_NOTE），回到列表。
   存档解锁（用户 2026-11-20）：同一个存档里有角色七道咒痕都反转了，不看黑剑——dark_core saveunlock.rs 读存档后点亮 features 里咒痕的 unlock 标记。
+  二周目以后（用户 2026-11-21）也不看黑剑：进下一周目时这些标记都被游戏清掉，saveunlock.rs 看到周目数 ≥ 1 就点亮 unlock。
 - LOCK 亮着时：列表里没标 lock 的档变灰、后面写「（已锁定）」，选了只提示一句（LOCKED_NOTE）；lock 档之间照旧只弹效果说明，不复活，也不看门槛。
 复活列表照头目复活（data\\gracemenu\\grace_more.esd，Vawser 的 Boss Resurrection - Lite）：它的几个「复活一个 Boss」子状态机把除最后一个参数
 （传送用）外的参数都设成 0，这里把所有调用的这些参数收齐，一次熄灭（每个状态 REVIVE_CHUNK 条，串起来）。

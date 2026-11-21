@@ -11,6 +11,10 @@
 //!   0x1BF99F 字节 + 1 字节结尾，后面紧跟 5 个带长度的世界结构（第 2~4 个以 CHR / MOEG / FOEG 开头），照这个找表头。
 //!   标记 n 在表里第 holder(n / 1000) × 125 + (n % 1000) / 8 字节的第 7 − n % 8 位；holder 是游戏里这个块在标记数组里的位置
 //!   （CSFD4VirtualMemoryFlag 的块描述，只认存在数组里、会存档的块），在游戏线程上取好再交给后台。
+//! - 二周目以后（用户 2026-11-21「修一下死亡难度角色进入二周目后不能马上切换到死亡难度的问题」）：进下一周目时游戏清掉了这几个标记
+//!   （黑剑的击败标记、难度的锁定和当前档、unlock 都不跨周目），角色又回到第一次进「死亡」的门槛，被「命定之死尚未被释放」拦下。
+//!   能进下一周目就是上一周目打通了，黑剑在主线上必经（开敌人随机时是那个位置的头目），所以周目数（GameDataMan.ng_lvl）≥ 1 就点亮 unlock。
+//!   通关后直接进下一周目、不回标题时还是同一个角色，所以每帧看：周目数 ≥ 1 而 unlock 灭着（刚被清掉）就再点亮。
 
 use std::collections::HashMap;
 use std::fs;
@@ -19,11 +23,18 @@ use std::sync::Mutex;
 use std::sync::mpsc::{self, Receiver, TryRecvError};
 use std::time::SystemTime;
 
-use eldenring::cs::CSEventFlagMan;
+use eldenring::cs::{CSEventFlagMan, GameDataMan};
 use fromsoftware_shared::FromStatic;
 
-use crate::gear::flag_set;
+use crate::gear::{flag_get, flag_set};
 use crate::log;
+
+/// 周目数读到比这个大就当结构对不上（不算二周目）
+const NG_MAX: u32 = 100;
+/// GameDataMan.ng_lvl 的偏移（测试里和 vendored 定义对一下）。2026-11-21 在 2.7.1.0 / 2.7.2.0 两个 exe 里核对：读 GameDataMan 静态指针后
+/// 按 dword 读写 +0x120 / +0x124、+0x128 / +0x12c、+0x130 / +0x134 各成一对（本机、房主、备份的「周目数 + 随机出现槽」），和 vendored 一致
+#[cfg(test)]
+const NG_LVL_AT: usize = 0x120;
 
 const EF_SIZE: usize = 0x1BF99F;
 const BLOCK: usize = 125;
@@ -41,15 +52,42 @@ type Found = Result<Option<(usize, String)>, String>;
 struct St {
     who: Option<(i32, String)>,
     rx: Option<Receiver<Found>>,
+    /// 上一帧是按周目数点亮的（周目数变回 0 = 换了角色，重新照存档判断）
+    by_ng: bool,
+    /// 记过日志的（角色, 周目数）：同一个只记一次
+    ng_logged: Option<((i32, String), u32)>,
 }
 
 static ST: Mutex<Option<St>> = Mutex::new(None);
+
+/// 现在这个角色的周目数（0 = 一周目）；读不到、数值不像周目数就是 None
+fn ng_level() -> Option<u32> {
+    let n = unsafe { GameDataMan::instance() }.ok()?.ng_lvl;
+    (n <= NG_MAX).then_some(n)
+}
 
 pub fn tick() {
     let Some((flag, need, regions)) = crate::curses::unlock_def() else { return };
     let cur = crate::who::confirmed();
     let mut g = ST.lock().unwrap_or_else(|e| e.into_inner());
     let st = g.get_or_insert_with(St::default);
+    // 二周目以后：每帧看一眼，unlock 灭着就点亮（进下一周目时游戏清掉了它），不读存档
+    if let Some((who, ng)) = cur.clone().zip(ng_level().filter(|&n| n >= 1)) {
+        st.who = cur;
+        st.rx = None;
+        st.by_ng = true;
+        if flag_get(flag) != Some(true) {
+            flag_set(flag, true);
+            if st.ng_logged.as_ref() != Some(&(who.clone(), ng)) {
+                log(&format!("存档解锁：格子 {}「{}」在第 {} 周目（上一周目打通了，黑剑已经击败过），进「死亡」以上不用先击败黑剑", who.0, who.1, ng + 1));
+                st.ng_logged = Some((who, ng));
+            }
+        }
+        return;
+    }
+    if std::mem::take(&mut st.by_ng) {
+        st.who = None;
+    }
     if cur != st.who {
         st.who = cur.clone();
         st.rx = None;
@@ -258,6 +296,12 @@ fn find_in(path: &std::path::Path, regions: &[Vec<u32>]) -> Result<Option<(usize
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// 周目数在 GameDataMan 里的位置（vendored 定义；两个 exe 里读它的代码核对过，见 NG_LVL_AT）
+    #[test]
+    fn ng_lvl_offset() {
+        assert_eq!(std::mem::offset_of!(GameDataMan, ng_lvl), NG_LVL_AT);
+    }
 
     fn regions() -> Vec<Vec<u32>> {
         let f: Vec<u32> = (93993..94000).chain(92582..92596).collect();
