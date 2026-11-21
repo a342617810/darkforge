@@ -68,6 +68,7 @@ mod saveunlock;
 mod scaling;
 mod skillmult;
 mod slotdiag;
+mod slotfx;
 mod sound;
 mod spellbase;
 mod msghook;
@@ -280,8 +281,8 @@ pub unsafe extern "system" fn DllMain(hmodule: u64, reason: u32, _reserved: *mut
         };
         log(&format!("dark_core 已加载：{}；{}；{}；{}；{}（{combat}）；{}；{}；{}；{}；{}；{}；{}；{}；{}；{}；{}；{}；{}；{}；{}；{}；{}；{}；{}；{scaling}", arena::describe(), foefx::describe(), festive::describe(), gear::describe(), runtime::describe(),
                      rules::describe(), procs::describe(), boat::describe(), attrstack::describe(), skillmult::describe(), spellbase::describe(), hpunify::describe(), ovldrop::describe(), fusion::describe(), nightmare::describe(), curses::describe(), notes::describe(), plague::describe(), wishstone::describe(), shopstage::describe(), clash::describe(), bossmode::describe(), glow::describe(), runebank::describe()));
-        // 34..=38：帧统计、帧耗时统计、玩家角色、唤声船（帧开头）、难度屏障（帧开头）；39：存档解锁
-        let mut errs = [0u32; 40];
+        // 34..=38：帧统计、帧耗时统计、玩家角色、唤声船（帧开头）、难度屏障（帧开头）；39：存档解锁；40：第五护符槽补挂
+        let mut errs = [0u32; 41];
         let mut th_fb = Vec::new();
         task.run_recurring(
             move |_: &FD4TaskData| {
@@ -303,6 +304,8 @@ pub unsafe extern "system" fn DllMain(hmodule: u64, reason: u32, _reserved: *mut
                 guarded("积木引擎", &mut errs[3], rules::tick);
                 guarded("数值词条叠加", &mut errs[5], attrstack::tick);
                 guarded("第五护符槽诊断", &mut errs[27], slotdiag::tick);
+                // 第五格护符的效果游戏没挂上（联机时 Seamless 改了槽位判断等）就补挂一份；只在第五格装着护符时干活
+                guarded("第五护符槽补挂", &mut errs[40], slotfx::tick);
                 guarded("战技伤害按稀有度", &mut errs[7], skillmult::tick);
                 guarded("高难度血量补正", &mut errs[9], hpunify::tick);
                 guarded("超限锻造石掉落", &mut errs[10], ovldrop::tick);
