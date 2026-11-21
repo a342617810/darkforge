@@ -519,7 +519,10 @@ def skill_mults(ctx):
 # 又「那改补正值的分布不就好了 这样也能显示在面板上」）：原版法术补正 = 100 × (1 + Σ 补正值 × 补正倍率 × 曲线)，100 是游戏写死的；
 # 改成生成法器的五项补正值 × 倍率（dark_core build_row 改参数行，面板上的补正、法术补正都跟着变，配方里存的不乘，重铸 / 超限照配方）。
 # 每件的倍率由 dark_core 按记录在稀有度区间（百分数）里抽截断正态（同防具减伤：均值 = 中点，区间 = ±2σ）；法球（迸发、星群）也乘它（spellbase.rs）。
-# 能施法的本体（enableMagic / enableMiracle：法杖、圣印记，还有卡利亚法术剑这种）写进 affixes.txt 的 wcast 行。settings 的 catalyst_base 可以改
+# 能施法的法器本体（weaponCategory 8 里 enableMagic / enableMiracle 的：法杖、圣印记）写进 affixes.txt 的 wcast 行。settings 的 catalyst_base 可以改。
+# 能施法的近战武器（卡利亚魔法剑 2530000，类别 2）不算（用户 2026-11-20「修一下卡利亚魔法剑吃到法杖专用的补正增强的问题」）：
+# 倍率乘的是五项补正值，近战武器的攻击力也按这几项补正，以前跟着法杖一起放大到 0.7~2.5 倍
+CATALYST_CATEGORY = 8
 CAST_BASE = {'Common': (70, 130), 'Rare': (90, 150), 'Epic': (110, 210), 'Legendary': (150, 250)}   # 普通 / 稀有 ±30、史诗 / 传说 ±50（用户 2026-11-03）
 
 
@@ -533,12 +536,16 @@ def cast_bases(ctx):
     W = erlib.Param(ctx.bnd.get('EquipParamWeapon.param'))
     wl = {t[0]: t for t in pdm.layout(pdm.load(os.path.join(ctx.data_dir, 'EquipParamWeapon.xml')))[0]}
     bit = lambda row, f: (row[wl[f][2]] >> wl[f][3]) & 1 if wl[f][4] else row[wl[f][2]]
+    melee = []
     for i, row in sorted(W.rows.items()):
         if i < 100000000 and i % 10000 == 0 and (bit(row, 'enableMagic') or bit(row, 'enableMiracle')):
+            if bit(row, 'weaponCategory') != CATALYST_CATEGORY:
+                melee.append(i)
+                continue
             ctx.cast_ids.append((i, bit(row, 'enableMagic'), bit(row, 'enableMiracle')))
     ctx.cast_range = rg
-    ctx.report.append('法器倍率：%s（补正值 × 倍率 ÷ 100，能施法的本体 %d 种，dark_core 改参数行时乘）' % (
-        '、'.join('%s %g~%g' % (RAR_ZH[r], *rg[r]) for r in RAR), len(ctx.cast_ids)))
+    ctx.report.append('法器倍率：%s（补正值 × 倍率 ÷ 100，法器本体 %d 种，dark_core 改参数行时乘；能施法的近战武器 %s 不乘）' % (
+        '、'.join('%s %g~%g' % (RAR_ZH[r], *rg[r]) for r in RAR), len(ctx.cast_ids), ' '.join(map(str, melee)) or '没有'))
 
 
 def hooks(ctx):
