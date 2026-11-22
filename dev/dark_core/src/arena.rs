@@ -41,7 +41,7 @@ use eldenring::cs::{GameDataMan, SoloParamRepository, SpEffectParam, WorldChrMan
 use fromsoftware_shared::FromStatic;
 
 use crate::foefx::Fx;
-use crate::gear::{count_goods, flag_get, flag_set, gift_n, gifts_pending, give_ashes, remove_goods};
+use crate::gear::{count_goods, flag_get, flag_set, gifts_pending, gift_log, give_ashes, remove_goods};
 use crate::link::{Kind, Packet};
 use crate::{dir, log};
 
@@ -1018,9 +1018,10 @@ fn add_given(r: &mut Run, id: u32) {
     }
 }
 
-/// 发一件未鉴定物品进背包（走发货表，游戏会弹「获得物品」）
+/// 发一件未鉴定物品进背包：走发货表，只进边上的获得记录、不弹屏幕中间的框（用户 2026-11-22「竞技场的奖励发放都走不弹窗」→
+/// 「可以是不弹屏幕中间的框只弹边上的框吗」；gear.rs 的 gift_log）。斗技场发的东西（奖励、退还的星光碎片、骨灰）都这样发
 fn give_item(r: &mut Run, id: i32) -> bool {
-    if gift_n(1, id, 1) {
+    if gift_log(id as u32, 1) {
         add_given(r, id as u32);
         r.n_items += 1;
         true
@@ -1106,7 +1107,7 @@ fn request(d: &Def, st: &mut St, blk: [u8; 4], now: Instant) {
     let got = remove_goods(pgd, d.shard, cost);
     if got != cost {
         if got > 0 {
-            gift_n(1, d.shard as i32, got);
+            gift_log(d.shard, got);
         }
         return done(&format!("扣星光碎片失败（扣到 {got} / {cost}），已退回"));
     }
@@ -1469,7 +1470,7 @@ fn client_join(d: &Def, st: &mut St, host: u64, hs: HostState, hp: i32, now: Ins
         if got == cost {
             paid = true;
         } else if got > 0 {
-            gift_n(1, d.shard as i32, got);
+            gift_log(d.shard, got);
         }
     }
     warp_in(d, c);
@@ -1723,7 +1724,7 @@ fn wave_reward(d: &Def, st: &mut St, r: &mut Run) {
     }
     if r.wave + 1 == r.waves && r.refund > 0 {
         // 退还的碎片不记进 given：打完了就不会再收回
-        let ok = gift_n(1, d.shard as i32, r.refund);
+        let ok = gift_log(d.shard, r.refund);
         got.push(format!("退还星光碎片 ×{}{}", r.refund, if ok { "" } else { "（没有发货表，没发）" }));
     }
     for (id, cat, tier, why) in rolls {
@@ -1794,7 +1795,7 @@ fn takeback_tick(st: &mut St) {
 fn abort(d: &Def, r: &Run, why: &str) {
     log(&format!("竞技场：{why}，退还 {} 个星光碎片", r.cost));
     if r.cost > 0 {
-        gift_n(1, d.shard as i32, r.cost);
+        gift_log(d.shard, r.cost);
     }
     crate::nightmare::unforce();
     crate::foefx::release(FX_TAG);
@@ -2577,7 +2578,18 @@ fn dev_req(d: &Def, st: &mut St, wcm: &mut WorldChrMan, now: Instant) {
             ["生成器", cmd] => gen_req(d, st, wcm, cmd, now),
             ["碎片", n] => {
                 let n = n.parse::<u32>().unwrap_or(3);
-                log(&format!("竞技场：开发工具：发 {n} 个星光碎片{}", if gift_n(1, d.shard as i32, n) { "" } else { "（没有发货表，没发）" }));
+                log(&format!("竞技场：开发工具：发 {n} 个星光碎片{}", if gift_log(d.shard, n) { "" } else { "（没有发货表，没发）" }));
+            }
+            // 只进获得记录的发放测试：和每波奖励同一条路（未鉴定传说 3 件 + 史诗骨灰 1 个），不记进这次试炼
+            ["奖励测试"] => {
+                let mut got = Vec::new();
+                for _ in 0..3 {
+                    let (id, cat) = roll_item(d, 3, st);
+                    got.push(format!("{}·{}{}", RAR_ZH[3], CAT_ZH[cat], if gift_log(id as u32, 1) { "" } else { "（没有发货表，没发）" }));
+                }
+                let (lines, _) = give_ashes(2, 1);
+                got.push(format!("骨灰·{}：{}", RAR_ZH[2], lines.join("；")));
+                log(&format!("竞技场：开发工具：试发奖励 {}（发货表发，只进边上的获得记录；到了看「发货：」那一行）", got.join("、")));
             }
             ["状态"] => match st.run.as_ref() {
                 Some(r) => log(&format!(

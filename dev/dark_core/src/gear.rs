@@ -2719,10 +2719,120 @@ pub(crate) fn gifts_pending() -> usize {
     GIFTS.lock().unwrap_or_else(|e| e.into_inner()).len()
 }
 
-/// 发 n 个随机种类、指定稀有度（0 普通 … 3 传说）的骨灰容器（斗技场试炼的奖励，arena.rs）：返回每个的说明（日志用）和发出去的道具编号
+/// 只进边上的获得记录、不弹屏幕中间的「获得物品」框（用户 2026-11-22「竞技场的奖励发放都走不弹窗」→「可以是不弹屏幕中间的框
+/// 只弹边上的框吗」）：道具参数的 showDialogCondType（获得时弹框：0 不弹 / 2 第一次拿到才弹，原版道具全是 2）决定弹不弹框，
+/// showLogCondType 决定进不进边上的记录（原版全是开着的）。照常走发货表，发这批之前把这些道具的弹框临时改成 0，到了以后
+/// LOG_RESTORE_AFTER 再改回原来的值。还要这样发几件记在 LOG_ONLY（编号 → 件数），发货时按件数认（同一样东西别处照常发的照常弹框）
+static LOG_ONLY: Mutex<Vec<(i32, u32)>> = Mutex::new(Vec::new());
+/// 改过弹框的道具：(编号, 原来的值, 什么时候改回去；None = 那一批还没到)
+static LOG_RESTORE: Mutex<Vec<(u32, u8, Option<Instant>)>> = Mutex::new(Vec::new());
+/// 这批到了以后过多久改回弹框（游戏接着显示获得记录时可能还要读参数）
+const LOG_RESTORE_AFTER: f32 = 3.0;
+
+/// 排队发 n 个道具 goods，只进边上的获得记录（斗技场的奖励，arena.rs）。没有发货表就返回 false
+pub(crate) fn gift_log(goods: u32, n: u32) -> bool {
+    if !gift_n(1, goods as i32, n) {
+        return false;
+    }
+    let mut q = LOG_ONLY.lock().unwrap_or_else(|e| e.into_inner());
+    add_count(&mut q, goods as i32, n);
+    true
+}
+
+fn add_count(v: &mut Vec<(i32, u32)>, id: i32, n: u32) {
+    if n == 0 {
+        return;
+    }
+    match v.iter_mut().find(|x| x.0 == id) {
+        Some(x) => x.1 += n,
+        None => v.push((id, n)),
+    }
+}
+
+/// 这一批里哪些要只进记录：按 LOG_ONLY 的件数认（道具类才算），认到的从 LOG_ONLY 里扣掉。返回 (编号, 这批里认了几件)
+fn take_log_only(want: &mut Vec<(i32, u32)>, items: &[(i32, i32, u8)]) -> Vec<(u32, u32)> {
+    let mut out: Vec<(u32, u32)> = Vec::new();
+    for &(cat, id, n) in items {
+        if cat != 1 {
+            continue;
+        }
+        let Some(w) = want.iter_mut().find(|x| x.0 == id) else { continue };
+        let k = w.1.min(n as u32);
+        if k == 0 {
+            continue;
+        }
+        w.1 -= k;
+        match out.iter_mut().find(|x| x.0 == id as u32) {
+            Some(x) => x.1 += k,
+            None => out.push((id as u32, k)),
+        }
+    }
+    want.retain(|x| x.1 > 0);
+    out
+}
+
+/// 这批要只进记录的道具：弹框改成 0（原来的值记下，已经改着的不重记），等到了再改回去
+fn log_dialog_off(ids: &[(u32, u32)]) {
+    if ids.is_empty() {
+        return;
+    }
+    let Ok(repo) = (unsafe { SoloParamRepository::instance_mut() }) else { return };
+    let mut r = LOG_RESTORE.lock().unwrap_or_else(|e| e.into_inner());
+    for &(id, _) in ids {
+        let Some(g) = repo.get_mut::<EquipParamGoods>(id) else { continue };
+        match r.iter_mut().find(|x| x.0 == id) {
+            Some(x) => x.2 = None,
+            None => r.push((id, g.show_dialog_cond_type(), None)),
+        }
+        g.set_show_dialog_cond_type(0);
+    }
+}
+
+/// 这批到了（或者重新排队了）：几秒后把弹框改回去
+fn log_dialog_due(ids: &[(u32, u32)]) {
+    let due = Instant::now() + std::time::Duration::from_secs_f32(LOG_RESTORE_AFTER);
+    let mut r = LOG_RESTORE.lock().unwrap_or_else(|e| e.into_inner());
+    for x in r.iter_mut().filter(|x| ids.iter().any(|i| i.0 == x.0) && x.2.is_none()) {
+        x.2 = Some(due);
+    }
+}
+
+/// 到点的改回原来的弹框
+fn log_dialog_restore() {
+    let mut r = LOG_RESTORE.lock().unwrap_or_else(|e| e.into_inner());
+    if r.is_empty() {
+        return;
+    }
+    let now = Instant::now();
+    let Ok(repo) = (unsafe { SoloParamRepository::instance_mut() }) else { return };
+    r.retain(|&(id, old, due)| {
+        if due.is_none_or(|t| now < t) {
+            return true;
+        }
+        if let Some(g) = repo.get_mut::<EquipParamGoods>(id) {
+            g.set_show_dialog_cond_type(old);
+        }
+        false
+    });
+}
+
+/// 重新排队的那一批：要只进记录的件数放回 LOG_ONLY（下一批照样不弹框）
+fn log_only_again(ids: &[(u32, u32)]) {
+    if ids.is_empty() {
+        return;
+    }
+    let mut q = LOG_ONLY.lock().unwrap_or_else(|e| e.into_inner());
+    for &(id, n) in ids {
+        add_count(&mut q, id as i32, n);
+    }
+    drop(q);
+    log_dialog_due(ids);
+}
+
+/// 发 n 个随机种类、指定稀有度（0 普通 … 3 传说）的骨灰容器（斗技场试炼的奖励，arena.rs；只进边上的获得记录）：返回每个的说明（日志用）和发出去的道具编号
 pub(crate) fn give_ashes(rar: usize, n: u32) -> (Vec<String>, Vec<u32>) {
     let Ok(gdm) = (unsafe { GameDataMan::instance() }) else { return (vec!["还没进存档，不发".into()], Vec::new()) };
-    let spec = ashes::AshSpec { rar: Some(rar.min(3)), ..Default::default() };
+    let spec = ashes::AshSpec { rar: Some(rar.min(3)), log_only: true, ..Default::default() };
     ashes::dev_give_ids(&gdm.main_player_game_data, &spec, n)
 }
 
@@ -2754,6 +2864,8 @@ pub(crate) struct GiftWait {
     /// 联机会话里：点亮标记前各样东西（掉落表类别, 编号）在背包 + 仓库里的个数；不在会话里 None（标记熄了就算到了）
     before: Option<Vec<((i32, i32), u32)>>,
     off_at: Option<Instant>,
+    /// 这批里只进边上获得记录的道具（编号, 件数；gift_log）：发之前弹框改成 0 了，到了以后改回去
+    log: Vec<(u32, u32)>,
 }
 
 /// 掉落表的类别（1 道具、2 武器、3 防具、4 护符）→ 背包里的类别
@@ -2796,6 +2908,7 @@ fn gift_need(items: &[(i32, i32, u8)]) -> Vec<((i32, i32), u32)> {
 /// 发 gift 排的队：标记熄灭（公共事件发完）就算到了；15 秒还没熄就算没发（重新排回去，下次再发）。
 /// 联机会话里多一步（联机计划 13.3 C8）：熄了再等 1 秒数背包 + 仓库，没涨够的重新排队
 fn gift_tick(d: &Defs, st: &mut St, pgd: &PlayerGameData) {
+    log_dialog_restore();
     if let Some(w) = st.gift_wait.as_mut() {
         if w.off_at.is_none() && flag_get(d.items.deliver_flag) == Some(false) {
             w.off_at = Some(Instant::now());
@@ -2819,11 +2932,17 @@ fn gift_tick(d: &Defs, st: &mut St, pgd: &PlayerGameData) {
                 }
             }
             if again.is_empty() {
-                log(&format!("发货：{} 格到了（{}）{}", w.items.len(), w.items.iter().map(|(c, i, n)| format!("{c}:{i}×{n}")).collect::<Vec<_>>().join("、"),
-                             if w.before.is_some() { "，联机：数过背包了" } else { "" }));
+                log(&format!("发货：{} 格到了（{}）{}{}", w.items.len(), w.items.iter().map(|(c, i, n)| format!("{c}:{i}×{n}")).collect::<Vec<_>>().join("、"),
+                             if w.before.is_some() { "，联机：数过背包了" } else { "" },
+                             if w.log.is_empty() { String::new() } else { format!("；其中 {} 件只进获得记录、没弹框", w.log.iter().map(|x| x.1).sum::<u32>()) }));
+                log_dialog_due(&w.log);
             } else {
                 log(&format!("发货：联机时发货标记熄了，但背包里没涨够：{}，这几样重新排队",
                              again.iter().map(|(c, i, n)| format!("{c}:{i}×{n}")).collect::<Vec<_>>().join("、")));
+                // 重新排的里面原来要只进记录的，下一批照样只进记录
+                let mut was: Vec<(i32, u32)> = w.log.iter().map(|&(i, n)| (i as i32, n)).collect();
+                log_only_again(&take_log_only(&mut was, &again));
+                log_dialog_due(&w.log);
                 GIFTS.lock().unwrap_or_else(|e| e.into_inner()).splice(0..0, again);
             }
             return;
@@ -2833,6 +2952,7 @@ fn gift_tick(d: &Defs, st: &mut St, pgd: &PlayerGameData) {
             let w = st.gift_wait.take().unwrap();
             let _ = lot_write(&d.items, &[]);
             flag_set(d.items.deliver_flag, false);
+            log_only_again(&w.log);
             GIFTS.lock().unwrap_or_else(|e| e.into_inner()).splice(0..0, w.items);
         }
         return;
@@ -2847,10 +2967,14 @@ fn gift_tick(d: &Defs, st: &mut St, pgd: &PlayerGameData) {
     }
     // 联机会话里点亮前先数一遍（C8）
     let before = crate::coop::active().then(|| gift_need(&items).into_iter().map(|((c, i), _)| ((c, i), count_lot_item(pgd, c, i))).collect());
+    // 斗技场的奖励（gift_log）：这批里的这几样先关掉弹框，只进边上的获得记录
+    let log_ids = take_log_only(&mut LOG_ONLY.lock().unwrap_or_else(|e| e.into_inner()), &items);
+    log_dialog_off(&log_ids);
     match lot_write(&d.items, &items) {
-        Ok(()) if flag_set(d.items.deliver_flag, true) => st.gift_wait = Some(GiftWait { t0: Instant::now(), items, before, off_at: None }),
+        Ok(()) if flag_set(d.items.deliver_flag, true) => st.gift_wait = Some(GiftWait { t0: Instant::now(), items, before, off_at: None, log: log_ids }),
         r => {
             log(&format!("发货：改写发货表 / 点亮标记失败（{}），这批重新排队", r.err().unwrap_or_else(|| "标记".into())));
+            log_only_again(&log_ids);
             GIFTS.lock().unwrap_or_else(|e| e.into_inner()).splice(0..0, items);
         }
     }
@@ -3466,6 +3590,7 @@ fn on_load(d: &'static Defs, st: &mut St, who: &(i32, String), pgd: &PlayerGameD
     record_start(d, st, who, pgd);
     st.pending = None;
     if let Some(w) = st.gift_wait.take() {
+        log_only_again(&w.log);
         GIFTS.lock().unwrap_or_else(|e| e.into_inner()).splice(0..0, w.items); // 读档前还没到的，重新排队
     }
     st.wish_queue = 0;
@@ -4839,6 +4964,20 @@ pub fn tick() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// 只进获得记录（斗技场的奖励）：按件数认，只认道具类；同一样东西别处照常发的不算；认完的从队列里去掉
+    #[test]
+    fn log_only_counts() {
+        let mut want = vec![(9213, 2), (1290, 1), (400000, 1)];
+        let batch = [(1, 9213, 1), (2, 400000, 1), (1, 9213, 3), (1, 1290, 5), (1, 9999, 1)];
+        assert_eq!(take_log_only(&mut want, &batch), vec![(9213, 2), (1290, 1)]);
+        assert_eq!(want, vec![(400000, 1)], "武器类的同号不算；道具类的认完就去掉");
+        let mut v = Vec::new();
+        add_count(&mut v, 7, 0);
+        add_count(&mut v, 7, 2);
+        add_count(&mut v, 7, 1);
+        assert_eq!(v, vec![(7, 3)]);
+    }
 
     /// 背包里的道具可以放在 normal_items_len 后面（2026-11-19 玩家诊断：融锻之心在第 708 格、len 655）。
     /// remove_goods 按 normal_entries（按容量）找到的格子，再用 normal_entries_mut 改数量：两边长度要一样，不然越界

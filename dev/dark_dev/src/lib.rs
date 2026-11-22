@@ -1098,6 +1098,11 @@ impl App {
             self.send_arena("碎片 3");
         }
         ui.same_line();
+        // 斗技场奖励的发法（dark_core gear.rs 的 gift_log：只进边上的获得记录、不弹中间的框）：3 件未鉴定传说 + 1 个史诗骨灰
+        if ui.button("试发奖励（只进获得记录）") {
+            self.send_arena("奖励测试");
+        }
+        ui.same_line();
         if ui.button("状态写进日志##arena") {
             self.send_arena("状态");
         }
