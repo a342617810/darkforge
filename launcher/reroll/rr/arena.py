@@ -71,6 +71,9 @@ DRAGON_FAMILIES = {4500, 4501, 4502, 4503, 4510, 4511, 4520, 4910, 5580, 5920}
 # 放进竞技场也读不进来的模型（Boss、精英都不要；settings 的 exclude_models 可以再加）：
 # 铃珠猎人 c3100（2026-11-19 试负载：50 只里只有它一直是状态 0、看不见；黄金树爬塔也把它排除在 Boss / 精英外）
 BAD_MODELS = {'c3100'}
+# 不进 Boss 池的（按随机器 enemy.txt 的 ExtraName；settings 的 exclude_boss_names 可以再加）：
+# 死之鸟 Deathbird（用户 2026-11-22「把死之鸟从boss池中移除」）。死亡仪式鸟 Death Rite Bird 同一个模型 c4980，按名字分开，照常留着
+BAD_BOSS_NAMES = {'Deathbird'}
 # 精英站位（sc/arena.py 按竞技场的玩家出生点摆）：Boss 在中间偏后，精英在前方一排 5 个位置
 ELITE_SPOTS = 5
 # 红 / 蓝粪金龟的站位（sc/arena.py ELITE_AT 的第 6、7 个，在精英那排前面）：同一波里红的、蓝的最多各一只
@@ -126,7 +129,7 @@ GEN_PARAMS = dict(max_num=1, limit=-1, min_gen=1, max_gen=1, min_iv=0.0, max_iv=
 DEFAULT = dict(enabled=True, tiers=[20, 13, 8], lock_tiers=[31, 13, 8], bosses=8,
                boss_pools=[['snowfield', 'farum', 'dlc'], ['caelid', 'leyndell', 'gelmir', 'mountaintops', 'underground', 'other'],
                            ['limgrave', 'weeping', 'liurnia', 'altus']],
-               lock_reward_tier=4, elite_kinds=4, elite_families=0, exclude_models=[], variants=1, elite_copies=4, elite_per_wave=2, scarab_pct=20, scarab_copies=4,
+               lock_reward_tier=4, elite_kinds=4, elite_families=0, exclude_models=[], exclude_boss_names=[], variants=1, elite_copies=4, elite_per_wave=2, scarab_pct=20, scarab_copies=4,
                cost=[1, 2, 3], waves=[2, 4, 8],
                items_elite=2, items_boss=1, ash_boss=1, clear_bonus=[1, 2, 4], refund=[0, 1, 2], elite_two=[0, 0, 10, 15, 20, 30, 40, 50],
                reward_tiers=[[4, 4], [3, 4], [2, 3]], reward_scale=[2, 1, 1], hp_every=2, hp_step=0.1, wave_fx=[],
@@ -157,7 +160,7 @@ def scale_sp(a, b, boss):
 
 
 def read_enemy_txt(path):
-    """enemy.txt 的 Enemies：{实体: dict(map, src_map, part, cls, tags, defeat, next, npcname)}；
+    """enemy.txt 的 Enemies：{实体: dict(map, src_map, part, cls, tags, defeat, next, npcname, extra = ExtraName 英文名)}；
     大地图格子里的敌人 Name 写成「m60_48_55_00-c3150_9000」（部件在前面那个小格子的地图里）"""
     t = open(path, encoding='utf-8').read()
     t = t[t.index('\nEnemies:'):]
@@ -173,7 +176,7 @@ def read_enemy_txt(path):
         nn = re.search(r'^    NpcName: (\d+)$', blk, re.M)
         out[int(m.group(1))] = dict(map=m.group(2), src_map=src_map, part=part, cls=m.group(4),
                                     tags=set((g('Tags') or '').split()), defeat=g('DefeatFlag'), next=g('NextPhase'),
-                                    npcname=int(nn.group(1)) if nn else 0)
+                                    npcname=int(nn.group(1)) if nn else 0, extra=(g('ExtraName') or '').strip())
     return out
 
 
@@ -292,10 +295,11 @@ def build(ctx):
     df_n = _C(e['defeat'] for e in ents.values() if e['defeat'])
     phase2 = {int(e['next']) for e in ents.values() if e['next']}
     bad_models = BAD_MODELS | {str(m) for m in (c.get('exclude_models') or [])}
+    bad_names = BAD_BOSS_NAMES | {str(n) for n in (c.get('exclude_boss_names') or [])}
     boss_all = [k for k, e in ents.items()
                 if e['cls'] in CLASSES_BOSS and k not in rem_ids and not (e['tags'] & BAD_BOSS_TAGS) and not e['next'] and k not in phase2
                 and (not e['defeat'] or df_n[e['defeat']] == 1) and k in npc and npc[k] in N.rows and have_map(e)
-                and e['part'].split('_')[0] not in bad_models]
+                and e['part'].split('_')[0] not in bad_models and e['extra'] not in bad_names]
     elite_all = [k for k, e in ents.items()
                  if e['cls'] == 'Basic' and k in npc and npc[k] in N.rows and npc[k] // 10000 in fams and npc[k] // 10000 not in DRAGON_FAMILIES
                  and e['part'].split('_')[0] not in bad_models
