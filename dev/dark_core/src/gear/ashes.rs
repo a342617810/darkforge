@@ -9,7 +9,7 @@
 //!   挑衅：目标优先度 ＋ #/100，敌人更容易先打召唤物），
 //!   召唤参数 buddy0 + per·c + k（照原版那几行复制，触发效果换成容器的、强化加成换成容器的；集结多复制一行，换个站位；用不到的行触发 −1）。
 //! - 文字：容器每一级的名字 / 简介 / 说明 / 血条名字写进占位（同装备容器的 #DRC 占位，血条名字的编号 = 道具编号 + info2_off）。
-//!   名字「稀有度 [集结·]原版名＋等级」，说明是原版说明后面接稀有度加成和词条（上稀有度的颜色）。
+//!   名字「稀有度 [集结·]原版名＋等级」，说明只有稀有度加成和词条（上稀有度的颜色；用户 2026-11-22 去掉了原版说明那段）。
 //! - 记录：%APPDATA%\…\角色记录\ashes_<格子>.txt（第一行角色名），一行一个容器；进存档时按记录重建参数行，扫完占位后写文字。
 //!   容器不在背包 / 仓库里（丢了）就算空的，下次拿到骨灰可以再用。
 //! - 容器按召唤只数分组（ashes.txt 的 pool 行；用户 2026-11-10 测出集结那一只没出来）：游戏进存档时按召唤参数的触发效果建
@@ -479,6 +479,8 @@ pub(super) struct AshSpec {
     pub(super) affs: Vec<String>,
     /// None = 照规则（传说带）
     pub(super) rally: Option<bool>,
+    /// 只进边上的获得记录、不弹屏幕中间的框（斗技场的奖励，gear.rs 的 gift_log）
+    pub(super) log_only: bool,
 }
 
 static AST: Mutex<Option<AshSt>> = Mutex::new(None);
@@ -573,7 +575,8 @@ fn compose(lib: &Lib, def: &Def, k: &Kind, rec: &AshRec, lv: u32, lang: usize) -
         lines.push(def.rally[2 + lang].clone());
     }
     let painted: Vec<String> = lines.iter().map(|s| paint(lib, r, s)).collect();
-    let cap = if painted.is_empty() { k.cap[lang].clone() } else { format!("{}\n\n{}", k.cap[lang], painted.join("\n")) };
+    // 说明只写我们的稀有度加成、词条（用户 2026-11-22「对于骨灰 去掉说明文字 只保留我们的词条」）；一条都没有才用原版说明
+    let cap = if painted.is_empty() { k.cap[lang].clone() } else { painted.join("\n") };
     [name, k.info[lang].clone(), cap, k.info2[lang].clone()]
 }
 
@@ -1143,7 +1146,7 @@ pub(super) fn dev_give_ids(pgd: &PlayerGameData, spec: &AshSpec, count: u32) -> 
             break;
         }
         let id = def.goods0 + 100 * idx + lv;
-        if !gift_n(1, id as i32, 1) {
+        if !(if spec.log_only { super::gift_log(id, 1) } else { gift_n(1, id as i32, 1) }) {
             out.push("没有发货表，发不了".into());
             break;
         }
@@ -1454,7 +1457,8 @@ mod tests {
         assert_eq!(compose(&lib, &d, &d.kinds[0], &rec, 3, 1)[0], "Legendary Bursting Rallying Lone Wolf Ashes +3");
         assert_eq!(info, "能召唤３只离群野狼的灵魂");
         assert_eq!(info2, "离群野狼");
-        assert!(cap.starts_with("寄宿着灵魂的骨灰。\n\n"), "{cap}");
+        assert!(!cap.contains("寄宿着灵魂的骨灰"), "说明不带原版那段：{cap}");
+        assert!(cap.lines().next().is_some_and(|l| l.contains("召唤物的血量上限、攻击力＋20％（稀有度）")), "第一行是稀有度加成：{cap}");
         for s in ["召唤物的血量上限、攻击力＋20％（稀有度）", "召唤物倒下时爆炸，造成 550 点火焰伤害", "召唤物的血量上限＋30％", "召唤物每秒恢复 1.5％ 的血量", "召唤数量＋1"] {
             assert!(cap.contains(s), "说明里没有「{s}」：{cap}");
         }
