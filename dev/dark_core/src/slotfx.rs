@@ -4,7 +4,8 @@
 //! （dark_slot 在联机时找不到它的特征码），装得进去、游戏却不认这一格；别的原因没复现。
 //! 这里每 EVERY 帧看一次（只在第五格装着护符、或者我们补挂的还没摘时）：第五格护符参数行现在的效果，人物身上一份都没有就补挂一份，
 //! 记成我们挂的；第五格换了 / 空了，补挂的那份摘掉（别的装备也提供、身上只剩一份的留着——那份是游戏自己挂的）；
-//! 游戏后来自己也挂上了（身上两份、别的装备不提供）就摘掉一份。读图 / 读档时效果会重建，记的清掉，之后按身上的重新判断。
+//! 游戏后来自己也挂上了（身上两份、别的装备不提供）就摘掉一份。读图 / 读档时记的不清（补挂的可能跨读图还在身上），
+//! 回来以后按身上实际几份判断：已经没了的忘掉，第五格还提供的没了就再补，不再提供的取下时摘掉（2026-11-22「无尽箭袋的补挂要在取下后失效」）。
 //! 补挂、摘掉都写日志（带第五格护符的组、前四格同组的护符、Seamless 有没有加载，方便看是哪种原因），一次进游戏最多 MAX_LINES 行。
 
 use std::collections::{HashMap, HashSet};
@@ -77,10 +78,9 @@ pub fn tick() {
         return;
     }
     let Ok(wcm) = (unsafe { WorldChrMan::instance_mut() }) else { return };
-    let Some(p) = wcm.main_player.as_mut() else {
-        st.ours.clear(); // 读图 / 读档：身上的效果会重建
-        return;
-    };
+    // 读图 / 读档时 ours 不清（用户 2026-11-22「无尽箭袋的补挂要在取下后失效」）：补挂的效果可能跨读图还留在身上，清了以后再取下第五格
+    // 就没人摘了。回来以后照身上实际几份判断：已经没了的 plan 里会忘掉，还在的取下时照样摘
+    let Some(p) = wcm.main_player.as_mut() else { return };
     let Ok(gdm) = (unsafe { GameDataMan::instance() }) else { return };
     let e = &gdm.main_player_game_data.equipment.equipment_entries;
     let cov = e.covenant.as_valid().filter(|id| matches!(id.category(), ItemCategory::Accessory));
@@ -191,6 +191,25 @@ mod tests {
         let mut ours = HashSet::from([6]);
         assert_eq!(plan(&[], &HashSet::from([6]), &have(&[(6, 2)]), &mut ours), (vec![], vec![6]));
         assert!(ours.is_empty());
+    }
+
+    /// 无尽箭袋：补挂了一份、读图后还在身上，之后从第五格取下（第五格空了、别的装备不提供）→ 摘掉；身上已经没了的只忘掉、不乱摘
+    #[test]
+    fn quiver_patch_removed_after_unequip() {
+        let mut ours = HashSet::new();
+        assert_eq!(plan(&[7210748], &HashSet::new(), &have(&[]), &mut ours), (vec![7210748], vec![]));
+        // 读图回来（ours 不清）：还在身上一份，第五格还装着 → 不动
+        assert_eq!(plan(&[7210748], &HashSet::new(), &have(&[(7210748, 1)]), &mut ours), (vec![], vec![]));
+        // 取下 → 摘
+        assert_eq!(plan(&[], &HashSet::new(), &have(&[(7210748, 1)]), &mut ours), (vec![], vec![7210748]));
+        assert!(ours.is_empty());
+        // 又补挂、读图后身上没了、再取下 → 什么都不摘
+        let mut ours = HashSet::from([7210748]);
+        assert_eq!(plan(&[], &HashSet::new(), &have(&[]), &mut ours), (vec![], vec![]));
+        assert!(ours.is_empty());
+        // 挪到普通格（游戏自己挂一份 + 我们的一份）→ 摘我们那份
+        let mut ours = HashSet::from([7210748]);
+        assert_eq!(plan(&[], &HashSet::from([7210748]), &have(&[(7210748, 2)]), &mut ours), (vec![], vec![7210748]));
     }
 
     /// 补挂的被清掉了（死了、读图）：重新补
