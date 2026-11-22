@@ -26,6 +26,13 @@ const NO_STAIN: Duration = Duration::from_secs(60);
 const LOST_PREFIX: &str = "遗失的未鉴定物品_";
 /// 一轮请求亮着最多等这么久（公共事件每 0.5 秒看一次）；还亮着 = 事件没跑
 const ROUND_WAIT: Duration = Duration::from_secs(10);
+/// 复活后在场活着这么久才发「死亡时遗失了部分未鉴定物品」提示（读图刚完那几帧提示会被清掉）
+const NOTE_DELAY: Duration = Duration::from_secs(3);
+
+/// 可以发遗失提示了：这次在场活着满 NOTE_DELAY
+fn note_ready(alive_since: Option<Instant>, now: Instant) -> bool {
+    alive_since.is_some_and(|t| now.duration_since(t) >= NOTE_DELAY)
+}
 
 /// 直接放回背包的那套（items.txt 的 deathback 行：请求标记、第一个计数标记、每种几个、道具编号）
 #[derive(Debug, Clone, PartialEq)]
@@ -260,6 +267,10 @@ pub(super) struct DeathSt {
     owe: bool,
     /// 扣掉了、复活后要提示
     note: bool,
+    /// 这次在场活着从什么时候起（复活后等 NOTE_DELAY 再提示）
+    alive_since: Option<Instant>,
+    /// 上一批没取回、永久没了，要提示 death gone（和 note 一样等 NOTE_DELAY）
+    gone_note: bool,
     /// 这个记录是哪个角色的（格子, 名字）；换了角色 DeathSt 整个清掉，认准了再读
     who: Option<(i32, String)>,
     /// 跟着血迹 stain 的那批（道具编号, 件数）
@@ -437,7 +448,7 @@ fn lost_tick(d: &Defs, st: &mut St, present_alive: bool, now: Instant) {
             Lost::Link => {
                 if !ds.lost.is_empty() {
                     log(&format!("死亡惩罚：上次遗失的未鉴定物品 {} 件没取回又死了，永久失去：{}", total(&ds.lost), fmt_list(&ds.lost)));
-                    let _ = crate::notes::push("death gone");
+                    ds.gone_note = true;
                 }
                 ds.lost = std::mem::take(&mut ds.fresh);
                 ds.stain = cur;
@@ -472,7 +483,7 @@ fn lost_tick(d: &Defs, st: &mut St, present_alive: bool, now: Instant) {
         }
         Lost::Gone => {
             log(&format!("死亡惩罚：跟着的那摊血迹换成了别的（没取回又死了），遗失的 {} 件永久失去：{}", total(&ds.lost), fmt_list(&ds.lost)));
-            let _ = crate::notes::push("death gone");
+            ds.gone_note = true;
             ds.lost.clear();
             ds.stain = None;
             save_lost(ds);
@@ -583,8 +594,13 @@ pub(super) fn tick(d: &Defs, st: &mut St, pgd: &mut PlayerGameData) {
     let (present, hp, just, colos) = me.map_or((false, 0, false, false), |(h, j, c)| (true, h, j, c));
     // 遗失还没取回的照样看（关掉死亡惩罚以后也要把欠着的还回来）
     let alive = present && hp > 0 && st.death.w.zero_at.is_none();
+    st.death.alive_since = if alive { Some(st.death.alive_since.unwrap_or(now)) } else { None };
     lost_tick(d, st, alive, now);
     back_tick(d, st, pgd, alive, now);
+    // 永久遗失的提示同样等复活后活着满 NOTE_DELAY（lost_tick 在复活后第一帧就认出新血迹）
+    if st.death.gone_note && note_ready(st.death.alive_since, now) && crate::notes::push("death gone") {
+        st.death.gone_note = false;
+    }
     if pct <= 0.0 {
         return;
     }
@@ -617,7 +633,9 @@ pub(super) fn tick(d: &Defs, st: &mut St, pgd: &mut PlayerGameData) {
             st.death.note = true;
         }
     }
-    if st.death.note && hp > 0 && st.death.w.zero_at.is_none() && crate::notes::push("death loss") {
+    // 复活后在场活着满 NOTE_DELAY 才提示（用户 2026-11-22「给死亡时会遗失未鉴定的装备也加闪烁提示 不需要写明数量」：
+    // 以前人物刚出现、血量回来那一帧就排进提示队列，读图那几帧事件标记读不到时 notes 会把整个队列清掉，这条就没了）
+    if st.death.note && note_ready(st.death.alive_since, now) && crate::notes::push("death loss") {
         st.death.note = false;
     }
 }
@@ -628,6 +646,16 @@ mod tests {
 
     fn at(t0: Instant, ms: u64) -> Instant {
         t0 + Duration::from_millis(ms)
+    }
+
+    /// 遗失提示：不在场 / 死着不发；复活后活着满 3 秒才发
+    #[test]
+    fn loss_note_waits_after_respawn() {
+        let t0 = Instant::now();
+        assert!(!note_ready(None, at(t0, 10_000)));
+        assert!(!note_ready(Some(t0), t0));
+        assert!(!note_ready(Some(t0), at(t0, 2_900)));
+        assert!(note_ready(Some(t0), at(t0, 3_000)));
     }
 
     #[test]
