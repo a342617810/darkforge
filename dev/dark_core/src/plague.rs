@@ -7,6 +7,8 @@
 //!   plague.txt 里有它的敌人参数、那一项要摘免疫的：摘掉「XX无效」效果（90000 中毒 / 90010 腐败 / 90020 出血 / 90040 冻伤 / 90060 发狂 /
 //!   90030 咒死 / 90300 睡眠；免疫效果写 -1 的那种只靠抗性 999），挂「降到的比例 × (1 + raise%)」；
 //!   不免疫的挂「100 + raise」（传说 raise 0，不挂）。游戏又把免疫效果挂回来（读图、换阶段）就再摘一次；这组效果已经挂着就不重复挂。
+//!   参数里不免疫、身上却挂着「XX无效」的（地图事件挂的，随机器按位置给，比如蒙流地下墓地几个位置的中毒 / 腐败无效，2026-11-22）：
+//!   一样摘掉，记下是谁（地址 + 敌人参数 + 实体），摘下护符时挂回去；抗性照不免疫的算。
 //! - 摘下护符（标记连续 1 秒没有，读档时可能闪一下）或换了别的稀有度：在场的角色身上有这组效果的，摘掉它们，
 //!   参数里本来挂着免疫效果的挂回去，一次（换稀有度的下一轮按新的挂）。重新读图的敌人照参数重新生成。
 //! - 反复发作抗性不再上涨（用户 2026-11-06）：戴着时把游戏内存里的 ResistCorrectParam 整张表改成「不加不乘」，摘下还原。
@@ -179,9 +181,22 @@ struct St {
     lost: u64,
     waited: u64,
     lost_logged: u32,
+    /// 参数里不免疫、身上却挂着免疫效果、被我们摘掉的：(角色地址, 第几种) → (敌人参数, 实体)，摘下护符时挂回去
+    rt: HashMap<(usize, u8), (i32, u32)>,
 }
 
 static ST: Mutex<Option<St>> = Mutex::new(None);
+
+/// 这一项参数里不免疫（k = 0），身上却挂着免疫效果：地图事件挂的（随机器按位置给的，比如蒙流地下墓地几个位置的中毒 / 腐败无效；
+/// 用户 2026-11-22「玩家说只有蒙流地下墓地的几只怪挂不上」→「修」），也要摘
+fn extra_imm(k: i32, imm: i32, sps: &[i32]) -> bool {
+    k == 0 && imm > 0 && sps.contains(&imm)
+}
+
+/// 摘下护符时这一项要不要把免疫效果挂回去：参数里本来挂着（bits），或者是我们摘掉的地图事件那种；身上已经有了就不挂
+fn give_back(bits: u8, j: usize, was_rt: bool, imm: i32, sps: &[i32]) -> bool {
+    (bits & (1 << j) != 0 || was_rt) && imm > 0 && !sps.contains(&imm)
+}
 
 /// 抗性上涨表「不加不乘」的一行：五个 add_point 全 0、五个 add_rate 全 1
 const NO_GROWTH: [f32; 10] = [0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0, 1.0];
@@ -248,31 +263,39 @@ fn strip(wcm: &WorldChrMan, d: &Def, tier: usize, my_team: u8, st: &mut St, now:
     if st.put.len() > PUT_MAX {
         st.put.clear();
     }
+    if st.rt.len() > PUT_MAX {
+        st.rt.clear(); // 记不下就不挂回去：重新读图时地图事件自己会再挂
+    }
     each(wcm, |c| {
         if !is_foe(c, my_team) || c.modules.data.hp <= 0 || SKIP_MODELS.contains(&c.character_id) {
             return;
         }
         let none = vec![0; d.n()];
         let ks = d.npc.get(&c.npc_param_id).map_or(&none, |x| &x.0);
-        let mut sps: Option<Vec<i32>> = None;
+        // 身上的效果每个角色读一次（参数里不免疫的也要看身上有没有地图事件挂的免疫）
+        let sps: Vec<i32> = c.special_effect.entries().map(|e| e.param_id).collect();
         for j in 0..d.n() {
             let row = d.row_for(ks[j], tier);
-            if row == 0 {
+            let extra = extra_imm(ks[j], d.imm[j], &sps);
+            if row == 0 && !extra {
                 continue;
             }
-            let sps = sps.get_or_insert_with(|| c.special_effect.entries().map(|e| e.param_id).collect());
             // 客机：转给房主摘（房主那份敌人），本机这份也摘（敌人身上的效果不走网络同步，各摘各的；联机计划 13.9 A）；抗性效果照常挂
-            let has_imm = ks[j] > 0 && d.imm[j] > 0 && sps.contains(&d.imm[j]);
+            let has_imm = (ks[j] > 0 || extra) && d.imm[j] > 0 && sps.contains(&d.imm[j]);
             if has_imm && crate::coop::client() {
                 crate::link::foe_to_host(c.event_entity_id, "rmsp", d.imm[j] as f32);
             }
             let imm = has_imm;
+            let key = (c as *const ChrIns as usize, j as u8);
             if imm {
                 c.remove_speffect(d.imm[j]);
                 st.stripped += 1;
+                if extra {
+                    st.rt.insert(key, (c.npc_param_id, c.event_entity_id));
+                }
             }
-            let mut fresh = !sps.iter().any(|&sp| d.ours(j, sp));
-            let key = (c as *const ChrIns as usize, j as u8);
+            // 传说的不加抗性：不免疫的这一项只摘地图事件挂的免疫、不挂抗性倍率
+            let mut fresh = row > 0 && !sps.iter().any(|&sp| d.ours(j, sp));
             if fresh {
                 // 挂过又没了：挂了超过 RETRY 才没的（读图、换阶段）当场再挂；没多久就没了的等 RETRY 再挂，前几次记是谁
                 if let Some((put, gone)) = st.put.get_mut(&key) {
@@ -308,35 +331,39 @@ fn strip(wcm: &WorldChrMan, d: &Def, tier: usize, my_team: u8, st: &mut St, now:
             if (imm || fresh) && st.logged < LOG_EACH {
                 st.logged += 1;
                 log(&format!("疫病护符：NPC {}（实体 {}，阵营 {}）{}{}{}", c.npc_param_id, c.event_entity_id, c.team_type, zh(j),
-                             if imm { "摘掉免疫" } else { "" },
+                             if imm && extra { "摘掉免疫（参数里不免疫，地图事件挂的）" } else if imm { "摘掉免疫" } else { "" },
                              if fresh { format!("，抗性 × {row}%") } else { String::new() }));
             }
         }
     });
 }
 
-fn restore(wcm: &WorldChrMan, d: &Def) -> (u32, u32) {
+/// 摘下 / 换稀有度：摘掉我们挂的抗性倍率，免疫挂回去（参数里本来有的；地图事件挂的、被我们摘掉的认地址 + 敌人参数 + 实体，对不上的不挂）。rt 用完清空
+fn restore(wcm: &WorldChrMan, d: &Def, rt: &mut HashMap<(usize, u8), (i32, u32)>) -> (u32, u32) {
     let (mut chrs, mut back) = (0, 0);
     each(wcm, |c| {
         let sps: Vec<i32> = c.special_effect.entries().map(|e| e.param_id).collect();
         let bits = d.npc.get(&c.npc_param_id).map(|x| x.1).unwrap_or(0);
+        let addr = c as *const ChrIns as usize;
         let mut any = false;
         for j in 0..d.n() {
             let mine: Vec<i32> = sps.iter().copied().filter(|&sp| d.ours(j, sp)).collect();
-            if mine.is_empty() {
+            let was_rt = rt.get(&(addr, j as u8)).is_some_and(|&(npc, ent)| npc == c.npc_param_id && ent == c.event_entity_id);
+            if mine.is_empty() && !was_rt {
                 continue;
             }
             any = true;
             for sp in mine {
                 c.remove_speffect(sp);
             }
-            if bits & (1 << j) != 0 && d.imm[j] > 0 && !sps.contains(&d.imm[j]) {
+            if give_back(bits, j, was_rt, d.imm[j], &sps) {
                 c.apply_speffect(d.imm[j], false);
                 back += 1;
             }
         }
         chrs += any as u32;
     });
+    rt.clear();
     (chrs, back)
 }
 
@@ -358,6 +385,7 @@ pub fn tick() {
         lost: 0,
         waited: 0,
         lost_logged: 0,
+        rt: HashMap::new(),
     });
     if now < st.next {
         return;
@@ -376,7 +404,7 @@ pub fn tick() {
             if st.on != Some(tier) {
                 st.put.clear();
                 if st.on.is_some() {
-                    let (n, back) = restore(wcm, d);
+                    let (n, back) = restore(wcm, d, &mut st.rt);
                     log(&format!("疫病护符：换成{}的，先恢复 {n} 个在场的敌人（挂回免疫效果 {back} 个）", RAR_ZH.get(tier).unwrap_or(&"?")));
                 }
                 st.on = Some(tier);
@@ -398,7 +426,7 @@ pub fn tick() {
                 st.on = None;
                 st.off_since = None;
                 st.put.clear();
-                let (n, back) = restore(wcm, d);
+                let (n, back) = restore(wcm, d, &mut st.rt);
                 log(&format!("疫病护符：摘下了，{n} 个在场的敌人恢复（挂回免疫效果 {back} 个）"));
                 thaw_growth(st);
             }
@@ -414,6 +442,25 @@ mod tests {
     const TXT: &str = "\u{feff}# 头\nmark 7305000 7305001 7305002 7305003\nraise 30 20 10 0\n\
                        status 0 90000 7305100 130\nstatus 1 90010 7305300 130\n\
                        n 43000010 40 100 3\nn 1 0 0 0\nn 2 131 5 1\nn 3 0 7 2\nx y\n";
+
+    /// 地图事件挂的免疫（参数里不免疫）：身上有才摘；参数里免疫的走原来那条；没有免疫效果（睡眠 -1）的不管
+    #[test]
+    fn extra_immunity_from_events() {
+        assert!(extra_imm(0, 90010, &[5, 90010, 7]));
+        assert!(!extra_imm(0, 90010, &[5, 7]));
+        assert!(!extra_imm(40, 90010, &[90010]));
+        assert!(!extra_imm(0, -1, &[-1]));
+    }
+
+    /// 摘下时挂回免疫：参数里本来挂着的、或者我们摘掉的地图事件那种；身上已经有了不重复挂
+    #[test]
+    fn give_back_immunity() {
+        assert!(give_back(0b10, 1, false, 90010, &[]));
+        assert!(give_back(0, 1, true, 90010, &[]));
+        assert!(!give_back(0, 1, false, 90010, &[]));
+        assert!(!give_back(0, 1, true, 90010, &[90010]));
+        assert!(!give_back(0b10, 1, true, -1, &[]));
+    }
 
     /// 定义文件：各稀有度、两组效果、敌人参数；第几行超出范围、两项都是 0 的跳过；没有标记 / 效果就不工作
     #[test]
