@@ -1004,6 +1004,18 @@ function DR_Revive()
     return FALSE
 end
 
+-- Dark Reforged: 被投技打死（被抓着时游戏判定「这一下会死」，原版直接进投技死亡动作 ThrowDeath，不走上面的死亡入口）：
+-- 复活还能用就不进 ThrowDeath，被抓的动作照常播完；血掉到 0 的那一帧照上面一样回满（判定可能在血到 0 之前就出来，所以有可用的就先拦下）
+function DR_ReviveThrow()
+    if DR_Revive() == TRUE then
+        return TRUE
+    end
+    if env(GetSpEffectID, %(ready)d) == TRUE then
+        return TRUE
+    end
+    return FALSE
+end
+
 '''
 REVIVE_PATCH = [
     ('function ExecDeath()\n    if env(GetReceivedDamageType) == DAMAGE_TYPE_DEATH or env(GetHP) <= 0 then\n'
@@ -1021,6 +1033,9 @@ REVIVE_PATCH = [
      '    if DR_Revive() ~= TRUE and env(GetSpecialAttribute) == 25 and 0 >= env(GetHP) and env(IsOnMount) == TRUE then\n'),
     ('    elseif env(GetHP) <= 0\n        and (env(GetSpecialAttribute) == DAMAGE_ELEMENT_POISON',
      '    elseif DR_Revive() ~= TRUE and env(GetHP) <= 0\n        and (env(GetSpecialAttribute) == DAMAGE_ELEMENT_POISON'),
+    # 被投技打死（用户 2026-11-22「修一下死亡难度以上吃boss投技复活不生效的问题」）：ThrowDef 里判定致死直接进 ThrowDeath
+    ('    if env(IsThrowSelfDeath) == TRUE then\n        ExecEvent("ThrowDeath")\n        return\n    end\n',
+     '    if env(IsThrowSelfDeath) == TRUE and DR_ReviveThrow() ~= TRUE then\n        ExecEvent("ThrowDeath")\n        return\n    end\n'),
 ]
 
 
