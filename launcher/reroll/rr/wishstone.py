@@ -17,6 +17,9 @@ TEMPLATE = 10100                         # 锻造石【1】：强化材料（goo
 ICON_FROM = 8185                         # 泪滴幼虫的图标（自制图标在菜单包里时 dark_core 换上）
 SORT = 160104                            # 排在超限锻造石（160102 / 160103）后面
 REQ, ATTR0, ATTR_BITS, NONE, MAX = 93012, 93013, 3, 93016, 93017   # 赐福菜单的请求 / 能力值序号 / 没有许愿石 / 已经 99（dev\event_flags\说明.md）
+# 一次使用 10 个（用户 2026-11-21「许愿石做一个一次使用10个的入口 注意校验加点后不要超过上限」）：菜单点亮它再点亮请求，
+# dark_core 用 min(10, 现有, 到 99 还差几点) 个；92638~92999 扫过没人用（2026-11-21，92640~92760 给了死亡惩罚）
+TEN = 92770
 DEFAULT = dict(boss=1, remembrance=3)
 NAMES = {'zh': ('生命力', '集中力', '耐力', '力气', '灵巧', '智力', '信仰', '感应'),
          'en': ('Vigor', 'Mind', 'Endurance', 'Strength', 'Dexterity', 'Intelligence', 'Faith', 'Arcane')}
@@ -86,7 +89,7 @@ def build(ctx):
         erlib.write_dcx_file(mp, bytes(mb.data))
     ctx.wishstone = c
     ctx.features['wishstone'] = {'goods': GOODS, 'req': REQ, 'attr0': ATTR0, 'attr_bits': ATTR_BITS, 'none': NONE, 'max': MAX,
-                                 'tiers': tiers}          # tiers：入口只在这几档列出来
+                                 'ten': TEN, 'tiers': tiers}          # tiers：入口只在这几档列出来
     ctx.report.append('许愿石：道具 %d，死亡以上每场 Boss 战 %d 个、追忆 Boss %d 个（dark_core 的 fusion 模块发，和融锻之心共用给过标记）；'
                       '赐福「许愿石升级」请求 %d、能力值序号 %d~%d、没有 %d、已满 %d（dark_core 的 wishstone 模块）' % (
                           GOODS, c['boss'], c['remembrance'], REQ, ATTR0, ATTR0 + ATTR_BITS - 1, NONE, MAX))
@@ -96,4 +99,4 @@ def def_lines(ctx):
     """dll\\dark_core\\wishstone.txt（格式见 dark_core 的 wishstone.rs）；没开就没有"""
     if not getattr(ctx, 'wishstone', None):
         return []
-    return ['goods %d' % GOODS, 'req %d' % REQ, 'attr %d %d' % (ATTR0, ATTR_BITS), 'none %d' % NONE, 'max %d' % MAX]
+    return ['goods %d' % GOODS, 'req %d' % REQ, 'attr %d %d' % (ATTR0, ATTR_BITS), 'none %d' % NONE, 'max %d' % MAX, 'ten %d' % TEN]
