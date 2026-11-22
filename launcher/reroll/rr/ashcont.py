@@ -39,7 +39,7 @@ LEVELS = 11
 TRIGGER_TEMPLATE, DOP_TEMPLATE, BUDDY_TEMPLATE = 200000, 290000, 20000000    # 「黑刀」狄希的召唤效果、原版 +0 加成、召唤参数
 DEFAULT = dict(enabled=True, pools=[300, 120, 60, 30, 36, 12], weights=[40, 30, 20, 10], mult=[1.0, 1.05, 1.1, 1.2], suffixes=[1, 1, 2, 2], rally=True,
                prefix_chance=[0, 30, 60, 100], mimic_pools=[8, 8], boss_drop=[1, 1], reserve=True, aff_vals={})
-# aff_vals：改数值词条的四档数值，{键: [普通, 稀有, 史诗, 传说]}（比如 {"taunt": [50, 75, 100, 150]}）；不写的照 AFFIXES
+# aff_vals：改数值词条的四档数值，{键: [普通, 稀有, 史诗, 传说]}（比如 {"taunt": [10, 20, 30, 40]}）；不写的照 AFFIXES
 # reserve：原版骨灰的获取格（地图 / 敌人掉落、商店）直接放容器（用户 2026-11-11「去掉一下原版骨灰的掉落 … 应该是以我们的作为替换」）：
 # def_lines 写 src 行，dark_core 进存档时给还没拿的每一格抽好一个、把格子改成它，地上捡起、商店里看到的就是带稀有度、词条的
 # boss_drop：难度里标了 lock 的档（死亡 / 不可能）每个 Boss 战第一次击败掉几个随机原版骨灰（dark_core 的 ovldrop 发，进背包照常换容器；
@@ -55,8 +55,9 @@ AFFIXES = [
     ('regen', 'regen', (0.5, 0.8, 1.2, 1.5), '召唤物每秒恢复 #％ 的血量', 'Summons restore #% HP per second'),
     ('cost', 'cost', (10, 15, 20, 30), '召唤消耗的专注值－#％', 'Summoning FP cost -#%'),
     # 挑衅（用户 2026-11-21「给骨灰新增一个可以大幅增强吸引敌人仇恨的词条」）：强化加成行的目标优先度 targetPriority ＋ #/100。
-    # 原版召唤物挂着 −0.5 / −0.25（296010 / 296011），玩家 0，沙布里黎的悲叹 +0.1；几个效果的值相加
-    ('taunt', 'taunt', (50, 75, 100, 150), '召唤物吸引敌人仇恨的程度＋#％', 'Summons draw +#% enemy aggression'),
+    # 原版召唤物挂着 −0.5 / −0.25（296010 / 296011），玩家 0，沙布里黎的悲叹 +0.1；几个效果的值相加。
+    # 2026-11-22 用户「最高数值改为现在的1/2」→「改到10% 20% 30% 40%吧」（以前 50 / 75 / 100 / 150）
+    ('taunt', 'taunt', (10, 20, 30, 40), '召唤物吸引敌人仇恨的程度＋#％', 'Summons draw +#% enemy aggression'),
 ]
 RALLY = ('集结', 'Rallying', '召唤数量＋1', 'Summons one more spirit')
 BONUS = ('召唤物的血量上限、攻击力＋#％（稀有度）', 'Summon max HP and attack +#% (rarity)')
