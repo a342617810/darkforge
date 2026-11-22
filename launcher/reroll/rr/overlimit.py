@@ -22,8 +22,9 @@ DUMMY_NPC = 56009900                     # 训练木桩的敌人参数（rr/dumm
 # 幽影之地的 c54xx 动物等不主动打人的（data\\enemy_classes.json 的 wildlife；狼、野狗、老鼠、蛞蝓这些会打人的是 small_animal，照旧掉）
 NO_DROP_CLASSES = ('wildlife',)
 # armor_stones：防具从中位到超限上限几颗（用户 2026-11-04「减少防具超限满所需个数 当前数量/2」：50 → 25；武器照旧 stones）
-# weapon_cap_spread（用户 2026-11-21「法杖的可以保持不变 其他武器加一个上限的随机范围 为正负20%的截断正态」）：法杖、圣印记以外的武器，
-# 每把的超限上限 × 1 ± 这个数的截断正态（dark_core gear/overlimit.rs cap_mult，按记录抽、同一把一直一样）；每颗加的量不变
+# weapon_cap_spread（用户 2026-11-21「法杖的可以保持不变 其他武器加一个上限的随机范围 为正负20%的截断正态」）：法杖、圣印记、弓以外的武器，
+# 每把的超限上限 × 1 ± 这个数的截断正态（dark_core gear/overlimit.rs cap_mult，按记录抽、同一把一直一样）；每颗加的量不变。
+# 弓（2026-11-21「弓不再走超限额外波动了 弩和弩炮不动」）和法杖一样写在 wcast 里，不随机（rr/affixes.py BOW_CATEGORY）
 DEFAULT = dict(weapon_cap=1.1, armor_cap=1.2, stones=50, armor_stones=25, weapon_cap_spread=0.2)
 # 按 lock 档的顺序：死亡、不可能（用户 2026-11-03）；boss_stones 2026-11-04「超限锻造石boss掉落数量翻5倍」1 / 2 → 5 / 10（武器 / 防具轮流给，第一颗随机）
 # remembrance_stones：掉落追忆的头目（data\\remembrance_bosses.json 的 base / dlc 位置，不算 dlc_extra）的颗数（用户 2026-11-09「死亡追忆boss掉10个两种碎片吧 不可能20个」）
@@ -58,9 +59,9 @@ def texts(c):
     wp, ap, n, na = round((c['weapon_cap'] - 1) * 100), round((c['armor_cap'] - 1) * 100), c['stones'], c['armor_stones']
     ws = round(float(c.get('weapon_cap_spread', 0)) * 100)
     cap_zh = ('，最多到这个稀有度原上限再高 %d%%（一般约 %d 颗到顶）' % (wp, n) if ws <= 0 else
-              '。能推到多高看武器：法杖、圣印记都到这个稀有度原上限再高 %d%%，其他武器每把在这个数上下浮动，最多差 %d%%；一般约 %d 颗到顶' % (wp, ws, n))
+              '。能推到多高看武器：法杖、圣印记和弓都到这个稀有度原上限再高 %d%%，其他武器每把在这个数上下浮动，最多差 %d%%；一般约 %d 颗到顶' % (wp, ws, n))
     cap_en = ('up to %d%% above the original cap for its rarity (usually about %d stones to max out)' % (wp, n) if ws <= 0 else
-              'up to a cap that depends on the armament: %d%% above the original cap for its rarity for staves and seals, '
+              'up to a cap that depends on the armament: %d%% above the original cap for its rarity for staves, seals and bows, '
               'and up to %d%% higher or lower than that for each other armament (usually about %d stones to max out)' % (wp, ws, n))
     drop_zh = '在「死亡」「不可能」难度里击败敌人时有几率获得；每个头目在每个难度第一次被击败时必定获得数颗，掉落追忆的头目给得更多。'
     drop_en = 'Dropped by enemies on the Death and Impossible difficulties; every boss gives several the first time it falls on each of those difficulties, remembrance bosses more.'
@@ -203,6 +204,6 @@ def lines(ctx):
     c = getattr(ctx, 'overlimit', None)
     if not c:
         return []
-    return ['# overlimit <武器石> <防具石> <武器从中位到超限上限几颗> <防具几颗> <法杖、圣印记以外的武器每把超限上限的随机幅度 ±>'
+    return ['# overlimit <武器石> <防具石> <武器从中位到超限上限几颗> <防具几颗> <法杖、圣印记、弓以外的武器每把超限上限的随机幅度 ±>'
             '（rr/overlimit.py；各稀有度的上限在 affixes.txt 的 ovlw / ovlp 行）',
             'overlimit\t%d\t%d\t%d\t%d\t%g' % (GOODS_W, GOODS_A, c['stones'], c['armor_stones'], c['weapon_cap_spread'])]

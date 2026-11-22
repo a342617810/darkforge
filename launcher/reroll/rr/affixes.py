@@ -522,12 +522,16 @@ def skill_mults(ctx):
 # 能施法的法器本体（weaponCategory 8 里 enableMagic / enableMiracle 的：法杖、圣印记）写进 affixes.txt 的 wcast 行。settings 的 catalyst_base 可以改。
 # 能施法的近战武器（卡利亚魔法剑 2530000，类别 2）不算（用户 2026-11-20「修一下卡利亚魔法剑吃到法杖专用的补正增强的问题」）：
 # 倍率乘的是五项补正值，近战武器的攻击力也按这几项补正，以前跟着法杖一起放大到 0.7~2.5 倍
+# 弓（weaponCategory 10：短弓、长弓、大弓，含幽影之地的）也乘（用户 2026-11-21「弓不再走超限额外波动了 弩和弩炮不动 弓走法杖的补正」）：
+# 一起写进 wcast（能施法写 0 0），dark_core 按 wcast 乘法器倍率、超限上限不随机（gear/overlimit.rs cap_mult）；弩、弩炮（类别 11）照旧
 CATALYST_CATEGORY = 8
+BOW_CATEGORY = 10
 CAST_BASE = {'Common': (70, 130), 'Rare': (90, 150), 'Epic': (110, 210), 'Legendary': (150, 250)}   # 普通 / 稀有 ±30、史诗 / 传说 ±50（用户 2026-11-03）
 
 
 def cast_bases(ctx):
-    """记下法器倍率的区间 ctx.cast_range 和能施法的本体 ctx.cast_ids = [(本体, 魔法, 祷告)]，write_def 写成 affixes.txt 的 cbase / wcast 行"""
+    """记下法器倍率的区间 ctx.cast_range 和乘它的本体 ctx.cast_ids = [(本体, 魔法, 祷告)]（法杖、圣印记，再加上弓，弓写 0 0），
+    write_def 写成 affixes.txt 的 cbase / wcast 行"""
     ctx.cast_range, ctx.cast_ids = None, []
     cfg = ctx.S.get('catalyst_base') or {}
     if not cfg.get('enabled', True):
@@ -536,16 +540,21 @@ def cast_bases(ctx):
     W = erlib.Param(ctx.bnd.get('EquipParamWeapon.param'))
     wl = {t[0]: t for t in pdm.layout(pdm.load(os.path.join(ctx.data_dir, 'EquipParamWeapon.xml')))[0]}
     bit = lambda row, f: (row[wl[f][2]] >> wl[f][3]) & 1 if wl[f][4] else row[wl[f][2]]
-    melee = []
+    melee, bows = [], []
     for i, row in sorted(W.rows.items()):
-        if i < 100000000 and i % 10000 == 0 and (bit(row, 'enableMagic') or bit(row, 'enableMiracle')):
+        if i >= 100000000 or i % 10000:
+            continue
+        if bit(row, 'enableMagic') or bit(row, 'enableMiracle'):
             if bit(row, 'weaponCategory') != CATALYST_CATEGORY:
                 melee.append(i)
                 continue
             ctx.cast_ids.append((i, bit(row, 'enableMagic'), bit(row, 'enableMiracle')))
+        elif bit(row, 'weaponCategory') == BOW_CATEGORY:
+            bows.append(i)
+    ctx.cast_ids += [(i, 0, 0) for i in bows]
     ctx.cast_range = rg
-    ctx.report.append('法器倍率：%s（补正值 × 倍率 ÷ 100，法器本体 %d 种，dark_core 改参数行时乘；能施法的近战武器 %s 不乘）' % (
-        '、'.join('%s %g~%g' % (RAR_ZH[r], *rg[r]) for r in RAR), len(ctx.cast_ids), ' '.join(map(str, melee)) or '没有'))
+    ctx.report.append('法器倍率：%s（补正值 × 倍率 ÷ 100，法器本体 %d 种 + 弓 %d 种，dark_core 改参数行时乘；能施法的近战武器 %s 不乘）' % (
+        '、'.join('%s %g~%g' % (RAR_ZH[r], *rg[r]) for r in RAR), len(ctx.cast_ids) - len(bows), len(bows), ' '.join(map(str, melee)) or '没有'))
 
 
 def hooks(ctx):
