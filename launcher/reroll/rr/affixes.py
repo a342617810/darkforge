@@ -764,19 +764,23 @@ def weapon_scaling(ctx, wt):
     ws = ctx.S.get('weapon_scaling') or {}
     if not ws.get('enabled', True):
         return src, '照原包的统计'
+    # 全能（五项）也照这个区间抽（用户 2026-11-24「只用一个参数控制」：以前区间按原包全能和两项的中位数之比缩小、强化成长再打折），
+    # 打折只在挂到武器上时 × omni（omni_mult，dark_core 的 womni 行）
     rg, out, note = ws.get('range') or {}, {}, []
     for r in RAR:
         lo, hi = map(float, rg.get(r) or WEAPON_SCAL[r])
-        two = median(src[r].get('2') or {}) or 1.0
-        out[r] = {}
-        for n, h in src[r].items():
-            k = median(h) / two if n == '5' else 1.0          # 全能：照原包全能和两项的中位数之比
-            out[r][n] = normal_hist(lo * k, hi * k)
-            if n == '5':
-                note.append('%s %g~%g（全能 ×%.2f）' % (RAR_ZH[r], lo, hi, k))
-        if '5' not in src[r]:
-            note.append('%s %g~%g' % (RAR_ZH[r], lo, hi))
-    return out, '截断正态 ' + '、'.join(note)
+        out[r] = {n: normal_hist(lo, hi) for n in src[r]}
+        note.append('%s %g~%g' % (RAR_ZH[r], lo, hi))
+    return out, '截断正态 %s；全能补正 ×%g' % ('、'.join(note), omni_mult(ctx))
+
+
+def omni_mult(ctx):
+    """全能（五项都有补正）的补正倍率（settings 的 weapon_scaling.omni，默认 0.75）：dark_core 写参数行时乘（同法器倍率），
+    超限上限、装备工坊的数也乘。weapon_scaling 关着（照原包的统计，全能本来就低）是 1"""
+    ws = ctx.S.get('weapon_scaling') or {}
+    if not ws.get('enabled', True):
+        return 1.0
+    return max(0.05, min(1.0, float(ws.get('omni', 0.75))))
 
 
 def bases(ctx, lib):
@@ -988,6 +992,7 @@ def write_def(ctx, path):
     # 武器
     scal, scal_note = weapon_scaling(ctx, wt)
     ctx.report.append('武器补正值：%s' % scal_note)
+    L.append('womni\t%g' % omni_mult(ctx))          # 全能的补正倍率（dark_core 写参数行、超限上限、工坊里乘）
     # 武器类型：用户 2026-11-10「改成均匀」——这个稀有度里有本体的类型都一样多（以前照原装备包的件数，火把 0.6%、大剑 4%）；
     # settings 的 weapon_type_uniform 设 false 回到按件数
     # 同日「给法杖和圣印记和弓弩系列一些补正」（盾牌不动）：这几类（SUPPORT_TYPES）权重 × weapon_type_boost（默认 2）

@@ -664,6 +664,9 @@ struct Lib {
     wguard_q: [Option<(f64, f64)>; 4],
     /// 法器的法术补正基数（catalyst_base，用户 2026-11-03）：各稀有度的区间（原版 100），没有就照原版
     cbase: [Option<(f64, f64)>; 4],
+    /// 全能（五项都有补正）的补正倍率（womni 行，settings 的 weapon_scaling.omni；用户 2026-11-24「只用一个参数控制」）：
+    /// 写参数行时乘（同法器倍率），超限上限、装备工坊的数也乘；没有这一行是 1（omni_mult）
+    womni: Option<f64>,
     /// 能施法的本体（wcast 行）：编号 → (能用魔法, 能用祷告)
     wcast: HashMap<u32, (bool, bool)>,
     /// 超限上限（rr/overlimit.py，用户 2026-11-03）：武器 (稀有度, 补正项数) → (中位, 原上限, 超限上限)（ovlw 行）；
@@ -910,6 +913,13 @@ fn parse_lib(text: &str) -> Result<Lib, String> {
                     return Err(format!("防具减伤倍率区间不对：{lo} ~ {hi}"));
                 }
                 d.pdef[r_of(f[1])?] = Some((lo, hi));
+            }
+            "womni" if n >= 2 => {
+                let m = f[1].parse::<f64>().map_err(|_| format!("不是数字：{}", f[1]))?;
+                if !(m > 0.0 && m <= 1.0) {
+                    return Err(format!("全能补正倍率不对：{m}"));
+                }
+                d.womni = Some(m);
             }
             "cbase" if n >= 4 => {
                 let fl = |s: &str| s.parse::<f64>().map_err(|_| format!("不是数字：{s}"));
@@ -2157,6 +2167,15 @@ fn armor_mult(lo: f64, hi: f64, rec: &Rec, base: u32, sps: &[(i32, String)]) -> 
 
 /// 法器倍率（百分数，100 = 原版；catalyst_base）：能施法的本体（wcast）按稀有度区间抽截断正态（同防具减伤），按记录（容器序号、档、本体）定，
 /// 同一件每次一样、重铸不变；参数行的五项补正值乘它 ÷ 100（build_row），面板上的补正、法术补正都跟着变。不是法器、没配区间的 None
+/// 全能（五项都有补正）的补正倍率（Lib::womni，默认 1）：参数行的补正 = 配方 × 法器倍率 × 这个
+fn omni_mult(lib: &Lib, cor: &[f32; 5]) -> f64 {
+    if cor.iter().all(|&c| c > 0.0) {
+        lib.womni.unwrap_or(1.0)
+    } else {
+        1.0
+    }
+}
+
 fn cast_base(lib: &Lib, rec: &Rec) -> Option<f64> {
     let Recipe::W { base, .. } = &rec.recipe else { return None };
     lib.wcast.get(base)?;
@@ -2357,8 +2376,8 @@ fn build_row(lib: &Lib, rec: &Rec, base_row: &[u8], old: bool) -> Vec<u8> {
             }
             const ST: [&str; 5] = ["Strength", "Agility", "Magic", "Faith", "Luck"];
             const CV: [&str; CURVE_N] = ["Physics", "Magic", "Fire", "Thunder", "Dark", "Poison", "Blood", "Sleep", "Madness"];
-            // 法器：补正值 × 法器倍率（配方里存的还是没乘的，重铸 / 超限照配方算）
-            let cm = cast_base(lib, rec).map_or(1.0, |b| b / 100.0);
+            // 法器：补正值 × 法器倍率；全能再 × 全能补正倍率（配方里存的还是没乘的，重铸 / 超限照配方算）
+            let cm = cast_base(lib, rec).map_or(1.0, |b| b / 100.0) * omni_mult(lib, cor);
             for k in 0..5 {
                 put(lib, c, &mut row, &format!("correct{}", ST[k]), cor[k] as f64 * cm);
                 put(lib, c, &mut row, &format!("proper{}", ST[k]), req[k] as f64);
@@ -5231,7 +5250,13 @@ mod tests {
         let types: HashSet<u16> = lib.reinf.keys().map(|k| k.0).collect();
         assert_eq!(lib.reinf.len(), types.len() * 8, "每种强化类型要有 4 个稀有度 × 全能");
         let ids: HashSet<i32> = lib.reinf.values().copied().collect();
-        assert_eq!(ids.len(), lib.reinf.len(), "换成的强化类型有重复");
+        if lib.womni.is_some() {
+            // 2026-11-24 起全能和其他武器同一个强化类型（全能只靠 womni 打折）
+            assert!(lib.reinf.iter().all(|(&(t, r, om), v)| !om || lib.reinf.get(&(t, r, false)) == Some(v)), "全能要和其他武器同一个强化类型");
+            assert_eq!(ids.len(), types.len() * 4, "换成的强化类型有重复");
+        } else {
+            assert_eq!(ids.len(), lib.reinf.len(), "换成的强化类型有重复");
+        }
         assert!(ids.iter().all(|&t| t % 100 == 0 && t + lib.rmax as i32 <= i16::MAX as i32), "强化类型编号：{ids:?}");
         assert!(lib.rmat.iter().all(|&m| m > 0), "材料组：{:?}", lib.rmat);
         eprintln!("强化：{} 种原版强化类型，最高 +{}", types.len(), lib.rmax);
@@ -6002,6 +6027,33 @@ mod tests {
         let trec = Rec { cat: 2, idx: 0, tier: 1, recipe: Recipe::A { tal: 1, sp: -1, key: String::new(), pos: 0 } };
         let row = build_row(&lib, &trec, &tal, false);
         assert_eq!(u16::from_le_bytes([row[0], row[1]]), 50010);
+    }
+
+    /// 全能补正倍率（womni，用户 2026-11-24）：五项都有补正的参数行补正 × womni，别的不乘；没有 womni 行是 1；法器倍率照样乘在一起
+    #[test]
+    fn omni_correct_mult() {
+        let mut lib = Lib::default();
+        for (k, s) in ["Strength", "Agility", "Magic", "Faith", "Luck"].iter().enumerate() {
+            lib.fields.insert(('w', format!("correct{s}")), Field { off: 4 * k, fmt: b'f', bit: -1 });
+        }
+        let rec = |base: u32, cor: [f32; 5]| Rec {
+            cat: 0,
+            idx: 3,
+            tier: 3,
+            recipe: Recipe::W { base, var: 0, skill: -1, cor, req: [0; 5], curve: [0; CURVE_N], st: [-1; 3], res: [-1; 2], glow: -1, spec: -1, atk: 0, ovl: false, elem: 0, share: 0 },
+        };
+        let cors = |row: Vec<u8>| -> Vec<f32> { (0..5).map(|k| f32::from_le_bytes(row[4 * k..4 * k + 4].try_into().unwrap())).collect() };
+        let base = vec![0u8; 20];
+        assert_eq!(cors(build_row(&lib, &rec(1, [100.0; 5]), &base, false)), vec![100.0; 5], "没有 womni 不乘");
+        lib.womni = Some(0.75);
+        assert_eq!(cors(build_row(&lib, &rec(1, [100.0; 5]), &base, false)), vec![75.0; 5]);
+        assert_eq!(cors(build_row(&lib, &rec(1, [100.0, 80.0, 60.0, 40.0, 0.0]), &base, false)), vec![100.0, 80.0, 60.0, 40.0, 0.0], "四项不乘");
+        assert_eq!(omni_mult(&lib, &[1.0; 5]), 0.75);
+        // 法器（wcast + cbase）：法器倍率 × 全能补正倍率
+        lib.wcast.insert(7, (true, false));
+        lib.cbase[3] = Some((110.0, 110.0));
+        let got = cors(build_row(&lib, &rec(7, [100.0; 5]), &base, false));
+        assert!(got.iter().all(|&c| (c - 82.5).abs() < 1e-3), "{got:?}");
     }
 
     /// 强化：按本体的强化类型、稀有度、全能换；已经强到上限以上的（old）、没有对应的照原版

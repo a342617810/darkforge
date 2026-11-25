@@ -5,7 +5,8 @@ dll\\dark_core 改写容器行时按「本体的强化类型 × 稀有度 × 是
 - 成长（growth）：+k 相当于原版这个强化类型的 (k / 5 × growth × 满级) 级，满级是 +25（失色 +10），中间线性插值。
   传说 1.0（+5 = 原版满级）、史诗 0.8（≈ 传说 +4）、稀有 0.5（≈ 传说 +2.5）、普通 0.2（≈ 传说 +1）。
 - 战技的固定伤害（baseAtkRate，如神圣刀刃的圣）、强化价格、maxReinforceLevel 不看稀有度：+5 都是原版满级（用户：满强和原版一致）。
-- 全能（五项属性都有补正）的补正成长只算 omni_scaling 那么多（0.6.2：全能 ×1.35 / 其他 ×1.6 → 0.583）。
+- 全能（五项属性都有补正）和其他武器同一个强化类型（用户 2026-11-24「只用一个参数控制」：以前全能的补正成长只算 omni_scaling 0.583，
+  照 0.6.2 的全能 ×1.35 / 其他 ×1.6；现在全能的打折只看 weapon_scaling.omni，dark_core 写参数行时乘，rr/affixes.py omni_mult）。
 - 编号：强化类型 TYPE_BASE 起每个占 100（原版到 9010，reinforceTypeId 是 s16）；材料组 MAT_BASE + 稀有度 × 10 + 等级。
   原版的强化类型、材料组原版武器也在用，不动。
 - 本体原版不能强化（强化类型只有 +0，陨石杖）的也按稀有度强化（用户 2026-10-31）：照同武器类型的本体最常用的失色强化类型
@@ -39,7 +40,7 @@ def cfg(S):
     if len({len(v) for v in stones.values()}) != 1 or not stones['Common']:
         raise RuntimeError('weapon_upgrade.stones：各稀有度的石头数要一样（= 最高强化等级）')
     return dict(stones=stones, growth={r: float((c.get('growth') or {}).get(r, GROWTH[r])) for r in RAR},
-                omni=float(c.get('omni_scaling', 0.583)), max=len(stones['Common']))
+                max=len(stones['Common']))
 
 
 FULLWIDTH = str.maketrans('0123456789', '０１２３４５６７８９')
@@ -148,7 +149,7 @@ def build(ctx):
         """满级同样是 top、补正倍率不是 0 的强化类型里，本体最多的那个"""
         n = Counter(t for t, wt in bases if tops[t] == top and not zero_cor(t))
         return n.most_common(1)[0][0] if n else None
-    if TYPE_BASE + len(kinds) * len(RAR) * 2 * 100 > 32700:
+    if TYPE_BASE + len(kinds) * len(RAR) * 100 > 32700:
         raise RuntimeError('强化类型太多，编号超出 s16')
 
     def level_row(t, top, e):
@@ -162,45 +163,40 @@ def build(ctx):
     mapping, cor_fixed = [], []
     k_type = TYPE_BASE
     for t, src_t, top in kinds:
-        base0 = RF.rows[src_t]
         # 补正倍率全是 0 的（原版的弩 3500、弩炮 / 大炮 3100~3400：本体没有补正）：生成的武器抽到了补正也被乘成 0，一点不生效
         # （用户 2026-11-01：多击发弩、壶大炮没有补正）。补正倍率照同满级的普通强化类型（cor_ref），别的照旧
         ref = cor_ref(top) if zero_cor(src_t) else None
         if ref is not None:
             cor_fixed.append((t, ref))
-            base0 = RF.rows[ref]
         for ri, r in enumerate(RAR):
-            for omni in (0, 1):
-                nt = k_type
-                k_type += 100
-                for lv in range(n_lv + 1):
-                    if nt + lv in RF.rows:
-                        raise RuntimeError('强化类型 %d 已经有人用了' % (nt + lv))
-                    full = top * lv / n_lv
-                    vals, src = level_row(src_t, top, full * c['growth'][r])
-                    if ref is not None:
-                        rv, _ = level_row(ref, tops[ref], full * c['growth'][r] * tops[ref] / top)
-                        vals.update({f: rv[f] for f in CORRECT_F})
-                    full_vals, full_src = level_row(src_t, top, full)
-                    row = bytearray(src)
-                    for f in floats:
-                        v = full_vals[f] if f in FULL_F else vals[f]
-                        if omni and f in CORRECT_F:
-                            v0 = g(rl, base0, f)
-                            v = v0 + (v - v0) * c['omni']
-                        p(rl, row, f, v)
-                    p(rl, row, 'maxReinforceLevel', g(rl, full_src, 'maxReinforceLevel'))
-                    p(rl, row, 'materialSetId', lv)
-                    RF.add_row(nt + lv, row)
-                    rows_new += 1
-                # +rmax 以上到 +25 照 +rmax 那行补上（崩溃风险审查 2026-11-19 第 10 条）：联机收到的、以前强化过头的武器换成这个强化类型时
-                # 也查得到强化行；强化上限照旧由 dark_core 的 cap_origin 管（originEquipWep(rmax+1..25) = -1），铁匠不会再往上强化
-                for lv in range(n_lv + 1, MAX_LV + 1):
-                    if nt + lv in RF.rows:
-                        raise RuntimeError('强化类型 %d 已经有人用了' % (nt + lv))
-                    RF.add_row(nt + lv, bytes(RF.rows[nt + n_lv]))
-                    rows_pad += 1
-                mapping.append((t, ri, omni, nt))
+            nt = k_type
+            k_type += 100
+            for lv in range(n_lv + 1):
+                if nt + lv in RF.rows:
+                    raise RuntimeError('强化类型 %d 已经有人用了' % (nt + lv))
+                full = top * lv / n_lv
+                vals, src = level_row(src_t, top, full * c['growth'][r])
+                if ref is not None:
+                    rv, _ = level_row(ref, tops[ref], full * c['growth'][r] * tops[ref] / top)
+                    vals.update({f: rv[f] for f in CORRECT_F})
+                full_vals, full_src = level_row(src_t, top, full)
+                row = bytearray(src)
+                for f in floats:
+                    p(rl, row, f, full_vals[f] if f in FULL_F else vals[f])
+                p(rl, row, 'maxReinforceLevel', g(rl, full_src, 'maxReinforceLevel'))
+                p(rl, row, 'materialSetId', lv)
+                RF.add_row(nt + lv, row)
+                rows_new += 1
+            # +rmax 以上到 +25 照 +rmax 那行补上（崩溃风险审查 2026-11-19 第 10 条）：联机收到的、以前强化过头的武器换成这个强化类型时
+            # 也查得到强化行；强化上限照旧由 dark_core 的 cap_origin 管（originEquipWep(rmax+1..25) = -1），铁匠不会再往上强化
+            for lv in range(n_lv + 1, MAX_LV + 1):
+                if nt + lv in RF.rows:
+                    raise RuntimeError('强化类型 %d 已经有人用了' % (nt + lv))
+                RF.add_row(nt + lv, bytes(RF.rows[nt + n_lv]))
+                rows_pad += 1
+            # 全能和其他武器用同一个强化类型（用户 2026-11-24：全能的补正打折只看 weapon_scaling.omni，强化成长不再另外打折）；
+            # reinf 行照旧分全能（dark_core 按 (原版强化类型, 稀有度, 全能) 查）
+            mapping += [(t, ri, 0, nt), (t, ri, 1, nt)]
     # 材料组：每级 1 块；拿原版「1 块失色锻造石」那行当模板（只第一格有材料）
     tmpl = next((M.rows[k] for k in sorted(M.rows) if g(ml, M.rows[k], 'materialId01') == 10160 and g(ml, M.rows[k], 'itemNum01') == 1
                  and g(ml, M.rows[k], 'materialId02') <= 0), None)
@@ -221,8 +217,8 @@ def build(ctx):
     ctx.bnd.put('EquipMtrlSetParam.param', M.serialize())
     ctx.upgrade = dict(map=mapping, mats=mats, max=n_lv)
     stone_texts(ctx, c)
-    ctx.report.append('生成武器的强化：最高 +%d、每级 1 块石头；%d 种原版强化类型 × 稀有度 × 全能 → %d 个强化类型（%d 行，另 +%d~+%d 照 +%d 补 %d 行），满级成长 %s，全能补正 ×%g%s%s' % (
-        n_lv, len(kinds), len(mapping), rows_new, n_lv + 1, MAX_LV, n_lv, rows_pad, '、'.join('%s %g' % (RAR_ZH[r], c['growth'][r]) for r in RAR), c['omni'],
+    ctx.report.append('生成武器的强化：最高 +%d、每级 1 块石头；%d 种原版强化类型 × 稀有度 → %d 个强化类型（全能共用）（%d 行，另 +%d~+%d 照 +%d 补 %d 行），满级成长 %s%s%s' % (
+        n_lv, len(kinds), len(mapping) // 2, rows_new, n_lv + 1, MAX_LV, n_lv, rows_pad, '、'.join('%s %g' % (RAR_ZH[r], c['growth'][r]) for r in RAR),
         '；原版不能强化的强化类型照失色的建：%s' % '、'.join('%d ← %d' % x for x in fallback) if fallback else '',
         '；原版补正倍率是 0 的（弩、弩炮）补正倍率照：%s' % '、'.join('%d ← %d' % x for x in cor_fixed) if cor_fixed else ''))
 

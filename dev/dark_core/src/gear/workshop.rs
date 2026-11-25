@@ -430,13 +430,13 @@ fn weapon_lines(d: &Defs, st: &St, pgd: &PlayerGameData, repo: &mut Option<&mut 
         out.push_str(&format!("wcor\t{k}\t{}\n", c.join("\t")));
         let r: Vec<String> = info.req.iter().map(|x| x.to_string()).collect();
         out.push_str(&format!("wreq\t{k}\t{}\n", r.join("\t")));
-        // 超限：配方里的补正 × 强化倍率 × 法器倍率 = 面板上的数（中位、上限、每颗也按同样换算）
+        // 超限：配方里的补正 × 强化倍率 × 法器倍率 × 全能补正倍率 = 面板上的数（中位、上限、每颗也按同样换算）
         if let Recipe::W { cor, ovl, .. } = &rec.recipe {
             let need = d.items.overlimit.map_or(0, |o| overlimit::need(&d.lib, rec, &o));
             out.push_str(&format!("wovl\t{k}\t{}\t{need}\n", *ovl as u8));
             // 超限上限是这把自己的（法杖、圣印记以外的武器每把 × 1 ± wspread，overlimit::cap_rec）
             if let Some((med, hi, cap, s)) = d.items.overlimit.and_then(|o| overlimit::cap_rec(&d.lib, rec, &o)) {
-                let cm = cast_base(&d.lib, rec).map_or(1.0, |b| b / 100.0) as f32;
+                let cm = (cast_base(&d.lib, rec).map_or(1.0, |b| b / 100.0) * omni_mult(&d.lib, cor)) as f32;
                 for (i, &c) in cor.iter().enumerate().filter(|x| *x.1 > 0.0) {
                     let f = info.cor_rate[i] * cm;
                     out.push_str(&format!("wocap\t{k}\t{i}\t{:.2}\t{:.2}\t{:.2}\t{:.2}\t{:.3}\n", c * f, med * f, hi * f, cap * f, s * f));
@@ -631,31 +631,21 @@ fn inv_weapons(d: &Defs, st: &St, pgd: &PlayerGameData) -> Vec<(u32, usize, u32)
     out
 }
 
-/// 重铸后的范围：按现在的加点抽 PREVIEW_N 次 reforge_recipe，统计每项属性有补正的比例、补正（按当前强化等级、抽到的是不是全能的倍率）
+/// 重铸后的范围：按现在的加点抽 PREVIEW_N 次 reforge_recipe，统计每项属性有补正的比例、补正（按当前强化等级，抽到全能的再乘全能补正倍率）
 /// 和需求的范围、补正项数的分布（全能重铸后还是全能：只有五项）
 fn reforge_preview(d: &Defs, st: &St, pgd: &PlayerGameData, k: u32) -> String {
     let Some(rec) = st.recs.get(&(0, k)) else { return String::new() };
     let base = rec_id(&d.items, rec);
     let level = inv_weapons(d, st, pgd).iter().find(|x| x.0 == k).map_or(0, |x| x.2 - base);
-    // 强化倍率：全能和不是全能的强化类型不同（rr/upgrade.py：全能的补正成长少），每次抽到的按它是不是全能换算
-    // （重铸后参数行按新补正换强化类型，build_row）；找不到另一种（超过上限照原版的）就都按现在的
+    // 强化倍率：按现在的强化类型和等级（全能和其他武器同一个强化类型，rr/upgrade.py，用户 2026-11-24）
     let repo = unsafe { SoloParamRepository::instance() }.ok();
-    let rates_of = |t: i32| {
-        repo.and_then(|r| r.get::<ReinforceParamWeapon>((t as u32).wrapping_add(level))).map(|rf| {
-            [rf.correct_strength_rate(), rf.correct_agility_rate(), rf.correct_magic_rate(), rf.correct_faith_rate(), rf.correct_luck_rate()]
-        })
-    };
-    let cur_t = repo.and_then(|r| r.get::<EquipParamWeapon>(base)).map(|w| w.reinforce_type_id() as i32);
-    let r = rec.rar();
-    let cur_omni = matches!(&rec.recipe, Recipe::W { cor, .. } if cor.iter().all(|&c| c > 0.0));
-    let alt_t = cur_t.and_then(|t| {
-        let (&(t0, _, _), _) = d.lib.reinf.iter().find(|(key, v)| **v == t && key.1 == r && key.2 == cur_omni)?;
-        d.lib.reinf.get(&(t0, r, !cur_omni)).copied()
-    });
-    let cur_rates = cur_t.and_then(rates_of).unwrap_or([1.0; 5]);
-    let alt_rates = alt_t.and_then(rates_of).unwrap_or(cur_rates);
+    let rates = repo
+        .and_then(|r| r.get::<EquipParamWeapon>(base))
+        .and_then(|w| repo?.get::<ReinforceParamWeapon>((w.reinforce_type_id() as u32).wrapping_add(level)))
+        .map_or([1.0; 5], |rf| [rf.correct_strength_rate(), rf.correct_agility_rate(), rf.correct_magic_rate(), rf.correct_faith_rate(), rf.correct_luck_rate()]);
     let stats = [pgd.strength, pgd.dexterity, pgd.intelligence, pgd.faith, pgd.arcane];
-    // 法器：参数行的补正值乘了法器倍率（build_row），范围也乘上，和面板对得上（倍率按记录定，重铸不变）
+    // 法器：参数行的补正值乘了法器倍率（build_row），范围也乘上，和面板对得上（倍率按记录定，重铸不变）；
+    // 抽到全能的再 × 全能补正倍率（omni_mult）
     let cm = cast_base(&d.lib, rec).map_or(1.0, |b| b / 100.0) as f32;
     let mut rng = Rng::new();
     let (mut n_by, mut has) = ([0u32; 6], [0u32; 5]);
@@ -666,11 +656,11 @@ fn reforge_preview(d: &Defs, st: &St, pgd: &PlayerGameData, k: u32) -> String {
         total += 1;
         let n = cor.iter().filter(|&&c| c > 0.0).count().min(5);
         n_by[n] += 1;
-        let rates = if (n == 5) == cur_omni { cur_rates } else { alt_rates };
+        let om = omni_mult(&d.lib, &cor) as f32;
         for s in 0..5 {
             if cor[s] > 0.0 {
                 has[s] += 1;
-                let c = cor[s] * rates[s] * cm;
+                let c = cor[s] * rates[s] * cm * om;
                 cmin[s] = cmin[s].min(c);
                 cmax[s] = cmax[s].max(c);
                 rmin[s] = rmin[s].min(req[s]);
