@@ -1030,6 +1030,18 @@ fn give_item(r: &mut Run, id: i32) -> bool {
     }
 }
 
+/// 无尽试炼的一件奖励：直接放进背包，不走发货表、不弹框（用户 2026-11-22「直接给+闪烁提示奖励已发放」→「只有无尽这么改」；
+/// gear.rs 的 give_direct，发完提示「奖励已发放」）。普通试炼照旧 give_item
+fn give_item_direct(r: &mut Run, id: i32) -> bool {
+    if crate::gear::give_direct(id as u32, 1) {
+        add_given(r, id as u32);
+        r.n_items += 1;
+        true
+    } else {
+        false
+    }
+}
+
 fn note(d: &Def, st: &mut St, ci: usize, key: &str) {
     match d.notes.get(key) {
         Some(&v) => st.notes.push((ci, v)),
@@ -1700,10 +1712,10 @@ fn wave_reward(d: &Def, st: &mut St, r: &mut Run) {
         let mut got = Vec::new();
         for _ in 0..n {
             let (id, cat) = roll_item(d, tier, st);
-            let ok = give_item(r, id);
-            got.push(format!("{}·{}{}", RAR_ZH[tier], CAT_ZH[cat], if ok { "" } else { "（没有发货表，没发）" }));
+            let ok = give_item_direct(r, id);
+            got.push(format!("{}·{}{}", RAR_ZH[tier], CAT_ZH[cat], if ok { "" } else { "（不是用重随启动，没发）" }));
         }
-        log(&format!("竞技场：无尽试炼第 {abs} 波肃清，发进背包 {n} 件：{}", got.join("、")));
+        log(&format!("竞技场：无尽试炼第 {abs} 波肃清，直接放进背包 {n} 件：{}", got.join("、")));
         return;
     }
     let boss = r.lineup[r.wave].iter().any(|&m| c.parts[m].boss);

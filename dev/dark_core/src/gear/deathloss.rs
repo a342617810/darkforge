@@ -236,6 +236,31 @@ fn gift_back(v: &[(u32, u32)]) -> bool {
     v.iter().all(|&(g, n)| gift_n(1, g as i32, n))
 }
 
+/// 无尽试炼的奖励（arena.rs → gear::give_direct）：认准了角色才取（读记录时 back 会整个换掉），排进 back，
+/// 和死亡取回一样直接放进背包、不弹框，全部发完提示 endless reward。没有 deathback 行（老的重随包）走发货表，当场提示
+fn direct_drain(d: &Defs, st: &mut St) {
+    if st.death.who.is_none() {
+        return;
+    }
+    let v = super::take_direct();
+    if v.is_empty() {
+        return;
+    }
+    let ds = &mut st.death;
+    if d.items.deathback.is_none() {
+        let ok = gift_back(&v);
+        log(&format!("无尽试炼：奖励 {} 件走发货表{}：{}", total(&v), if ok { "" } else { "，但没有发货表，发不了" }, fmt_list(&v)));
+        if ok {
+            let _ = crate::notes::push("endless reward");
+        }
+        return;
+    }
+    let ok = give_back(d, ds, &v, false);
+    ds.arena_note = true;
+    save_lost(ds);
+    log(&format!("无尽试炼：奖励 {} 件排进直接放进背包的队列（不弹框）{}：{}", total(&v), if ok { "" } else { "，有的发不了" }, fmt_list(&v)));
+}
+
 /// 发回来：有 deathback 行就排进 back（直接放回背包、不弹框，back_tick 发，发完提示）；没有就走发货表（note = 这就提示 death back）。
 /// 发不了返回 false
 fn give_back(d: &Defs, ds: &mut DeathSt, v: &[(u32, u32)], note: bool) -> bool {
@@ -288,6 +313,8 @@ pub(super) struct DeathSt {
     round: Option<Round>,
     /// 全部发完后提示 death back
     back_note: bool,
+    /// 无尽试炼的奖励排进了 back（direct_drain），全部发完提示 endless reward（不存进记录：读档以后照死亡取回提示）
+    arena_note: bool,
 }
 
 #[derive(Debug, Default)]
@@ -551,6 +578,9 @@ fn back_tick(d: &Defs, st: &mut St, pgd: &PlayerGameData, alive: bool, now: Inst
         if ds.back_note && alive && crate::notes::push("death back") {
             ds.back_note = false;
         }
+        if ds.arena_note && alive && crate::notes::push("endless reward") {
+            ds.arena_note = false;
+        }
         return;
     }
     // 新一轮：活着、在场，别的发货没在进行（核对件数时不受它们影响）
@@ -596,6 +626,7 @@ pub(super) fn tick(d: &Defs, st: &mut St, pgd: &mut PlayerGameData) {
     let alive = present && hp > 0 && st.death.w.zero_at.is_none();
     st.death.alive_since = if alive { Some(st.death.alive_since.unwrap_or(now)) } else { None };
     lost_tick(d, st, alive, now);
+    direct_drain(d, st);
     back_tick(d, st, pgd, alive, now);
     // 永久遗失的提示同样等复活后活着满 NOTE_DELAY（lost_tick 在复活后第一帧就认出新血迹）
     if st.death.gone_note && note_ready(st.death.alive_since, now) && crate::notes::push("death gone") {

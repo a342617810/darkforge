@@ -2729,6 +2729,30 @@ static LOG_RESTORE: Mutex<Vec<(u32, u8, Option<Instant>)>> = Mutex::new(Vec::new
 /// 这批到了以后过多久改回弹框（游戏接着显示获得记录时可能还要读参数）
 const LOG_RESTORE_AFTER: f32 = 3.0;
 
+/// 直接放进背包、不弹框的（用户 2026-11-22「直接给+闪烁提示奖励已发放」→「只有无尽这么改」：无尽试炼每波的奖励，arena.rs）：
+/// 道具编号 → 件数。gear/deathloss.rs 的 direct_drain 取走，排进死亡取回的 back，同一个公共事件（2003:43）发，全部发完提示 endless reward
+static DIRECT: Mutex<Vec<(u32, u32)>> = Mutex::new(Vec::new());
+
+/// 排队直接给 n 个道具 goods（无尽试炼的奖励）。没有定义（不是用重随启动）就返回 false
+pub(crate) fn give_direct(goods: u32, n: u32) -> bool {
+    if defs().is_none_or(|d| d.items.deathback.is_none() && d.items.deliver_lot == 0) {
+        return false;
+    }
+    if n > 0 {
+        let mut q = DIRECT.lock().unwrap_or_else(|e| e.into_inner());
+        match q.iter_mut().find(|x| x.0 == goods) {
+            Some(x) => x.1 += n,
+            None => q.push((goods, n)),
+        }
+    }
+    true
+}
+
+/// 取走排着的直接给的
+fn take_direct() -> Vec<(u32, u32)> {
+    std::mem::take(&mut *DIRECT.lock().unwrap_or_else(|e| e.into_inner()))
+}
+
 /// 排队发 n 个道具 goods，只进边上的获得记录（斗技场的奖励，arena.rs）。没有发货表就返回 false
 pub(crate) fn gift_log(goods: u32, n: u32) -> bool {
     if !gift_n(1, goods as i32, n) {

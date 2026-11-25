@@ -78,6 +78,10 @@ def build(ctx):
         rows.append(('death loss', '死亡时遗失了部分未鉴定物品，取回卢恩时一起取回', 'Some unidentified items were lost upon death. Recover your runes to get them back'))
         rows.append(('death back', '取回了死亡时遗失的未鉴定物品', 'Recovered the unidentified items lost upon death'))
         rows.append(('death gone', '没有取回的未鉴定物品永久遗失了', 'The unidentified items you did not recover are lost for good'))
+    # 无尽试炼每波的奖励直接放进背包、不弹框（用户 2026-11-22「直接给+闪烁提示奖励已发放」，dark_core 的 gear/deathloss.rs direct_drain）：
+    # 发完闪一下。放最后，不动前面的编号
+    if getattr(ctx, 'arena', None):
+        rows.append(('endless reward', '奖励已发放', 'Rewards delivered'))
     if len(rows) >= 1 << len(BITS):
         raise RuntimeError('原版提示：%d 条，%d 个标记放不下' % (len(rows), len(BITS)))
     ctx.notes = rows
