@@ -304,7 +304,11 @@ MODS = {
                           '-m60_52_39_00-c0000_9010', '-m60_52_39_00-AEG099_090_9000', '-m60_52_39_00-AEG099_090_9008',
                           '-m60_52_39_00-AEG099_090_9016', '-m60_52_39_00-AEG099_090_9024', '-m60_52_39_00-AEG099_090_9032',
                           '-m60_52_39_00-AEG099_090_9040', '-m60_52_39_00-AEG099_090_9048', '-m60_52_39_00-AEG099_090_9056',
-                          '-m60_52_39_00-AEG099_090_9064', '-m60_52_39_00-AEG099_090_9072',]),
+                          '-m60_52_39_00-AEG099_090_9064', '-m60_52_39_00-AEG099_090_9072',],
+                   # 不先打死马（莱昂纳德）、骑着马就把拉塔恩打到 0 血：死亡事件 1252382800 强杀了马、等 4 秒，之后一直等不到他「已死亡」，
+                   # 不结算（用户 2026-11-24「死亡难度以上直接打死拉塔恩不先打死马导致死亡事件卡住」）。等完 4 秒补一句强制死亡（给卢恩；
+                   # 已经自己倒下的再强制死亡没有作用，同 sc/clergyfix.py），先打马的正常流程不受影响
+                   edit_ins={1252382800: [('ins', 10, [(2004, 4, struct.pack('<IB3x', 1052380800, 1))])]}),
         helpers={425940000: 1052380800, 425940001: 1052380800, 425940002: 1052380800},
     ),
     'rennala': dict(
@@ -953,7 +957,9 @@ def build(key):
         run_parts = [(x[0] if x[0] in '=-' else '') + x.lstrip('=-').split('>')[-1] for x in ar.get('parts', [])]
         arena = dict(map=ar['map'], msb_map=ar.get('msb_map'), events=[e['id'] for e in arena_events['ported']], parts=run_parts,
                      new_events=list(ar.get('new_events', [])),
-                     replace_events=sorted((set(ar.get('replace_events', {})) | set(ar.get('guard_dead', {})) | set(ar.get('death_timeout', {})) | set(ar.get('edit_ins', {}))) - set(ar.get('new_events', []))),
+                     # 已经整个换成模组版（mod_events）的不再列：运行时 sc/bossarena.py 把两份并起来逐个换，同一个事件换两遍会找不到原来那份
+                     replace_events=sorted((set(ar.get('replace_events', {})) | set(ar.get('guard_dead', {})) | set(ar.get('death_timeout', {})) | set(ar.get('edit_ins', {})))
+                                           - set(ar.get('new_events', [])) - set(ar.get('mod_events', []))),
                      mod_events=list(ar.get('mod_events', [])), ev0_ints=list(ar.get('ev0_ints', [])),
                      force_events=list(ar.get('force_events', [])), keep_parts=list(ar.get('keep_parts', [])),
                      files=files_ar)

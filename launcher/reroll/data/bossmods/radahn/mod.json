@@ -201,8 +201,9 @@
   ],
   "ev0_ints": [],
   "force_events": [],
+  "keep_parts": [],
   "files": {
-   "event/m60_52_38_00.emevd.dcx": "00f4ca3b90f47c4cbfaf29a5929d6767c07bb0349c2f6348f5dddaadd0eec8d3",
+   "event/m60_52_38_00.emevd.dcx": "ac96c7d92a1cc1385987266f7ea62a5b5ff15848b59dd45d2c14162521c61c4f",
    "map/mapstudio/m60_13_09_02.msb.dcx": "092ef34009407ddf6c0cd60ec7adb60d2fa86b29449c1baeec9cf3ee1fbfe3e7"
   }
  },
@@ -236,6 +237,7 @@
   "事件 1252382800：换成模组版（33 条指令，原版 33 条）",
   "事件 1252382810：换成模组版（54 条指令，原版 54 条）",
   "新事件 11 个（1028430000, 1028430001, 1028430005, 1028430006, 1028430007, 1028430008, 1028430009, 1028430010, 1028430012, 1028430013, 1028430014），构造事件里加了初始化",
+  "事件 1252382800：按 edit_ins 改了 1 处",
   "NpcParam 47300041 → 47309900（新加的行换到段末，免得和随机器 / 重随新建的行撞）",
   "NpcParam 47300042 → 47309901（新加的行换到段末，免得和随机器 / 重随新建的行撞）",
   "地图 m60_13_09_02：copied m60_52_38_00-c4730_9003 (Enemy, model c4730, entity 425940001, npc 47309900, think 0)；copied m60_52_38_00-c4730_9004 (Enemy, model c4735, entity 425940000, npc 47309900, think 0)；copied m60_52_38_00-c4730_9005 (Enemy, model c4621, entity 425940002, npc 47309901, think 46200000)；moved m60_52_38_00-c4730_9002；copied region AstelSpawn (Other, entity 425942002)；copied event Astel (Generator, entity 425943002)；copied event Leonard (Generator, entity 425943003)；deleted m60_52_39_00-c0000_9010 (Enemy, entity 1052390200)；deleted m60_52_39_00-AEG099_090_9000 (Asset, entity 1052391500)；deleted m60_52_39_00-AEG099_090_9008 (Asset, entity 1052391508)；deleted m60_52_39_00-AEG099_090_9016 (Asset, entity 1052391516)；deleted m60_52_39_00-AEG099_090_9024 (Asset, entity 1052391524)；deleted m60_52_39_00-AEG099_090_9032 (Asset, entity 1052391532)；deleted m60_52_39_00-AEG099_090_9040 (Asset, entity 1052391540)；deleted m60_52_39_00-AEG099_090_9048 (Asset, entity 1052391548)；deleted m60_52_39_00-AEG099_090_9056 (Asset, entity 1052391556)；deleted m60_52_39_00-AEG099_090_9064 (Asset, entity 1052391564)；deleted m60_52_39_00-AEG099_090_9072 (Asset, entity 1052391572)"
