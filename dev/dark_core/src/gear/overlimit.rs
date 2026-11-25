@@ -113,11 +113,13 @@ pub(super) fn cap_mult(lib: &Lib, rec: &Rec, spread: f32) -> f32 {
     trunc_normal(1.0 - s, 1.0 + s, 0x0C4F_7A11_CA9E_0001u64 ^ (rec.idx as u64) << 24 ^ (rec.tier as u64) << 56 ^ *base as u64) as f32
 }
 
-/// 武器的 (中位, 原上限, 这把的超限上限, 每颗的步长)：步长按没随机的超限上限算（每颗加的量同稀有度一样），到这把自己的上限为止
+/// 武器的 (中位, 原上限, 这把的超限上限, 每颗的步长)：步长按没随机的超限上限算（每颗加的量同稀有度一样），到这把自己的上限为止。
+/// 这把的超限上限不低于原上限（用户 2026-11-22「改为正负10%吧 不然会出现超限上限反而比原上限更低的问题」：±10% 时最低是原上限 × 1.1 × 0.9，
+/// 还是比原上限低一点，压到原上限）
 pub(super) fn cap_rec(lib: &Lib, rec: &Rec, o: &Overlimit) -> Option<(f32, f32, f32, f32)> {
     let Recipe::W { cor, .. } = &rec.recipe else { return None };
     let (med, hi, cap) = cap_w(lib, rec.rar(), cor)?;
-    Some((med, hi, cap * cap_mult(lib, rec, o.wspread), (cap - med) / o.steps_for(rec).max(1) as f32))
+    Some((med, hi, (cap * cap_mult(lib, rec, o.wspread)).max(hi), (cap - med) / o.steps_for(rec).max(1) as f32))
 }
 
 /// 防具现在的减伤倍率：超限过的存在记录里，没有就按记录算（armor_mult）
@@ -276,7 +278,15 @@ mod tests {
         let m = cap_mult(&l, &r, 0.2);
         let (med, hi, cap, s) = cap_rec(&l, &r, &o).unwrap();
         assert_eq!((med, hi), (125.0, 150.0));
-        assert!((cap - 165.0 * m).abs() < 1e-3 && (s - 0.8).abs() < 1e-6, "{cap} {s}");
+        assert!((cap - (165.0 * m).max(150.0)).abs() < 1e-3 && (s - 0.8).abs() < 1e-6, "{cap} {s}");
+        // 超限上限不低于原上限（±20% 时抽得低的压到 150；±10% 时最低 148.5 也压到 150）
+        for spread in [0.2f32, 0.1] {
+            let o2 = Overlimit { wspread: spread, ..O50 };
+            for i in 0..500 {
+                let (_, hi, cap, _) = cap_rec(&l, &wrec_at(i, 1000000 + i % 7 * 100, [110.0, 145.0, 0.0, 0.0, 0.0]), &o2).unwrap();
+                assert!(cap >= hi && cap <= 165.0 * (1.0 + spread) + 1e-3, "{spread} {cap}");
+            }
+        }
         let (top, _) = step(&l, &r, u32::MAX, &o).unwrap_or((r.clone(), 0));
         let Recipe::W { cor, .. } = &top.recipe else { panic!() };
         assert!(cor[0] <= cap + 1e-3 && cor[0] >= 110.0, "{cor:?} {cap}");

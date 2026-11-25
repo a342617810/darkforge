@@ -391,10 +391,14 @@ impl Workshop {
         };
         let armor = matches!(it, OItem::A(..));
         let pct = bars.first().map_or(0.0, |(_, c)| if c[2] > 0.0 { (c[3] / c[2] - 1.0) * 100.0 } else { 0.0 });
-        // 法杖、圣印记以外的武器每把的超限上限各有高低（dark_core overlimit::cap_rec），抽得低的会比原上限还低
+        // 法杖、圣印记以外的武器每把的超限上限各有高低（dark_core overlimit::cap_rec）；2026-11-22 起不低于原上限，
+        // 抽得最低的正好等于原上限（「再高 0%」不好看，单说「到原上限」）；老的 dark_core 还可能比原上限低
         let low = pct.round() < 0.0;
+        let even = !armor && pct.round() == 0.0;
         let (lp, lz) = (-pct, pct.abs());
         let desc = match (armor, l) {
+            (false, 0) if even => "每颗让所有有补正的能力各提高一点，最多到原上限（这把的超限上限）。超限过的武器不能再重铸。".to_string(),
+            (false, _) if even => "Each stone raises every attribute scaling by one step, up to the original cap (this armament's overlimit cap). Overlimited armaments can't be reforged.".to_string(),
             (false, 0) if low => format!("每颗让所有有补正的能力各提高一点，最多到这把的超限上限（比原上限低 {lz:.0}%）。超限过的武器不能再重铸。"),
             (false, _) if low => format!("Each stone raises every attribute scaling by one step, up to this armament's overlimit cap ({lp:.0}% below the original cap). Overlimited armaments can't be reforged."),
             (false, 0) => format!("每颗让所有有补正的能力各提高一点，最多到原上限再高 {pct:.0}%（这把的超限上限）。超限过的武器不能再重铸。"),

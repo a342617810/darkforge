@@ -25,7 +25,8 @@ NO_DROP_CLASSES = ('wildlife',)
 # weapon_cap_spread（用户 2026-11-21「法杖的可以保持不变 其他武器加一个上限的随机范围 为正负20%的截断正态」）：法杖、圣印记、弓以外的武器，
 # 每把的超限上限 × 1 ± 这个数的截断正态（dark_core gear/overlimit.rs cap_mult，按记录抽、同一把一直一样）；每颗加的量不变。
 # 弓（2026-11-21「弓不再走超限额外波动了 弩和弩炮不动」）和法杖一样写在 wcast 里，不随机（rr/affixes.py BOW_CATEGORY）
-DEFAULT = dict(weapon_cap=1.1, armor_cap=1.2, stones=50, armor_stones=25, weapon_cap_spread=0.2)
+# 2026-11-22 用户「改为正负10%吧 不然会出现超限上限反而比原上限更低的问题」：0.2 → 0.1；dark_core 另外保证不低于原上限
+DEFAULT = dict(weapon_cap=1.1, armor_cap=1.2, stones=50, armor_stones=25, weapon_cap_spread=0.1)
 # 按 lock 档的顺序：死亡、不可能（用户 2026-11-03）；boss_stones 2026-11-04「超限锻造石boss掉落数量翻5倍」1 / 2 → 5 / 10（武器 / 防具轮流给，第一颗随机）
 # remembrance_stones：掉落追忆的头目（data\\remembrance_bosses.json 的 base / dlc 位置，不算 dlc_extra）的颗数（用户 2026-11-09「死亡追忆boss掉10个两种碎片吧 不可能20个」）
 DROP_DEFAULT = dict(mob_pct=[10, 20], boss_stones=[5, 10], remembrance_stones=[10, 20], range=0)
