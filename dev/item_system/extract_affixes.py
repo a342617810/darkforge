@@ -668,13 +668,15 @@ RULE_AFFIXES = [
          rows={'flash': lambda v: dict(vfxId=VFX_MIKIRI, effectEndurance=1.0)},
          logic=[dict(type='on', event='mikiri', foe_slow=lambda v: v[0], foe_radius=8.0, foe_secs=lambda v: v[1],
                      rest=5.0, effect='flash')]),   # rest：减速 / 停住结束后 5 秒内不再见切（用户 2026-10-28）
-    dict(key='dr_zanshin', suffix=['Zanshin', '残心'], slots=('arm',), vals=((30, 30), (45, 45), (60, 60), (80, 80)),
+    # 用户 2026-11-24「见切后下一击从80的均值改为40的均值」：攻击力、削韧都减半（30 / 45 / 60 / 80 → 15 / 22 / 30 / 40）
+    dict(key='dr_zanshin', suffix=['Zanshin', '残心'], slots=('arm',), vals=((15, 15), (22, 22), (30, 30), (40, 40)),
          zh='见切后的3秒内，下一次攻击能提升%s％攻击力与%s％削韧',
          en='Within 3 seconds after a Mikiri, your next attack deals +%s%% damage and +%s%% poise damage',
          rows={'buff': lambda v: dict(iconId=ICON_ATK, vfxId=VFX_BREAK, effectEndurance=-1.0, saAttackPowerRate=1 + v[1] / 100,
                                       **{x: 1 + v[0] / 100 for x in ATK_RATES})},
          logic=[dict(type='stack', add=['mikiri'], consume=['attack'], max=1, timeout=3.0, fx='buff')]),
-    dict(key='dr_shadowstep', suffix=['Shadowstep', '影步'], slots=('talisman',), icon=18120, vals=(50, 50, 50, 50), rarities=('Legendary',),
+    # 用户 2026-11-24「见切后加速改为30%」：50 → 30
+    dict(key='dr_shadowstep', suffix=['Shadowstep', '影步'], slots=('talisman',), icon=18120, vals=(30, 30, 30, 30), rarities=('Legendary',),
          # 用户 2026-11-12「影步改一下效果吧 改为见切后自身动作加快50%3s好了」：以前是见切时周围敌人停住 3 秒（见切那条规则的 freeze_key），
          # 停住的敌人掉出扫描列表时会一直卡着；2026-11-06 去掉过代价（翻滚的无敌时间减半）。加快同处刑（haste），两条同时在就相乘。
          # 同一天「影步必须有见切才生效」：requires=dr_mikiri（dark_core 缺见切就当影步没戴），冷却跟见切的 5 秒走
@@ -864,7 +866,8 @@ CUSTOM = [
     # 寸劲（原名沉稳；用户 2026-11-05「重蓄霸体的词条改为减少重蓄所需时间传说最高50%每级10%」、改名「寸劲」）：以前是按住蓄力时霸体 + 减伤（积木 while charging），
     # 改成蓄力所需时间减少 20 / 30 / 40 / 50％：玩家脚本蓄力中发 charging 脉冲，dll\dark_core（runtime.rs quickcharge）这时把玩家的动作速度
     # ×1 / (1 − 数值％)（同巧手的做法，和时隙、巧手的倍数相乘）。标记效果照旧（id_lock 按键 sp/dr_steady/… 锁），已有的沉稳装备直接变成寸劲
-    dict(key='dr_steady', run='quickcharge', suffix=['Inch Power', '寸劲'], slots=('leg',), vals=(20, 30, 40, 50),
+    # 用户 2026-11-24「蓄力重击加快从50%变为20%」：传说 50 → 20，其他档同比例（× 0.4）
+    dict(key='dr_steady', run='quickcharge', suffix=['Inch Power', '寸劲'], slots=('leg',), vals=(8, 12, 16, 20),
          zh='能缩短重击蓄力所需的时间（减少%s％）', en='Shortens the time needed to charge heavy attacks (by %s%%)'),
     # 用户 2026-11-12「碾压传说伤害改为200%」「其他稀有度一起缩放」：以前 30 / 40 / 50 / 60%，都 × 200/60；伤害走实时计算（CRUSH_LIVE_N）
     dict(key='dr_crush', run='crush', suffix=['Crush', '碾压'], slots=('talisman', 'body'), icon=18590, vals=(100, 133, 167, 200),
@@ -2863,6 +2866,11 @@ class Extract:
             ri_of = {r: RAR.index(r) for r in rs}
             rnum, slots, runs = [], {r: [] for r in rs}, []
             carried = set()
+            # 挂的效果行：说明里有几个各档都一样的数（交替：箭伤 #％、道具伤害 #％ 都是 20/30/40/50）时，哪个都对得上。
+            # 不同的规则优先认还没被别的规则认走的那个（按规则顺序对说明里的顺序），不然后面那条规则的行也跟着第一个数变，
+            # 说明里第二个数却照固定数写（用户 2026-11-23「把道具那半的数值说明也修一下」）
+            slot_by = defaultdict(set)              # 数的序号 → 用它的规则
+            rowrecs = []                            # 挂的效果行：(规则, 字段, 层, 各档编号, 各档行, [[字段名, (a, b), 数, 对得上的数]…])
             for nth, rule in enumerate(rt.get('rules') or []):
                 for fld, v in rule.items():
                     if fld in VAL_RULE_NUMS and isinstance(v, list) and len(v) == len(RAR) and all(isinstance(x, (int, float)) for x in v):
@@ -2892,17 +2900,17 @@ class Extract:
                             ys = [getf(self.SP, rw, fn) if rw is not None else None for rw in rows_]
                             if len({y for y in ys if y is not None}) < 2:
                                 continue
-                            for j in idx:
-                                ab = fit(seqs[j], ys)
-                                if ab:
-                                    found.append((fn, ab, j))
-                                    break
+                            fits = [(j, ab) for j in idx for ab in [fit(seqs[j], ys)] if ab]
+                            free = [x for x in fits if slot_by[x[0]] <= {nth}]
+                            if fits:
+                                j, ab = (free or fits)[0]
+                                found.append([fn, ab, j, [x[0] for x in fits]])
                         if not found:
                             continue
-                        for ri, r in enumerate(rs):
-                            if ids[ri] and ids[ri] > 0 and rows_[ri] is not None:
-                                slots[r].append([nth, fld, L, ids[ri], [[self.SP[fn][0], self.SP[fn][1], ab[0], ab[1], j] for fn, ab, j in found]])
-                        carried.update(j for _, _, j in found)
+                        rowrecs.append((nth, fld, L, ids, rows_, found))
+                        carried.update(x[2] for x in found)
+                        for x in found:
+                            slot_by[x[2]].add(nth)
             if rt.get('run') in VAL_RUNS:
                 vals = rt.get('vals') or []
                 for vi in VAL_RUNS[rt['run']]:
@@ -2915,6 +2923,22 @@ class Extract:
                             runs.append([rt['run'], vi, ab[0], ab[1], j])
                             carried.add(j)
                             break
+            # 说明里有个数哪儿都没认走、但和一行里几个字段认的那个数各档一样（残心：攻击力、削韧都是 15 / 22 / 30 / 40，削韧那个字段先认了攻击力那个数；
+            # 用户 2026-11-24）：这一行最后一个这样的字段改认它。数一样、位置一样，挂上去的数不变，说明里两个数就都按位置写，
+            # 不然只有第一个数随机、第二个照固定数写。只拿谁都没认的数，不动已经分给别的规则的（交替）
+            for k in idx:
+                if k in carried:
+                    continue
+                for *_x, found in rowrecs:
+                    cnt = Counter(x[2] for x in found)
+                    cand = [x for x in found if x[2] != k and k in x[3] and seqs[x[2]] == seqs[k] and cnt[x[2]] >= 2]
+                    if cand:                        # 原来认的那个数这一行还剩别的字段
+                        cand[-1][2] = k
+                        carried.add(k)
+            for nth, fld, L, ids, rows_, found in rowrecs:
+                for ri, r in enumerate(rs):
+                    if ids[ri] and ids[ri] > 0 and rows_[ri] is not None:
+                        slots[r].append([nth, fld, L, ids[ri], [[self.SP[fn][0], self.SP[fn][1], ab[0], ab[1], j] for fn, ab, j, _f in found]])
             ridx = [j for j in idx if j in carried]
             if not ridx:
                 skipped.append('%s（数不在规则字段、挂的效果行或模块数值里）' % name)
@@ -3009,6 +3033,10 @@ STACK_OLD = {'同稀有度仅生效一次': STACK_SAME[0], '不叠加': STACK_SA
 STACK_OLD_EN = {'Stacks only once per rarity': STACK_SAME[1], "Doesn't stack": STACK_SAME[1], **STACK_RENAMED_EN}
 STACK_NATIVE_NEW = ('dr_blood_drink',)    # 新词条里效果是游戏原生的（打倒敌人回血）：不同稀有度能叠
 STACK_ALL_NEW = ('dr_gale',)              # 新词条里同名同稀有度也叠加的（rr/affixes.py STACK_NEW_KEYS 建副本，玩家脚本按件数加）：不写叠加说明
+# 原版类型的数值词条里改成同名只认稀有度最高的那件（用户 2026-11-24「蓄力重击伤害和两个双手握持伤害改为只生效最高稀有度」；
+# 另一个双手的「怒意」是新词条，本来就只认最高）：说明加 STACK_TOP，词条库标 stack = 'top'，rr/affixes.py 写 famtop 行、不建叠加副本，
+# dark_core gear/valfx.rs 同名只挂最好的那件（稀有度最高、同稀有度数值最高）
+STACK_TOP_NATIVE = ('increase_charged_attacks_by_pct', 'increase_damage_with_two_handed_weapons_by_pct')
 # 会再触发别的效果、但同稀有度也能叠的（rr/affixes.py 的 STACK_CHAIN_KEYS，连再挂的效果一起建副本）：去掉原包的不叠加说明。用户 2026-11-05「翔空箭词条改为可以叠加」
 STACK_FREE = ('increase_range_of_bows_by_pct_and_raise_attack_p',)
 
@@ -3030,9 +3058,11 @@ def stack_notes(gear, weapon, report):
             drop = lambda s, line: '\n'.join(l for l in s.split('\n') if l != line)
             for t in list(f.get('text', {}).values()) + [f]:
                 t['zh'], t['en'] = drop(t['zh'], STACK_SAME[0]), drop(t['en'], STACK_SAME[1])
-        if f.get('group') != '新词条' or f.get('retired') or k in STACK_ALL_NEW:
+        if (f.get('group') != '新词条' and k not in STACK_TOP_NATIVE) or f.get('retired') or k in STACK_ALL_NEW:
             continue
         note = STACK_SAME if k in STACK_NATIVE_NEW else STACK_TOP
+        if k in STACK_TOP_NATIVE:
+            f['stack'] = 'top'
         for r in RAR:
             if r in f.get('text', {}):
                 for lang, line in zip(('zh', 'en'), note):

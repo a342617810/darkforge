@@ -445,6 +445,8 @@ def attr_copies(ctx):
         # 词条数值随机的词条：dark_core 给每件装备的每条词条各挂一份占位行，本来就各算各的，不建副本
         if f.get('vrand') and value_random(ctx):
             continue
+        if f.get('stack') == 'top':                 # 同名只认最高的（famtop）：不叠加，不建副本
+            continue
         sps = [(r_i, f['sp'].get(r)) for r_i, r in enumerate(RAR) if f['sp'].get(r) in P.rows]
         chain = key in STACK_CHAIN_KEYS
         refs = [x for x in SP_REF_FIELDS if not (chain and x == 'cycleOccurrenceSpEffectId')]
@@ -1174,7 +1176,7 @@ def write_def(ctx, path):
         '、'.join('%.2f / %.2f' % x for x in spread[m]) for m in (True, False)))
     # 护符 / 防具词条：fam <序号> <防具权重> <护符权重> <后缀中文> <后缀英文> <键> <能出的防具部位：头 1 / 身 2 / 手 4 / 腿 8> <1 = 机制类（名字里做前缀）>
     #   <合并组（变体组的键，- = 没有；同一件防具不出同组的两个）> <流派（extract_affixes.py ARCHETYPES 的分类，开发工具一键发放流派用）>；
-    # famr <序号> <r> <效果> <护符模板> <说明中文> <说明英文>；famw <序号> <防具权重 普通,稀有,史诗,传说> <护符权重 …>；
+    # famr <序号> <r> <效果> <护符模板> <说明中文> <说明英文>；famw <序号> <防具权重 普通,稀有,史诗,传说> <护符权重 …>；famtop <序号>（原版类型的数值词条里同名只认最好的那件）；
     # 词条数值随机的取值定义（val_lines）：famnum / famval / famtpl / famspan / famrow / famref / famfld；占位行 valpool <编号,…>
     # （护符：能出的每条一样、变体组算一条，见 extract_affixes.py merge_and_balance；防具：上面按部位补偿的；停用的词条族四档都是 0，留着给已有装备的记录查说明）
     for k, (key, f) in enumerate(lib['gear'].items()):
@@ -1183,6 +1185,8 @@ def write_def(ctx, path):
                                                                  esc(f.get('archetype') or '其他')))
         if 'weight_r' in f:
             L.append('famw\t%d\t%s\t%s' % (k, ','.join(map(str, armor_w[key])), ','.join(map(str, f['weight_r']['talisman']))))
+        if f.get('stack') == 'top':                 # 同名只认最好的那件（extract_affixes.py STACK_TOP_NATIVE；dark_core gear/valfx.rs）
+            L.append('famtop\t%d' % k)
         for r_i, r in enumerate(RAR):
             if r in f['sp']:
                 # 触发词条的说明加一行「伤害随…提升」（rr/procs.py）

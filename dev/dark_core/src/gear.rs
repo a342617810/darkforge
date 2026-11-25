@@ -639,6 +639,8 @@ struct Lib {
     pcount: [Dist; 5],
     fams: Vec<Fam>,
     fam_by_key: HashMap<String, usize>,
+    /// 同名只认身上最好的那件的词条（famtop 行，用户 2026-11-24：蓄力攻击伤害、双手持握伤害）：gear/valfx.rs 只给最好的那件挂
+    top_only: HashSet<String>,
     /// 词条族的流派（fam 行第 10 列，按出现顺序编号进 arch_names）：护符鉴定按流派挑（用户 2026-11-09）
     fam_arch: Vec<u8>,
     arch_names: Vec<String>,
@@ -1122,6 +1124,11 @@ fn parse_lib(text: &str) -> Result<Lib, String> {
                 };
                 fam.armor_w = four(f[2])?;
                 fam.tal_w = four(f[3])?;
+            }
+            "famtop" if n >= 2 => {
+                let k = num(f[1])? as usize;
+                let key = d.fams.get(k).ok_or_else(|| format!("famtop 的词条 {k} 不存在"))?.key.clone();
+                d.top_only.insert(key);
             }
             _ => {}
         }
@@ -5194,6 +5201,20 @@ mod tests {
         let lib = parse_lib(&format!("{text}wheavy\t1.5\t5,7,41\n")).unwrap();
         assert_eq!(lib.wheavy, HashMap::from([(5, 1.5), (7, 1.5), (41, 1.5)]));
         assert!(parse_lib(&format!("{text}wheavy\t0\t5\n")).is_err());
+    }
+
+    /// famtop（同名只认最好的那件）：指定了 DR_DEFS_DIR（新的重随输出）时，蓄力攻击伤害、双手持握伤害都在里面，而且是存在的词条
+    #[test]
+    fn top_only_from_real_defs() {
+        if std::env::var_os("DR_DEFS_DIR").is_none() {
+            eprintln!("没设 DR_DEFS_DIR，跳过");
+            return;
+        }
+        let (_items, lib) = real_defs().expect("DR_DEFS_DIR 读不了 items.txt / affixes.txt");
+        for k in ["increase_charged_attacks_by_pct", "increase_damage_with_two_handed_weapons_by_pct"] {
+            assert!(lib.top_only.contains(k) && lib.fam_by_key.contains_key(k), "{k} 不在 famtop 里：{:?}", lib.top_only);
+        }
+        assert_eq!(lib.top_only.len(), 2, "{:?}", lib.top_only);
     }
 
     /// 强化映射：每种原版强化类型四个稀有度 × 全能都有、编号不重、材料组都有

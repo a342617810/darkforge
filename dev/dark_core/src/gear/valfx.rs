@@ -210,6 +210,25 @@ fn assign(held: &HashMap<Inst, (usize, Vec<Vec<u8>>)>, want: &[Inst], n: usize) 
     (out, miss)
 }
 
+/// 同名只认最好的那件的词条（Lib::top_only，famtop 行；用户 2026-11-24「蓄力重击伤害和两个双手握持伤害改为只生效最高稀有度」）：
+/// 每条只留身上稀有度最高、同稀有度位置（数值）最高的那件，一样就留先看到的；别的件不挂（挂着的下面按「不穿了」摘掉）
+fn keep_top(lib: &Lib, want: &mut Vec<(Inst, String, usize, i16)>) {
+    if lib.top_only.is_empty() {
+        return;
+    }
+    let mut best: HashMap<String, (usize, i16, Inst)> = HashMap::new();
+    for (inst, key, r, pos) in want.iter() {
+        if !lib.top_only.contains(key) {
+            continue;
+        }
+        let e = best.entry(key.clone()).or_insert((*r, *pos, *inst));
+        if (*r, *pos) > (e.0, e.1) {
+            *e = (*r, *pos, *inst);
+        }
+    }
+    want.retain(|(inst, key, ..)| best.get(key).is_none_or(|b| b.2 == *inst));
+}
+
 pub(super) fn tick(d: &Defs, st: &mut St, pgd: &PlayerGameData) {
     let pool = &d.lib.valpool;
     // 没有占位行（关了词条数值随机、或只有二期的词条）也照样记身上的随机词条、改写二期的效果行，只是不挂一期的占位行
@@ -246,6 +265,7 @@ pub(super) fn tick(d: &Defs, st: &mut St, pgd: &PlayerGameData) {
     // 二期的（积木规则 / 专用模块）：效果行原地改写，规则里的数、模块的数由 rules.rs / runtime.rs 按 worn() 取；下面占位行只管一期
     slots_tick(d, st, &want);
     want.retain(|w| is_val(&d.lib, &w.1, w.2));
+    keep_top(&d.lib, &mut want);
     if pool.is_empty() && want.is_empty() {
         return;
     }
@@ -416,6 +436,28 @@ mod tests {
         let (plan, miss) = assign(&HashMap::new(), &want, 2);
         assert_eq!(plan.len(), 2);
         assert_eq!(miss, vec![(1, 7, 0)]);
+    }
+
+    /// 同名只认最好的那件（famtop）：稀有度高的赢，同稀有度位置高的赢，一样留先看到的；别的词条照旧每件都挂
+    #[test]
+    fn keep_top_best_only() {
+        let mut lib = Lib::default();
+        lib.top_only.insert("a".into());
+        let w = |inst: Inst, key: &str, r: usize, pos: i16| (inst, key.to_string(), r, pos);
+        let mut want = vec![
+            w((1, 1, 0), "a", 2, 900),
+            w((1, 2, 1), "a", 3, -500),
+            w((2, 3, 0), "a", 3, 200),
+            w((2, 4, 0), "a", 3, 200),
+            w((1, 1, 1), "b", 0, 0),
+            w((2, 5, 0), "b", 3, 0),
+        ];
+        keep_top(&lib, &mut want);
+        let got: Vec<Inst> = want.iter().map(|x| x.0).collect();
+        assert_eq!(got, vec![(2, 3, 0), (1, 1, 1), (2, 5, 0)]);
+        let mut none = vec![w((1, 1, 0), "a", 2, 0)];
+        keep_top(&Lib::default(), &mut none);
+        assert_eq!(none.len(), 1, "没有 famtop 不动");
     }
 
     /// 抽位置：落在范围里、均值接近现在的数，取整后再算回来是同一个数

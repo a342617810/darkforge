@@ -1,7 +1,7 @@
 {
  "_说明": "词条库（阶段 1：迁移原包的词条）。由 dev\\item_system\\extract_affixes.py 从 RNG Lands 原包提取，不要手改；规则见 dev\\item_system\\词条一览.md、设计文档.md 第 8 节。权重 / 分布里的数字都是原包里的件数。",
  "source": "packs\\Ruby\\recommended increased difficulty",
- "time": "2026-11-20 21:11:05",
+ "time": "2026-11-24 17:33:57",
  "rarities": [
   "Common",
   "Rare",
@@ -12578,8 +12578,8 @@
    }
   },
   "increase_damage_with_two_handed_weapons_by_pct": {
-   "zh": "双手持握武器时的攻击伤害＋#％",
-   "en": "Increase damage with two-handed weapons by #%",
+   "zh": "双手持握武器时的攻击伤害＋#％\n同名词条只有稀有度最高的生效",
+   "en": "Increase damage with two-handed weapons by #%\nOnly the highest rarity of this effect applies",
    "suffix": [
     "giga grip",
     "巨力握持"
@@ -12606,20 +12606,20 @@
    },
    "text": {
     "Rare": {
-     "en": "Increase damage with two-handed weapons by 8%",
-     "zh": "双手持握武器时的攻击伤害＋8％"
+     "en": "Increase damage with two-handed weapons by 8%\nOnly the highest rarity of this effect applies",
+     "zh": "双手持握武器时的攻击伤害＋8％\n同名词条只有稀有度最高的生效"
     },
     "Common": {
-     "en": "Increase damage with two-handed weapons by 5%",
-     "zh": "双手持握武器时的攻击伤害＋5％"
+     "en": "Increase damage with two-handed weapons by 5%\nOnly the highest rarity of this effect applies",
+     "zh": "双手持握武器时的攻击伤害＋5％\n同名词条只有稀有度最高的生效"
     },
     "Epic": {
-     "en": "Increase damage with two-handed weapons by 13%",
-     "zh": "双手持握武器时的攻击伤害＋13％"
+     "en": "Increase damage with two-handed weapons by 13%\nOnly the highest rarity of this effect applies",
+     "zh": "双手持握武器时的攻击伤害＋13％\n同名词条只有稀有度最高的生效"
     },
     "Legendary": {
-     "en": "Increase damage with two-handed weapons by 18%",
-     "zh": "双手持握武器时的攻击伤害＋18％"
+     "en": "Increase damage with two-handed weapons by 18%\nOnly the highest rarity of this effect applies",
+     "zh": "双手持握武器时的攻击伤害＋18％\n同名词条只有稀有度最高的生效"
     }
    },
    "tal": {
@@ -12652,6 +12652,7 @@
      1200
     ]
    },
+   "stack": "top",
    "vrand": {
     "main": 0,
     "nums": {
@@ -12673,12 +12674,12 @@
       "mu": 5.0,
       "sigma": 0.9375,
       "tpl": [
-       "双手持握武器时的攻击伤害＋{0}％",
-       "Increase damage with two-handed weapons by {0}%"
+       "双手持握武器时的攻击伤害＋{0}％\n同名词条只有稀有度最高的生效",
+       "Increase damage with two-handed weapons by {0}%\nOnly the highest rarity of this effect applies"
       ],
       "span": [
-       "双手持握武器时的攻击伤害＋3.1~6.9％",
-       "Increase damage with two-handed weapons by 3.1~6.9%"
+       "双手持握武器时的攻击伤害＋3.1~6.9％\n同名词条只有稀有度最高的生效",
+       "Increase damage with two-handed weapons by 3.1~6.9%\nOnly the highest rarity of this effect applies"
       ],
       "rows": [
        7004600
@@ -12774,12 +12775,12 @@
       "mu": 7.69138,
       "sigma": 1.5,
       "tpl": [
-       "双手持握武器时的攻击伤害＋{0}％",
-       "Increase damage with two-handed weapons by {0}%"
+       "双手持握武器时的攻击伤害＋{0}％\n同名词条只有稀有度最高的生效",
+       "Increase damage with two-handed weapons by {0}%\nOnly the highest rarity of this effect applies"
       ],
       "span": [
-       "双手持握武器时的攻击伤害＋6~11％",
-       "Increase damage with two-handed weapons by 6~11%"
+       "双手持握武器时的攻击伤害＋6~11％\n同名词条只有稀有度最高的生效",
+       "Increase damage with two-handed weapons by 6~11%\nOnly the highest rarity of this effect applies"
       ],
       "rows": [
        7004610
@@ -12875,12 +12876,12 @@
       "mu": 13.0,
       "sigma": 1.5625,
       "tpl": [
-       "双手持握武器时的攻击伤害＋{0}％",
-       "Increase damage with two-handed weapons by {0}%"
+       "双手持握武器时的攻击伤害＋{0}％\n同名词条只有稀有度最高的生效",
+       "Increase damage with two-handed weapons by {0}%\nOnly the highest rarity of this effect applies"
       ],
       "span": [
-       "双手持握武器时的攻击伤害＋9.9~16.1％",
-       "Increase damage with two-handed weapons by 9.9~16.1%"
+       "双手持握武器时的攻击伤害＋9.9~16.1％\n同名词条只有稀有度最高的生效",
+       "Increase damage with two-handed weapons by 9.9~16.1%\nOnly the highest rarity of this effect applies"
       ],
       "rows": [
        7004620
@@ -12976,12 +12977,12 @@
       "mu": 18.0,
       "sigma": 1.5625,
       "tpl": [
-       "双手持握武器时的攻击伤害＋{0}％",
-       "Increase damage with two-handed weapons by {0}%"
+       "双手持握武器时的攻击伤害＋{0}％\n同名词条只有稀有度最高的生效",
+       "Increase damage with two-handed weapons by {0}%\nOnly the highest rarity of this effect applies"
       ],
       "span": [
-       "双手持握武器时的攻击伤害＋14.9~21.1％",
-       "Increase damage with two-handed weapons by 14.9~21.1%"
+       "双手持握武器时的攻击伤害＋14.9~21.1％\n同名词条只有稀有度最高的生效",
+       "Increase damage with two-handed weapons by 14.9~21.1%\nOnly the highest rarity of this effect applies"
       ],
       "rows": [
        7004630
@@ -14060,8 +14061,8 @@
    }
   },
   "increase_charged_attacks_by_pct": {
-   "zh": "蓄力攻击伤害＋#％",
-   "en": "Increase charged attacks by  #%",
+   "zh": "蓄力攻击伤害＋#％\n同名词条只有稀有度最高的生效",
+   "en": "Increase charged attacks by  #%\nOnly the highest rarity of this effect applies",
    "suffix": [
     "hard smashing",
     "重击"
@@ -14088,20 +14089,20 @@
    },
    "text": {
     "Rare": {
-     "en": "Increase charged attacks by  10%",
-     "zh": "蓄力攻击伤害＋10％"
+     "en": "Increase charged attacks by  10%\nOnly the highest rarity of this effect applies",
+     "zh": "蓄力攻击伤害＋10％\n同名词条只有稀有度最高的生效"
     },
     "Epic": {
-     "en": "Increase charged attacks by  17%",
-     "zh": "蓄力攻击伤害＋17％"
+     "en": "Increase charged attacks by  17%\nOnly the highest rarity of this effect applies",
+     "zh": "蓄力攻击伤害＋17％\n同名词条只有稀有度最高的生效"
     },
     "Legendary": {
-     "en": "Increase charged attacks by  25%",
-     "zh": "蓄力攻击伤害＋25％"
+     "en": "Increase charged attacks by  25%\nOnly the highest rarity of this effect applies",
+     "zh": "蓄力攻击伤害＋25％\n同名词条只有稀有度最高的生效"
     },
     "Common": {
-     "en": "Increase charged attacks by  5%",
-     "zh": "蓄力攻击伤害＋5％"
+     "en": "Increase charged attacks by  5%\nOnly the highest rarity of this effect applies",
+     "zh": "蓄力攻击伤害＋5％\n同名词条只有稀有度最高的生效"
     }
    },
    "tal": {
@@ -14134,6 +14135,7 @@
      1200
     ]
    },
+   "stack": "top",
    "vrand": {
     "main": 0,
     "nums": {
@@ -14155,12 +14157,12 @@
       "mu": 5.0,
       "sigma": 1.5625,
       "tpl": [
-       "蓄力攻击伤害＋{0}％",
-       "Increase charged attacks by  {0}%"
+       "蓄力攻击伤害＋{0}％\n同名词条只有稀有度最高的生效",
+       "Increase charged attacks by  {0}%\nOnly the highest rarity of this effect applies"
       ],
       "span": [
-       "蓄力攻击伤害＋1.9~8.1％",
-       "Increase charged attacks by  1.9~8.1%"
+       "蓄力攻击伤害＋1.9~8.1％\n同名词条只有稀有度最高的生效",
+       "Increase charged attacks by  1.9~8.1%\nOnly the highest rarity of this effect applies"
       ],
       "rows": [
        7002520
@@ -14216,12 +14218,12 @@
       "mu": 9.75517,
       "sigma": 2.125,
       "tpl": [
-       "蓄力攻击伤害＋{0}％",
-       "Increase charged attacks by  {0}%"
+       "蓄力攻击伤害＋{0}％\n同名词条只有稀有度最高的生效",
+       "Increase charged attacks by  {0}%\nOnly the highest rarity of this effect applies"
       ],
       "span": [
-       "蓄力攻击伤害＋6.8~14.2％",
-       "Increase charged attacks by  6.8~14.2%"
+       "蓄力攻击伤害＋6.8~14.2％\n同名词条只有稀有度最高的生效",
+       "Increase charged attacks by  6.8~14.2%\nOnly the highest rarity of this effect applies"
       ],
       "rows": [
        7002530
@@ -14277,12 +14279,12 @@
       "mu": 16.9093,
       "sigma": 2.46875,
       "tpl": [
-       "蓄力攻击伤害＋{0}％",
-       "Increase charged attacks by  {0}%"
+       "蓄力攻击伤害＋{0}％\n同名词条只有稀有度最高的生效",
+       "Increase charged attacks by  {0}%\nOnly the highest rarity of this effect applies"
       ],
       "span": [
-       "蓄力攻击伤害＋12.6~21.9％",
-       "Increase charged attacks by  12.6~21.9%"
+       "蓄力攻击伤害＋12.6~21.9％\n同名词条只有稀有度最高的生效",
+       "Increase charged attacks by  12.6~21.9%\nOnly the highest rarity of this effect applies"
       ],
       "rows": [
        7002540
@@ -14338,12 +14340,12 @@
       "mu": 25.0,
       "sigma": 2.5,
       "tpl": [
-       "蓄力攻击伤害＋{0}％",
-       "Increase charged attacks by  {0}%"
+       "蓄力攻击伤害＋{0}％\n同名词条只有稀有度最高的生效",
+       "Increase charged attacks by  {0}%\nOnly the highest rarity of this effect applies"
       ],
       "span": [
-       "蓄力攻击伤害＋20~30％",
-       "Increase charged attacks by  20~30%"
+       "蓄力攻击伤害＋20~30％\n同名词条只有稀有度最高的生效",
+       "Increase charged attacks by  20~30%\nOnly the highest rarity of this effect applies"
       ],
       "rows": [
        7002550
@@ -21619,34 +21621,34 @@
    },
    "vals": {
     "Common": [
-     "20"
+     "8"
     ],
     "Rare": [
-     "30"
+     "12"
     ],
     "Epic": [
-     "40"
+     "16"
     ],
     "Legendary": [
-     "50"
+     "20"
     ]
    },
    "text": {
     "Common": {
-     "zh": "能缩短重击蓄力所需的时间（减少20％）\n同名词条只有稀有度最高的生效",
-     "en": "Shortens the time needed to charge heavy attacks (by 20%)\nOnly the highest rarity of this effect applies"
+     "zh": "能缩短重击蓄力所需的时间（减少8％）\n同名词条只有稀有度最高的生效",
+     "en": "Shortens the time needed to charge heavy attacks (by 8%)\nOnly the highest rarity of this effect applies"
     },
     "Rare": {
-     "zh": "能缩短重击蓄力所需的时间（减少30％）\n同名词条只有稀有度最高的生效",
-     "en": "Shortens the time needed to charge heavy attacks (by 30%)\nOnly the highest rarity of this effect applies"
+     "zh": "能缩短重击蓄力所需的时间（减少12％）\n同名词条只有稀有度最高的生效",
+     "en": "Shortens the time needed to charge heavy attacks (by 12%)\nOnly the highest rarity of this effect applies"
     },
     "Epic": {
-     "zh": "能缩短重击蓄力所需的时间（减少40％）\n同名词条只有稀有度最高的生效",
-     "en": "Shortens the time needed to charge heavy attacks (by 40%)\nOnly the highest rarity of this effect applies"
+     "zh": "能缩短重击蓄力所需的时间（减少16％）\n同名词条只有稀有度最高的生效",
+     "en": "Shortens the time needed to charge heavy attacks (by 16%)\nOnly the highest rarity of this effect applies"
     },
     "Legendary": {
-     "zh": "能缩短重击蓄力所需的时间（减少50％）\n同名词条只有稀有度最高的生效",
-     "en": "Shortens the time needed to charge heavy attacks (by 50%)\nOnly the highest rarity of this effect applies"
+     "zh": "能缩短重击蓄力所需的时间（减少20％）\n同名词条只有稀有度最高的生效",
+     "en": "Shortens the time needed to charge heavy attacks (by 20%)\nOnly the highest rarity of this effect applies"
     }
    },
    "tal": {},
@@ -21658,10 +21660,10 @@
    "runtime": {
     "run": "quickcharge",
     "vals": [
-     20,
-     30,
-     40,
-     50
+     8,
+     12,
+     16,
+     20
     ],
     "sp": {
      "Common": [],
@@ -21696,75 +21698,75 @@
      "0": {
       "prec": 0.1,
       "c": {
-       "Common": 20.0,
-       "Rare": 30.0,
-       "Epic": 40.0,
-       "Legendary": 50.0
+       "Common": 8.0,
+       "Rare": 12.0,
+       "Epic": 16.0,
+       "Legendary": 20.0
       }
      }
     },
     "r": {
      "Common": {
-      "lo": 13.75,
-      "hi": 26.25,
-      "c": 20.0,
-      "mu": 20.0,
-      "sigma": 3.125,
+      "lo": 5.5,
+      "hi": 10.5,
+      "c": 8.0,
+      "mu": 8.0,
+      "sigma": 1.25,
       "tpl": [
        "能缩短重击蓄力所需的时间（减少{0}％）\n同名词条只有稀有度最高的生效",
        "Shortens the time needed to charge heavy attacks (by {0}%)\nOnly the highest rarity of this effect applies"
       ],
       "span": [
-       "能缩短重击蓄力所需的时间（减少13.8~26.2％）\n同名词条只有稀有度最高的生效",
-       "Shortens the time needed to charge heavy attacks (by 13.8~26.2%)\nOnly the highest rarity of this effect applies"
+       "能缩短重击蓄力所需的时间（减少5.5~10.5％）\n同名词条只有稀有度最高的生效",
+       "Shortens the time needed to charge heavy attacks (by 5.5~10.5%)\nOnly the highest rarity of this effect applies"
       ],
       "slots": []
      },
      "Rare": {
-      "lo": 23.75,
-      "hi": 36.25,
-      "c": 30.0,
-      "mu": 30.0,
-      "sigma": 3.125,
+      "lo": 9.5,
+      "hi": 14.5,
+      "c": 12.0,
+      "mu": 12.0,
+      "sigma": 1.25,
       "tpl": [
        "能缩短重击蓄力所需的时间（减少{0}％）\n同名词条只有稀有度最高的生效",
        "Shortens the time needed to charge heavy attacks (by {0}%)\nOnly the highest rarity of this effect applies"
       ],
       "span": [
-       "能缩短重击蓄力所需的时间（减少23.8~36.2％）\n同名词条只有稀有度最高的生效",
-       "Shortens the time needed to charge heavy attacks (by 23.8~36.2%)\nOnly the highest rarity of this effect applies"
+       "能缩短重击蓄力所需的时间（减少9.5~14.5％）\n同名词条只有稀有度最高的生效",
+       "Shortens the time needed to charge heavy attacks (by 9.5~14.5%)\nOnly the highest rarity of this effect applies"
       ],
       "slots": []
      },
      "Epic": {
-      "lo": 33.75,
-      "hi": 46.25,
-      "c": 40.0,
-      "mu": 40.0,
-      "sigma": 3.125,
+      "lo": 13.5,
+      "hi": 18.5,
+      "c": 16.0,
+      "mu": 16.0,
+      "sigma": 1.25,
       "tpl": [
        "能缩短重击蓄力所需的时间（减少{0}％）\n同名词条只有稀有度最高的生效",
        "Shortens the time needed to charge heavy attacks (by {0}%)\nOnly the highest rarity of this effect applies"
       ],
       "span": [
-       "能缩短重击蓄力所需的时间（减少33.8~46.2％）\n同名词条只有稀有度最高的生效",
-       "Shortens the time needed to charge heavy attacks (by 33.8~46.2%)\nOnly the highest rarity of this effect applies"
+       "能缩短重击蓄力所需的时间（减少13.5~18.5％）\n同名词条只有稀有度最高的生效",
+       "Shortens the time needed to charge heavy attacks (by 13.5~18.5%)\nOnly the highest rarity of this effect applies"
       ],
       "slots": []
      },
      "Legendary": {
-      "lo": 43.75,
-      "hi": 56.25,
-      "c": 50.0,
-      "mu": 50.0,
-      "sigma": 3.125,
+      "lo": 17.5,
+      "hi": 22.5,
+      "c": 20.0,
+      "mu": 20.0,
+      "sigma": 1.25,
       "tpl": [
        "能缩短重击蓄力所需的时间（减少{0}％）\n同名词条只有稀有度最高的生效",
        "Shortens the time needed to charge heavy attacks (by {0}%)\nOnly the highest rarity of this effect applies"
       ],
       "span": [
-       "能缩短重击蓄力所需的时间（减少43.8~56.2％）\n同名词条只有稀有度最高的生效",
-       "Shortens the time needed to charge heavy attacks (by 43.8~56.2%)\nOnly the highest rarity of this effect applies"
+       "能缩短重击蓄力所需的时间（减少17.5~22.5％）\n同名词条只有稀有度最高的生效",
+       "Shortens the time needed to charge heavy attacks (by 17.5~22.5%)\nOnly the highest rarity of this effect applies"
       ],
       "slots": []
      }
@@ -40262,41 +40264,41 @@
    "vals": {
     "Common": [
      "3",
-     "30",
-     "30"
+     "15",
+     "15"
     ],
     "Rare": [
      "3",
-     "45",
-     "45"
+     "22",
+     "22"
     ],
     "Epic": [
      "3",
-     "60",
-     "60"
+     "30",
+     "30"
     ],
     "Legendary": [
      "3",
-     "80",
-     "80"
+     "40",
+     "40"
     ]
    },
    "text": {
     "Common": {
+     "zh": "见切后的3秒内，下一次攻击能提升15％攻击力与15％削韧\n同名词条只有稀有度最高的生效",
+     "en": "Within 3 seconds after a Mikiri, your next attack deals +15% damage and +15% poise damage\nOnly the highest rarity of this effect applies"
+    },
+    "Rare": {
+     "zh": "见切后的3秒内，下一次攻击能提升22％攻击力与22％削韧\n同名词条只有稀有度最高的生效",
+     "en": "Within 3 seconds after a Mikiri, your next attack deals +22% damage and +22% poise damage\nOnly the highest rarity of this effect applies"
+    },
+    "Epic": {
      "zh": "见切后的3秒内，下一次攻击能提升30％攻击力与30％削韧\n同名词条只有稀有度最高的生效",
      "en": "Within 3 seconds after a Mikiri, your next attack deals +30% damage and +30% poise damage\nOnly the highest rarity of this effect applies"
     },
-    "Rare": {
-     "zh": "见切后的3秒内，下一次攻击能提升45％攻击力与45％削韧\n同名词条只有稀有度最高的生效",
-     "en": "Within 3 seconds after a Mikiri, your next attack deals +45% damage and +45% poise damage\nOnly the highest rarity of this effect applies"
-    },
-    "Epic": {
-     "zh": "见切后的3秒内，下一次攻击能提升60％攻击力与60％削韧\n同名词条只有稀有度最高的生效",
-     "en": "Within 3 seconds after a Mikiri, your next attack deals +60% damage and +60% poise damage\nOnly the highest rarity of this effect applies"
-    },
     "Legendary": {
-     "zh": "见切后的3秒内，下一次攻击能提升80％攻击力与80％削韧\n同名词条只有稀有度最高的生效",
-     "en": "Within 3 seconds after a Mikiri, your next attack deals +80% damage and +80% poise damage\nOnly the highest rarity of this effect applies"
+     "zh": "见切后的3秒内，下一次攻击能提升40％攻击力与40％削韧\n同名词条只有稀有度最高的生效",
+     "en": "Within 3 seconds after a Mikiri, your next attack deals +40% damage and +40% poise damage\nOnly the highest rarity of this effect applies"
     }
    },
    "tal": {},
@@ -40336,20 +40338,20 @@
     ],
     "vals": [
      [
+      15,
+      15
+     ],
+     [
+      22,
+      22
+     ],
+     [
       30,
       30
      ],
      [
-      45,
-      45
-     ],
-     [
-      60,
-      60
-     ],
-     [
-      80,
-      80
+      40,
+      40
      ]
     ]
    },
@@ -40379,27 +40381,36 @@
      "1": {
       "prec": 0.1,
       "c": {
-       "Common": 30.0,
-       "Rare": 45.0,
-       "Epic": 60.0,
-       "Legendary": 80.0
+       "Common": 15.0,
+       "Rare": 22.0,
+       "Epic": 30.0,
+       "Legendary": 40.0
+      }
+     },
+     "2": {
+      "prec": 0.1,
+      "c": {
+       "Common": 15.0,
+       "Rare": 22.0,
+       "Epic": 30.0,
+       "Legendary": 40.0
       }
      }
     },
     "r": {
      "Common": {
-      "lo": 20.625,
-      "hi": 39.375,
-      "c": 30.0,
-      "mu": 30.0,
-      "sigma": 4.6875,
+      "lo": 10.625,
+      "hi": 19.375,
+      "c": 15.0,
+      "mu": 15.0,
+      "sigma": 2.1875,
       "tpl": [
-       "见切后的3秒内，下一次攻击能提升{1}％攻击力与30％削韧\n同名词条只有稀有度最高的生效",
-       "Within 3 seconds after a Mikiri, your next attack deals +{1}% damage and +30% poise damage\nOnly the highest rarity of this effect applies"
+       "见切后的3秒内，下一次攻击能提升{1}％攻击力与{2}％削韧\n同名词条只有稀有度最高的生效",
+       "Within 3 seconds after a Mikiri, your next attack deals +{1}% damage and +{2}% poise damage\nOnly the highest rarity of this effect applies"
       ],
       "span": [
-       "见切后的3秒内，下一次攻击能提升20.6~39.4％攻击力与30％削韧\n同名词条只有稀有度最高的生效",
-       "Within 3 seconds after a Mikiri, your next attack deals +20.6~39.4% damage and +30% poise damage\nOnly the highest rarity of this effect applies"
+       "见切后的3秒内，下一次攻击能提升10.6~19.4％攻击力与10.6~19.4％削韧\n同名词条只有稀有度最高的生效",
+       "Within 3 seconds after a Mikiri, your next attack deals +10.6~19.4% damage and +10.6~19.4% poise damage\nOnly the highest rarity of this effect applies"
       ],
       "slots": [
        [
@@ -40483,25 +40494,25 @@
           "f",
           1.0,
           0.01,
-          1
+          2
          ]
         ]
        ]
       ]
      },
      "Rare": {
-      "lo": 35.625,
-      "hi": 54.375,
-      "c": 45.0,
-      "mu": 45.0,
-      "sigma": 4.6875,
+      "lo": 17.5625,
+      "hi": 26.9375,
+      "c": 22.0,
+      "mu": 21.9093,
+      "sigma": 2.46875,
       "tpl": [
-       "见切后的3秒内，下一次攻击能提升{1}％攻击力与45％削韧\n同名词条只有稀有度最高的生效",
-       "Within 3 seconds after a Mikiri, your next attack deals +{1}% damage and +45% poise damage\nOnly the highest rarity of this effect applies"
+       "见切后的3秒内，下一次攻击能提升{1}％攻击力与{2}％削韧\n同名词条只有稀有度最高的生效",
+       "Within 3 seconds after a Mikiri, your next attack deals +{1}% damage and +{2}% poise damage\nOnly the highest rarity of this effect applies"
       ],
       "span": [
-       "见切后的3秒内，下一次攻击能提升35.6~54.4％攻击力与45％削韧\n同名词条只有稀有度最高的生效",
-       "Within 3 seconds after a Mikiri, your next attack deals +35.6~54.4% damage and +45% poise damage\nOnly the highest rarity of this effect applies"
+       "见切后的3秒内，下一次攻击能提升17.6~26.9％攻击力与17.6~26.9％削韧\n同名词条只有稀有度最高的生效",
+       "Within 3 seconds after a Mikiri, your next attack deals +17.6~26.9% damage and +17.6~26.9% poise damage\nOnly the highest rarity of this effect applies"
       ],
       "slots": [
        [
@@ -40585,25 +40596,25 @@
           "f",
           1.0,
           0.01,
-          1
+          2
          ]
         ]
        ]
       ]
      },
      "Epic": {
-      "lo": 50.3125,
-      "hi": 72.1875,
-      "c": 60.0,
-      "mu": 59.42875,
-      "sigma": 6.09375,
+      "lo": 24.875,
+      "hi": 36.125,
+      "c": 30.0,
+      "mu": 29.79206,
+      "sigma": 3.0625,
       "tpl": [
-       "见切后的3秒内，下一次攻击能提升{1}％攻击力与60％削韧\n同名词条只有稀有度最高的生效",
-       "Within 3 seconds after a Mikiri, your next attack deals +{1}% damage and +60% poise damage\nOnly the highest rarity of this effect applies"
+       "见切后的3秒内，下一次攻击能提升{1}％攻击力与{2}％削韧\n同名词条只有稀有度最高的生效",
+       "Within 3 seconds after a Mikiri, your next attack deals +{1}% damage and +{2}% poise damage\nOnly the highest rarity of this effect applies"
       ],
       "span": [
-       "见切后的3秒内，下一次攻击能提升50.3~72.2％攻击力与60％削韧\n同名词条只有稀有度最高的生效",
-       "Within 3 seconds after a Mikiri, your next attack deals +50.3~72.2% damage and +60% poise damage\nOnly the highest rarity of this effect applies"
+       "见切后的3秒内，下一次攻击能提升24.9~36.1％攻击力与24.9~36.1％削韧\n同名词条只有稀有度最高的生效",
+       "Within 3 seconds after a Mikiri, your next attack deals +24.9~36.1% damage and +24.9~36.1% poise damage\nOnly the highest rarity of this effect applies"
       ],
       "slots": [
        [
@@ -40687,25 +40698,25 @@
           "f",
           1.0,
           0.01,
-          1
+          2
          ]
         ]
        ]
       ]
      },
      "Legendary": {
-      "lo": 67.5,
-      "hi": 92.5,
-      "c": 80.0,
-      "mu": 80.0,
-      "sigma": 6.25,
+      "lo": 33.75,
+      "hi": 46.25,
+      "c": 40.0,
+      "mu": 40.0,
+      "sigma": 3.125,
       "tpl": [
-       "见切后的3秒内，下一次攻击能提升{1}％攻击力与80％削韧\n同名词条只有稀有度最高的生效",
-       "Within 3 seconds after a Mikiri, your next attack deals +{1}% damage and +80% poise damage\nOnly the highest rarity of this effect applies"
+       "见切后的3秒内，下一次攻击能提升{1}％攻击力与{2}％削韧\n同名词条只有稀有度最高的生效",
+       "Within 3 seconds after a Mikiri, your next attack deals +{1}% damage and +{2}% poise damage\nOnly the highest rarity of this effect applies"
       ],
       "span": [
-       "见切后的3秒内，下一次攻击能提升67.5~92.5％攻击力与80％削韧\n同名词条只有稀有度最高的生效",
-       "Within 3 seconds after a Mikiri, your next attack deals +67.5~92.5% damage and +80% poise damage\nOnly the highest rarity of this effect applies"
+       "见切后的3秒内，下一次攻击能提升33.8~46.2％攻击力与33.8~46.2％削韧\n同名词条只有稀有度最高的生效",
+       "Within 3 seconds after a Mikiri, your next attack deals +33.8~46.2% damage and +33.8~46.2% poise damage\nOnly the highest rarity of this effect applies"
       ],
       "slots": [
        [
@@ -40789,7 +40800,7 @@
           "f",
           1.0,
           0.01,
-          1
+          2
          ]
         ]
        ]
@@ -40814,13 +40825,13 @@
    "vals": {
     "Legendary": [
      "3",
-     "50"
+     "30"
     ]
    },
    "text": {
     "Legendary": {
-     "zh": "同时带有「见切」时，见切后的3秒内，自身所有动作能加快50％\n同名词条只有稀有度最高的生效",
-     "en": "While Mikiri is also equipped, all your actions play 50% faster for 3 seconds after a Mikiri\nOnly the highest rarity of this effect applies"
+     "zh": "同时带有「见切」时，见切后的3秒内，自身所有动作能加快30％\n同名词条只有稀有度最高的生效",
+     "en": "While Mikiri is also equipped, all your actions play 30% faster for 3 seconds after a Mikiri\nOnly the highest rarity of this effect applies"
     }
    },
    "tal": {
@@ -40844,10 +40855,10 @@
        7210840
       ],
       "haste": [
-       50,
-       50,
-       50,
-       50
+       30,
+       30,
+       30,
+       30
       ],
       "haste_secs": 3.0,
       "requires": "dr_mikiri",
@@ -40855,10 +40866,10 @@
      }
     ],
     "vals": [
-     50,
-     50,
-     50,
-     50
+     30,
+     30,
+     30,
+     30
     ]
    },
    "archetype": "闪避",
@@ -44662,6 +44673,15 @@
        "Epic": 40.0,
        "Legendary": 50.0
       }
+     },
+     "3": {
+      "prec": 0.1,
+      "c": {
+       "Common": 20.0,
+       "Rare": 30.0,
+       "Epic": 40.0,
+       "Legendary": 50.0
+      }
      }
     },
     "r": {
@@ -44672,12 +44692,12 @@
       "mu": 20.0,
       "sigma": 3.125,
       "tpl": [
-       "使用投掷道具或调香后的20秒内，能提升{1}％箭与弩箭的伤害；射箭命中后的20秒内，能提升20％道具伤害\n同名词条只有稀有度最高的生效",
-       "For 20 seconds after using a throwable or perfume, arrows and bolts deal +{1}%; for 20 seconds after an arrow hits, item damage +20%\nOnly the highest rarity of this effect applies"
+       "使用投掷道具或调香后的20秒内，能提升{1}％箭与弩箭的伤害；射箭命中后的20秒内，能提升{3}％道具伤害\n同名词条只有稀有度最高的生效",
+       "For 20 seconds after using a throwable or perfume, arrows and bolts deal +{1}%; for 20 seconds after an arrow hits, item damage +{3}%\nOnly the highest rarity of this effect applies"
       ],
       "span": [
-       "使用投掷道具或调香后的20秒内，能提升13.8~26.2％箭与弩箭的伤害；射箭命中后的20秒内，能提升20％道具伤害\n同名词条只有稀有度最高的生效",
-       "For 20 seconds after using a throwable or perfume, arrows and bolts deal +13.8~26.2%; for 20 seconds after an arrow hits, item damage +20%\nOnly the highest rarity of this effect applies"
+       "使用投掷道具或调香后的20秒内，能提升13.8~26.2％箭与弩箭的伤害；射箭命中后的20秒内，能提升13.8~26.2％道具伤害\n同名词条只有稀有度最高的生效",
+       "For 20 seconds after using a throwable or perfume, arrows and bolts deal +13.8~26.2%; for 20 seconds after an arrow hits, item damage +13.8~26.2%\nOnly the highest rarity of this effect applies"
       ],
       "slots": [
        [
@@ -44769,70 +44789,70 @@
           "f",
           1.0,
           0.01,
-          1
+          3
          ],
          [
           656,
           "f",
           1.0,
           0.01,
-          1
+          3
          ],
          [
           660,
           "f",
           1.0,
           0.01,
-          1
+          3
          ],
          [
           664,
           "f",
           1.0,
           0.01,
-          1
+          3
          ],
          [
           668,
           "f",
           1.0,
           0.01,
-          1
+          3
          ],
          [
           672,
           "f",
           1.0,
           0.01,
-          1
+          3
          ],
          [
           676,
           "f",
           1.0,
           0.01,
-          1
+          3
          ],
          [
           680,
           "f",
           1.0,
           0.01,
-          1
+          3
          ],
          [
           684,
           "f",
           1.0,
           0.01,
-          1
+          3
          ],
          [
           688,
           "f",
           1.0,
           0.01,
-          1
+          3
          ]
         ]
        ]
@@ -44845,12 +44865,12 @@
       "mu": 30.0,
       "sigma": 3.125,
       "tpl": [
-       "使用投掷道具或调香后的20秒内，能提升{1}％箭与弩箭的伤害；射箭命中后的20秒内，能提升30％道具伤害\n同名词条只有稀有度最高的生效",
-       "For 20 seconds after using a throwable or perfume, arrows and bolts deal +{1}%; for 20 seconds after an arrow hits, item damage +30%\nOnly the highest rarity of this effect applies"
+       "使用投掷道具或调香后的20秒内，能提升{1}％箭与弩箭的伤害；射箭命中后的20秒内，能提升{3}％道具伤害\n同名词条只有稀有度最高的生效",
+       "For 20 seconds after using a throwable or perfume, arrows and bolts deal +{1}%; for 20 seconds after an arrow hits, item damage +{3}%\nOnly the highest rarity of this effect applies"
       ],
       "span": [
-       "使用投掷道具或调香后的20秒内，能提升23.8~36.2％箭与弩箭的伤害；射箭命中后的20秒内，能提升30％道具伤害\n同名词条只有稀有度最高的生效",
-       "For 20 seconds after using a throwable or perfume, arrows and bolts deal +23.8~36.2%; for 20 seconds after an arrow hits, item damage +30%\nOnly the highest rarity of this effect applies"
+       "使用投掷道具或调香后的20秒内，能提升23.8~36.2％箭与弩箭的伤害；射箭命中后的20秒内，能提升23.8~36.2％道具伤害\n同名词条只有稀有度最高的生效",
+       "For 20 seconds after using a throwable or perfume, arrows and bolts deal +23.8~36.2%; for 20 seconds after an arrow hits, item damage +23.8~36.2%\nOnly the highest rarity of this effect applies"
       ],
       "slots": [
        [
@@ -44942,70 +44962,70 @@
           "f",
           1.0,
           0.01,
-          1
+          3
          ],
          [
           656,
           "f",
           1.0,
           0.01,
-          1
+          3
          ],
          [
           660,
           "f",
           1.0,
           0.01,
-          1
+          3
          ],
          [
           664,
           "f",
           1.0,
           0.01,
-          1
+          3
          ],
          [
           668,
           "f",
           1.0,
           0.01,
-          1
+          3
          ],
          [
           672,
           "f",
           1.0,
           0.01,
-          1
+          3
          ],
          [
           676,
           "f",
           1.0,
           0.01,
-          1
+          3
          ],
          [
           680,
           "f",
           1.0,
           0.01,
-          1
+          3
          ],
          [
           684,
           "f",
           1.0,
           0.01,
-          1
+          3
          ],
          [
           688,
           "f",
           1.0,
           0.01,
-          1
+          3
          ]
         ]
        ]
@@ -45018,12 +45038,12 @@
       "mu": 40.0,
       "sigma": 3.125,
       "tpl": [
-       "使用投掷道具或调香后的20秒内，能提升{1}％箭与弩箭的伤害；射箭命中后的20秒内，能提升40％道具伤害\n同名词条只有稀有度最高的生效",
-       "For 20 seconds after using a throwable or perfume, arrows and bolts deal +{1}%; for 20 seconds after an arrow hits, item damage +40%\nOnly the highest rarity of this effect applies"
+       "使用投掷道具或调香后的20秒内，能提升{1}％箭与弩箭的伤害；射箭命中后的20秒内，能提升{3}％道具伤害\n同名词条只有稀有度最高的生效",
+       "For 20 seconds after using a throwable or perfume, arrows and bolts deal +{1}%; for 20 seconds after an arrow hits, item damage +{3}%\nOnly the highest rarity of this effect applies"
       ],
       "span": [
-       "使用投掷道具或调香后的20秒内，能提升33.8~46.2％箭与弩箭的伤害；射箭命中后的20秒内，能提升40％道具伤害\n同名词条只有稀有度最高的生效",
-       "For 20 seconds after using a throwable or perfume, arrows and bolts deal +33.8~46.2%; for 20 seconds after an arrow hits, item damage +40%\nOnly the highest rarity of this effect applies"
+       "使用投掷道具或调香后的20秒内，能提升33.8~46.2％箭与弩箭的伤害；射箭命中后的20秒内，能提升33.8~46.2％道具伤害\n同名词条只有稀有度最高的生效",
+       "For 20 seconds after using a throwable or perfume, arrows and bolts deal +33.8~46.2%; for 20 seconds after an arrow hits, item damage +33.8~46.2%\nOnly the highest rarity of this effect applies"
       ],
       "slots": [
        [
@@ -45115,70 +45135,70 @@
           "f",
           1.0,
           0.01,
-          1
+          3
          ],
          [
           656,
           "f",
           1.0,
           0.01,
-          1
+          3
          ],
          [
           660,
           "f",
           1.0,
           0.01,
-          1
+          3
          ],
          [
           664,
           "f",
           1.0,
           0.01,
-          1
+          3
          ],
          [
           668,
           "f",
           1.0,
           0.01,
-          1
+          3
          ],
          [
           672,
           "f",
           1.0,
           0.01,
-          1
+          3
          ],
          [
           676,
           "f",
           1.0,
           0.01,
-          1
+          3
          ],
          [
           680,
           "f",
           1.0,
           0.01,
-          1
+          3
          ],
          [
           684,
           "f",
           1.0,
           0.01,
-          1
+          3
          ],
          [
           688,
           "f",
           1.0,
           0.01,
-          1
+          3
          ]
         ]
        ]
@@ -45191,12 +45211,12 @@
       "mu": 50.0,
       "sigma": 3.125,
       "tpl": [
-       "使用投掷道具或调香后的20秒内，能提升{1}％箭与弩箭的伤害；射箭命中后的20秒内，能提升50％道具伤害\n同名词条只有稀有度最高的生效",
-       "For 20 seconds after using a throwable or perfume, arrows and bolts deal +{1}%; for 20 seconds after an arrow hits, item damage +50%\nOnly the highest rarity of this effect applies"
+       "使用投掷道具或调香后的20秒内，能提升{1}％箭与弩箭的伤害；射箭命中后的20秒内，能提升{3}％道具伤害\n同名词条只有稀有度最高的生效",
+       "For 20 seconds after using a throwable or perfume, arrows and bolts deal +{1}%; for 20 seconds after an arrow hits, item damage +{3}%\nOnly the highest rarity of this effect applies"
       ],
       "span": [
-       "使用投掷道具或调香后的20秒内，能提升43.8~56.2％箭与弩箭的伤害；射箭命中后的20秒内，能提升50％道具伤害\n同名词条只有稀有度最高的生效",
-       "For 20 seconds after using a throwable or perfume, arrows and bolts deal +43.8~56.2%; for 20 seconds after an arrow hits, item damage +50%\nOnly the highest rarity of this effect applies"
+       "使用投掷道具或调香后的20秒内，能提升43.8~56.2％箭与弩箭的伤害；射箭命中后的20秒内，能提升43.8~56.2％道具伤害\n同名词条只有稀有度最高的生效",
+       "For 20 seconds after using a throwable or perfume, arrows and bolts deal +43.8~56.2%; for 20 seconds after an arrow hits, item damage +43.8~56.2%\nOnly the highest rarity of this effect applies"
       ],
       "slots": [
        [
@@ -45288,70 +45308,70 @@
           "f",
           1.0,
           0.01,
-          1
+          3
          ],
          [
           656,
           "f",
           1.0,
           0.01,
-          1
+          3
          ],
          [
           660,
           "f",
           1.0,
           0.01,
-          1
+          3
          ],
          [
           664,
           "f",
           1.0,
           0.01,
-          1
+          3
          ],
          [
           668,
           "f",
           1.0,
           0.01,
-          1
+          3
          ],
          [
           672,
           "f",
           1.0,
           0.01,
-          1
+          3
          ],
          [
           676,
           "f",
           1.0,
           0.01,
-          1
+          3
          ],
          [
           680,
           "f",
           1.0,
           0.01,
-          1
+          3
          ],
          [
           684,
           "f",
           1.0,
           0.01,
-          1
+          3
          ],
          [
           688,
           "f",
           1.0,
           0.01,
-          1
+          3
          ]
         ]
        ]
