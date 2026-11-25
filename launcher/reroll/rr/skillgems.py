@@ -5,7 +5,7 @@
     ctx.free_skills 给 affixes 写 skillinfo（当成战灰：dark_core 生成和读档重建时都用本体自己的变体）、跳过 skill_vars；
   - 战灰（skill_gems.enabled，用户 2026-11-03：「都做成战灰 冲突的就先不管了 然后范围依旧是8」，2026-11-04：「把单体的专属战技也做成战灰
     然后开放战技 并且说明按照原版风格」）：所有换过号的专属战技（145 个）做成战灰，在暗黑商店的战灰商店卖（darkshop.ash_shop 接在原版战灰后面）；
-    按原武器归类开放：近战的能装在所有近战武器上、盾的所有盾、弓的所有弓（原版「能在所有的…使用」那几条的武器类型位和文字），
+    按原武器归类开放：近战的能装在所有近战武器上、盾的所有盾、弓的所有弓（大弓只装原武器是大弓的，GREATBOW_BIT；原版「能在所有的…使用」那几条的武器类型位和文字），
     弩、法杖、火把、调香瓶的只能装在原类型；图标借原武器的；和原版战灰 / 别的专属战技同名的在名字后面加原武器类型（照原版「箭步（上砍）」）；
   - 原版专属战技的判定在原武器自己的行为变体下（3VVVJJJ），别的武器找不到 → 动作里的判定号换成没人用过的号，判定行复制到共享层（变体 0）；
     动作包 chr\\c0000.anibnd.dcx 启动时从本机 Data3 取出来改好判定号（只改这几个战技的 TAE），regulation 写好后放进重随输出
@@ -32,6 +32,11 @@ ANIM_VERSION = 3                        # 改了打补丁的办法就加一（�
 # 音效编号改成不存在的：游戏找不到音效就不响（敌人随机把敌人放到没加载它音效的地图时也是这样，只是没声音）
 MUTE_TAE, MUTE_ANIMS, NO_SOUND = 'a713.tae', (40010, 40015), 999999999
 OWN_GEMS = (29500, 29999)               # 我们自己的战灰（唤声船 29500、专属战技战灰 29600 起）：放开原版战灰时不动
+# 大弓的位不往上加（用户 2026-11-24「大弓不能装小弓和中弓的战技」）：弓类战灰照旧放开到小弓、长弓，大弓只装本来就能装在大弓上的
+# （原版贯穿射击、箭雨、埃贡的猎龙，专属战技里大弓的拉塔恩的骤雨）。放开后没有大弓的用原版「能在小弓、长弓类武器使用」那条（63033）。
+# skill_gems.json 的弓组照旧写三种弓（dev\item_system\skill_gems.py），这里按原武器去掉
+GREATBOW_BIT, GREATBOW_TYPE = 26, 53
+BOW_NO_GREAT = (63033, '能在小弓、长弓类武器使用', 'Usable on light bows and longbows')
 P = 100000000
 TEXT = {
     'zh': dict(gem='战灰：%s', info='能赋予武器属性、战技',
@@ -49,7 +54,7 @@ def cfg(S):
 
 def open_vanilla(ctx, d):
     """原版战灰也按开放分组放开（skill_gems.open_vanilla，用户 2026-11-04「原版也直接放开」）：原来能装的武器类型碰到哪组（近战 / 盾 / 弓），
-    就开放到整组（skill_gems.json 的 open：原版「能在所有的…使用」那几条的类型位），原来另外能装的（法杖、火把…）留着；只能装调香瓶的不动。
+    就开放到整组（skill_gems.json 的 open：原版「能在所有的…使用」那几条的类型位），原来另外能装的（法杖、火把…）留着；只能装调香瓶的不动；大弓那一位不往上加（GREATBOW_BIT）。
     说明（GemCaption）最后一段换成原版那条文字，碰到几组 / 留着别的类型的照这个写法拼（「能在所有的近战武器、盾类武器使用。」），
     mountWepTextId 换成第一组那条。只改说明最后一段是「能在…」的（原版正式的战灰；测试用的那些没有说明）。返回 [(编号, 中文那句)]"""
     op = d.get('open') or {}
@@ -84,17 +89,22 @@ def open_vanilla(ctx, d):
         b = {k for k in range(48) if row[m0 + k // 8] >> (k % 8) & 1}
         groups = [g for g in order if b & detect[g]]
         new = b.union(*(bits_of[g] for g in groups)) if groups else b
+        if GREATBOW_BIT not in b:                   # 大弓只装本来就能装在大弓上的
+            new.discard(GREATBOW_BIT)
         if new == b:
             continue
         for k in new:
             row[m0 + k // 8] |= 1 << (k % 8)
         extra = sorted(b - every - ({37} if 'melee' in groups else set()))     # 调香瓶算在近战里（原版「所有的近战武器」那条带着它）
+        no_great = 'bow' in groups and GREATBOW_BIT not in new
+        text = BOW_NO_GREAT[0] if no_great and groups[0] == 'bow' else op[groups[0]]['text']
         if len(groups) == 1 and not extra:
-            zh, en = op[groups[0]]['zh'], op[groups[0]]['en']
+            zh, en = (BOW_NO_GREAT[1], BOW_NO_GREAT[2]) if no_great else (op[groups[0]]['zh'], op[groups[0]]['en'])
         else:
-            zh = '能在所有的%s使用' % '、'.join([words[g][0] for g in groups] + ['%s类武器' % names[k][0] for k in extra if k in names])
-            en = 'Usable on all %s' % ' and '.join([words[g][1] for g in groups] + [plural(names[k][1]) for k in extra if k in names])
-        struct.pack_into('<' + L['mountWepTextId'][0], row, L['mountWepTextId'][1], op[groups[0]]['text'])
+            w = dict(words, bow=('小弓、长弓类武器', 'light bows and longbows')) if no_great else words
+            zh = '能在所有的%s使用' % '、'.join([w[g][0] for g in groups] + ['%s类武器' % names[k][0] for k in extra if k in names])
+            en = 'Usable on all %s' % ' and '.join([w[g][1] for g in groups] + [plural(names[k][1]) for k in extra if k in names])
+        struct.pack_into('<' + L['mountWepTextId'][0], row, L['mountWepTextId'][1], text)
         for code, line in (('zhocn', zh + '。'), ('engus', ' '.join(en.split('\n')) + '.')):
             hit = caps.get(code, {}).get(i)
             if hit:
@@ -292,6 +302,11 @@ def build(ctx):
     # 装在原武器以外的武器上判定找不到（打不出伤害），但不会崩
     mount0 = Lg['canMountWep_Dagger'][1]
     gem_skills = [s for s in d['skills'] if s['gem'] and gems_on]
+    for s in gem_skills:                            # 弓组：原武器不是大弓的不能装在大弓上（GREATBOW_BIT），说明跟着换
+        if s.get('group') == 'bow' and GREATBOW_TYPE not in s['types'] and GREATBOW_BIT in s['mount_bits']:
+            s['mount_bits'] = [b for b in s['mount_bits'] if b != GREATBOW_BIT]
+            s['mount_text'], zh, en = BOW_NO_GREAT
+            s['usable_zh'], s['usable_en'] = zh + '。', en + '.'
     gems = []
     for k, s in enumerate(gem_skills):
         if s['gem'] in G.rows or s['sid'] not in A.rows:
