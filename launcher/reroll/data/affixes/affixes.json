@@ -1,7 +1,7 @@
 {
  "_说明": "词条库（阶段 1：迁移原包的词条）。由 dev\\item_system\\extract_affixes.py 从 RNG Lands 原包提取，不要手改；规则见 dev\\item_system\\词条一览.md、设计文档.md 第 8 节。权重 / 分布里的数字都是原包里的件数。",
  "source": "packs\\Ruby\\recommended increased difficulty",
- "time": "2026-11-24 17:33:57",
+ "time": "2026-11-24 23:07:25",
  "rarities": [
   "Common",
   "Rare",
@@ -16654,10 +16654,10 @@
       "event": "crit",
       "when": "end",
       "effect": [
-       7210927,
-       7210928,
-       7210929,
-       7210930
+       7210931,
+       7210932,
+       7210933,
+       7210934
       ]
      }
     ],
@@ -16721,7 +16721,7 @@
         0,
         "effect",
         -1,
-        7210927,
+        7210931,
         [
          [
           652,
@@ -16816,7 +16816,7 @@
         0,
         "effect",
         -1,
-        7210928,
+        7210932,
         [
          [
           652,
@@ -16911,7 +16911,7 @@
         0,
         "effect",
         -1,
-        7210929,
+        7210933,
         [
          [
           652,
@@ -17006,7 +17006,7 @@
         0,
         "effect",
         -1,
-        7210930,
+        7210934,
         [
          [
           652,
@@ -21005,8 +21005,8 @@
    }
   },
   "dr_chaos": {
-   "zh": "被命中的敌人在#秒内更容易陷入异常状态（异常累积＋#％）\n同名词条只有稀有度最高的生效",
-   "en": "Enemies you hit become more susceptible to every status ailment for # seconds (buildup +#%)\nOnly the highest rarity of this effect applies",
+   "zh": "被命中的敌人在#秒内更容易陷入异常状态（异常累积＋#％），但自身受到的伤害增加#％\n同名词条只有稀有度最高的生效",
+   "en": "Enemies you hit become more susceptible to every status ailment for # seconds (buildup +#%), but you take #% more damage\nOnly the highest rarity of this effect applies",
    "suffix": [
     "Chaos",
     "混沌"
@@ -21021,37 +21021,41 @@
    "vals": {
     "Common": [
      "10",
-     "10"
+     "10",
+     "30"
     ],
     "Rare": [
      "10",
-     "15"
+     "15",
+     "30"
     ],
     "Epic": [
      "10",
-     "20"
+     "20",
+     "30"
     ],
     "Legendary": [
      "10",
+     "30",
      "30"
     ]
    },
    "text": {
     "Common": {
-     "zh": "被命中的敌人在10秒内更容易陷入异常状态（异常累积＋10％）\n同名词条只有稀有度最高的生效",
-     "en": "Enemies you hit become more susceptible to every status ailment for 10 seconds (buildup +10%)\nOnly the highest rarity of this effect applies"
+     "zh": "被命中的敌人在10秒内更容易陷入异常状态（异常累积＋10％），但自身受到的伤害增加30％\n同名词条只有稀有度最高的生效",
+     "en": "Enemies you hit become more susceptible to every status ailment for 10 seconds (buildup +10%), but you take 30% more damage\nOnly the highest rarity of this effect applies"
     },
     "Rare": {
-     "zh": "被命中的敌人在10秒内更容易陷入异常状态（异常累积＋15％）\n同名词条只有稀有度最高的生效",
-     "en": "Enemies you hit become more susceptible to every status ailment for 10 seconds (buildup +15%)\nOnly the highest rarity of this effect applies"
+     "zh": "被命中的敌人在10秒内更容易陷入异常状态（异常累积＋15％），但自身受到的伤害增加30％\n同名词条只有稀有度最高的生效",
+     "en": "Enemies you hit become more susceptible to every status ailment for 10 seconds (buildup +15%), but you take 30% more damage\nOnly the highest rarity of this effect applies"
     },
     "Epic": {
-     "zh": "被命中的敌人在10秒内更容易陷入异常状态（异常累积＋20％）\n同名词条只有稀有度最高的生效",
-     "en": "Enemies you hit become more susceptible to every status ailment for 10 seconds (buildup +20%)\nOnly the highest rarity of this effect applies"
+     "zh": "被命中的敌人在10秒内更容易陷入异常状态（异常累积＋20％），但自身受到的伤害增加30％\n同名词条只有稀有度最高的生效",
+     "en": "Enemies you hit become more susceptible to every status ailment for 10 seconds (buildup +20%), but you take 30% more damage\nOnly the highest rarity of this effect applies"
     },
     "Legendary": {
-     "zh": "被命中的敌人在10秒内更容易陷入异常状态（异常累积＋30％）\n同名词条只有稀有度最高的生效",
-     "en": "Enemies you hit become more susceptible to every status ailment for 10 seconds (buildup +30%)\nOnly the highest rarity of this effect applies"
+     "zh": "被命中的敌人在10秒内更容易陷入异常状态（异常累积＋30％），但自身受到的伤害增加30％\n同名词条只有稀有度最高的生效",
+     "en": "Enemies you hit become more susceptible to every status ailment for 10 seconds (buildup +30%), but you take 30% more damage\nOnly the highest rarity of this effect applies"
     }
    },
    "tal": {
@@ -21085,9 +21089,18 @@
       "event": "land",
       "target_fx": [
        7210364,
-       7210366,
        7210368,
-       7210370
+       7210384,
+       7210388
+      ]
+     },
+     {
+      "type": "while",
+      "effect": [
+       7210366,
+       7210370,
+       7210386,
+       7210390
       ]
      }
     ]
@@ -21133,12 +21146,12 @@
       "mu": 10.0,
       "sigma": 1.5625,
       "tpl": [
-       "被命中的敌人在10秒内更容易陷入异常状态（异常累积＋{1}％）\n同名词条只有稀有度最高的生效",
-       "Enemies you hit become more susceptible to every status ailment for 10 seconds (buildup +{1}%)\nOnly the highest rarity of this effect applies"
+       "被命中的敌人在10秒内更容易陷入异常状态（异常累积＋{1}％），但自身受到的伤害增加30％\n同名词条只有稀有度最高的生效",
+       "Enemies you hit become more susceptible to every status ailment for 10 seconds (buildup +{1}%), but you take 30% more damage\nOnly the highest rarity of this effect applies"
       ],
       "span": [
-       "被命中的敌人在10秒内更容易陷入异常状态（异常累积＋6.9~13.1％）\n同名词条只有稀有度最高的生效",
-       "Enemies you hit become more susceptible to every status ailment for 10 seconds (buildup +6.9~13.1%)\nOnly the highest rarity of this effect applies"
+       "被命中的敌人在10秒内更容易陷入异常状态（异常累积＋6.9~13.1％），但自身受到的伤害增加30％\n同名词条只有稀有度最高的生效",
+       "Enemies you hit become more susceptible to every status ailment for 10 seconds (buildup +6.9~13.1%), but you take 30% more damage\nOnly the highest rarity of this effect applies"
       ],
       "slots": [
        [
@@ -21207,86 +21220,12 @@
       "mu": 15.0,
       "sigma": 1.5625,
       "tpl": [
-       "被命中的敌人在10秒内更容易陷入异常状态（异常累积＋{1}％）\n同名词条只有稀有度最高的生效",
-       "Enemies you hit become more susceptible to every status ailment for 10 seconds (buildup +{1}%)\nOnly the highest rarity of this effect applies"
+       "被命中的敌人在10秒内更容易陷入异常状态（异常累积＋{1}％），但自身受到的伤害增加30％\n同名词条只有稀有度最高的生效",
+       "Enemies you hit become more susceptible to every status ailment for 10 seconds (buildup +{1}%), but you take 30% more damage\nOnly the highest rarity of this effect applies"
       ],
       "span": [
-       "被命中的敌人在10秒内更容易陷入异常状态（异常累积＋11.9~18.1％）\n同名词条只有稀有度最高的生效",
-       "Enemies you hit become more susceptible to every status ailment for 10 seconds (buildup +11.9~18.1%)\nOnly the highest rarity of this effect applies"
-      ],
-      "slots": [
-       [
-        0,
-        "target_fx",
-        -1,
-        7210366,
-        [
-         [
-          864,
-          "f",
-          1.0,
-          0.01,
-          1
-         ],
-         [
-          868,
-          "f",
-          1.0,
-          0.01,
-          1
-         ],
-         [
-          872,
-          "f",
-          1.0,
-          0.01,
-          1
-         ],
-         [
-          876,
-          "f",
-          1.0,
-          0.01,
-          1
-         ],
-         [
-          880,
-          "f",
-          1.0,
-          0.01,
-          1
-         ],
-         [
-          884,
-          "f",
-          1.0,
-          0.01,
-          1
-         ],
-         [
-          888,
-          "f",
-          1.0,
-          0.01,
-          1
-         ]
-        ]
-       ]
-      ]
-     },
-     "Epic": {
-      "lo": 16.5625,
-      "hi": 25.9375,
-      "c": 20.0,
-      "mu": 19.03998,
-      "sigma": 2.96875,
-      "tpl": [
-       "被命中的敌人在10秒内更容易陷入异常状态（异常累积＋{1}％）\n同名词条只有稀有度最高的生效",
-       "Enemies you hit become more susceptible to every status ailment for 10 seconds (buildup +{1}%)\nOnly the highest rarity of this effect applies"
-      ],
-      "span": [
-       "被命中的敌人在10秒内更容易陷入异常状态（异常累积＋16.6~25.9％）\n同名词条只有稀有度最高的生效",
-       "Enemies you hit become more susceptible to every status ailment for 10 seconds (buildup +16.6~25.9%)\nOnly the highest rarity of this effect applies"
+       "被命中的敌人在10秒内更容易陷入异常状态（异常累积＋11.9~18.1％），但自身受到的伤害增加30％\n同名词条只有稀有度最高的生效",
+       "Enemies you hit become more susceptible to every status ailment for 10 seconds (buildup +11.9~18.1%), but you take 30% more damage\nOnly the highest rarity of this effect applies"
       ],
       "slots": [
        [
@@ -21348,6 +21287,80 @@
        ]
       ]
      },
+     "Epic": {
+      "lo": 16.5625,
+      "hi": 25.9375,
+      "c": 20.0,
+      "mu": 19.03998,
+      "sigma": 2.96875,
+      "tpl": [
+       "被命中的敌人在10秒内更容易陷入异常状态（异常累积＋{1}％），但自身受到的伤害增加30％\n同名词条只有稀有度最高的生效",
+       "Enemies you hit become more susceptible to every status ailment for 10 seconds (buildup +{1}%), but you take 30% more damage\nOnly the highest rarity of this effect applies"
+      ],
+      "span": [
+       "被命中的敌人在10秒内更容易陷入异常状态（异常累积＋16.6~25.9％），但自身受到的伤害增加30％\n同名词条只有稀有度最高的生效",
+       "Enemies you hit become more susceptible to every status ailment for 10 seconds (buildup +16.6~25.9%), but you take 30% more damage\nOnly the highest rarity of this effect applies"
+      ],
+      "slots": [
+       [
+        0,
+        "target_fx",
+        -1,
+        7210384,
+        [
+         [
+          864,
+          "f",
+          1.0,
+          0.01,
+          1
+         ],
+         [
+          868,
+          "f",
+          1.0,
+          0.01,
+          1
+         ],
+         [
+          872,
+          "f",
+          1.0,
+          0.01,
+          1
+         ],
+         [
+          876,
+          "f",
+          1.0,
+          0.01,
+          1
+         ],
+         [
+          880,
+          "f",
+          1.0,
+          0.01,
+          1
+         ],
+         [
+          884,
+          "f",
+          1.0,
+          0.01,
+          1
+         ],
+         [
+          888,
+          "f",
+          1.0,
+          0.01,
+          1
+         ]
+        ]
+       ]
+      ]
+     },
      "Legendary": {
       "lo": 23.75,
       "hi": 36.25,
@@ -21355,19 +21368,19 @@
       "mu": 30.0,
       "sigma": 3.125,
       "tpl": [
-       "被命中的敌人在10秒内更容易陷入异常状态（异常累积＋{1}％）\n同名词条只有稀有度最高的生效",
-       "Enemies you hit become more susceptible to every status ailment for 10 seconds (buildup +{1}%)\nOnly the highest rarity of this effect applies"
+       "被命中的敌人在10秒内更容易陷入异常状态（异常累积＋{1}％），但自身受到的伤害增加30％\n同名词条只有稀有度最高的生效",
+       "Enemies you hit become more susceptible to every status ailment for 10 seconds (buildup +{1}%), but you take 30% more damage\nOnly the highest rarity of this effect applies"
       ],
       "span": [
-       "被命中的敌人在10秒内更容易陷入异常状态（异常累积＋23.8~36.2％）\n同名词条只有稀有度最高的生效",
-       "Enemies you hit become more susceptible to every status ailment for 10 seconds (buildup +23.8~36.2%)\nOnly the highest rarity of this effect applies"
+       "被命中的敌人在10秒内更容易陷入异常状态（异常累积＋23.8~36.2％），但自身受到的伤害增加30％\n同名词条只有稀有度最高的生效",
+       "Enemies you hit become more susceptible to every status ailment for 10 seconds (buildup +23.8~36.2%), but you take 30% more damage\nOnly the highest rarity of this effect applies"
       ],
       "slots": [
        [
         0,
         "target_fx",
         -1,
-        7210370,
+        7210388,
         [
          [
           864,
@@ -22217,10 +22230,10 @@
       "type": "while",
       "cond": "grip1",
       "effect": [
-       7210384,
-       7210386,
-       7210388,
-       7210390
+       7210393,
+       7210394,
+       7210395,
+       7210396
       ]
      }
     ],
@@ -22305,7 +22318,7 @@
         0,
         "effect",
         -1,
-        7210384,
+        7210393,
         [
          [
           28,
@@ -22393,7 +22406,7 @@
         0,
         "effect",
         -1,
-        7210386,
+        7210394,
         [
          [
           28,
@@ -22481,7 +22494,7 @@
         0,
         "effect",
         -1,
-        7210388,
+        7210395,
         [
          [
           28,
@@ -22569,7 +22582,7 @@
         0,
         "effect",
         -1,
-        7210390,
+        7210396,
         [
          [
           28,
@@ -22711,10 +22724,10 @@
       "type": "while",
       "cond": "grip2",
       "effect": [
-       7210393,
-       7210394,
-       7210395,
-       7210396
+       7210397,
+       7210398,
+       7210399,
+       7210400
       ]
      }
     ],
@@ -22799,7 +22812,7 @@
         0,
         "effect",
         -1,
-        7210393,
+        7210397,
         [
          [
           608,
@@ -22964,7 +22977,7 @@
         0,
         "effect",
         -1,
-        7210394,
+        7210398,
         [
          [
           608,
@@ -23129,7 +23142,7 @@
         0,
         "effect",
         -1,
-        7210395,
+        7210399,
         [
          [
           608,
@@ -23294,7 +23307,7 @@
         0,
         "effect",
         -1,
-        7210396,
+        7210400,
         [
          [
           608,
@@ -23517,16 +23530,16 @@
       ],
       "fx": [
        [
-        7210397
+        7210401
        ],
        [
-        7210398
+        7210402
        ],
        [
-        7210399
+        7210403
        ],
        [
-        7210400
+        7210404
        ]
       ]
      }
@@ -23729,16 +23742,16 @@
       "timeout": 3.0,
       "fx": [
        [
-        7210401
+        7210415
        ],
        [
-        7210402
+        7210416
        ],
        [
-        7210403
+        7210417
        ],
        [
-        7210404
+        7210418
        ]
       ]
      }
@@ -23824,7 +23837,7 @@
         0,
         "fx",
         0,
-        7210401,
+        7210415,
         [
          [
           652,
@@ -23926,7 +23939,7 @@
         0,
         "fx",
         0,
-        7210402,
+        7210416,
         [
          [
           652,
@@ -24028,7 +24041,7 @@
         0,
         "fx",
         0,
-        7210403,
+        7210417,
         [
          [
           652,
@@ -24130,7 +24143,7 @@
         0,
         "fx",
         0,
-        7210404,
+        7210418,
         [
          [
           652,
@@ -24294,10 +24307,10 @@
        9999
       ],
       "effect": [
-       7210415,
-       7210416,
-       7210417,
-       7210418
+       7210420,
+       7210421,
+       7210422,
+       7210423
       ]
      }
     ],
@@ -24469,11 +24482,11 @@
        [],
        [],
        [
-        7210420,
-        7210421,
-        7210422,
-        7210423,
-        7210424
+        7210424,
+        7210426,
+        7210427,
+        7210428,
+        7210429
        ]
       ],
       "stamina": [
@@ -24595,12 +24608,6 @@
       "timeout": 10.0,
       "fx": [
        [
-        7210426,
-        7210427,
-        7210428
-       ],
-       [
-        7210429,
         7210430,
         7210431,
         7210433
@@ -24609,16 +24616,22 @@
         7210435,
         7210437,
         7210439,
-        7210442,
-        7210445
+        7210442
        ],
        [
+        7210445,
         7210446,
         7210447,
         7210449,
-        7210450,
+        7210450
+       ],
+       [
         7210451,
-        7210453
+        7210453,
+        7210454,
+        7210455,
+        7210457,
+        7210458
        ]
       ],
       "log": "壁垒"
@@ -24696,7 +24709,7 @@
         0,
         "fx",
         0,
-        7210426,
+        7210430,
         [
          [
           28,
@@ -24760,7 +24773,7 @@
         0,
         "fx",
         1,
-        7210427,
+        7210431,
         [
          [
           28,
@@ -24824,7 +24837,7 @@
         0,
         "fx",
         2,
-        7210428,
+        7210433,
         [
          [
           28,
@@ -24905,279 +24918,6 @@
         0,
         "fx",
         0,
-        7210429,
-        [
-         [
-          28,
-          "f",
-          1.0,
-          -0.01,
-          1
-         ],
-         [
-          32,
-          "f",
-          1.0,
-          -0.01,
-          1
-         ],
-         [
-          36,
-          "f",
-          1.0,
-          -0.01,
-          1
-         ],
-         [
-          40,
-          "f",
-          1.0,
-          -0.01,
-          1
-         ],
-         [
-          44,
-          "f",
-          1.0,
-          -0.01,
-          1
-         ],
-         [
-          48,
-          "f",
-          1.0,
-          -0.01,
-          1
-         ],
-         [
-          52,
-          "f",
-          1.0,
-          -0.01,
-          1
-         ],
-         [
-          464,
-          "f",
-          1.0,
-          -0.01,
-          1
-         ]
-        ]
-       ],
-       [
-        0,
-        "fx",
-        1,
-        7210430,
-        [
-         [
-          28,
-          "f",
-          1.0,
-          -0.02,
-          1
-         ],
-         [
-          32,
-          "f",
-          1.0,
-          -0.02,
-          1
-         ],
-         [
-          36,
-          "f",
-          1.0,
-          -0.02,
-          1
-         ],
-         [
-          40,
-          "f",
-          1.0,
-          -0.02,
-          1
-         ],
-         [
-          44,
-          "f",
-          1.0,
-          -0.02,
-          1
-         ],
-         [
-          48,
-          "f",
-          1.0,
-          -0.02,
-          1
-         ],
-         [
-          52,
-          "f",
-          1.0,
-          -0.02,
-          1
-         ],
-         [
-          464,
-          "f",
-          1.0,
-          -0.02,
-          1
-         ]
-        ]
-       ],
-       [
-        0,
-        "fx",
-        2,
-        7210431,
-        [
-         [
-          28,
-          "f",
-          1.0,
-          -0.03,
-          1
-         ],
-         [
-          32,
-          "f",
-          1.0,
-          -0.03,
-          1
-         ],
-         [
-          36,
-          "f",
-          1.0,
-          -0.03,
-          1
-         ],
-         [
-          40,
-          "f",
-          1.0,
-          -0.03,
-          1
-         ],
-         [
-          44,
-          "f",
-          1.0,
-          -0.03,
-          1
-         ],
-         [
-          48,
-          "f",
-          1.0,
-          -0.03,
-          1
-         ],
-         [
-          52,
-          "f",
-          1.0,
-          -0.03,
-          1
-         ],
-         [
-          464,
-          "f",
-          1.0,
-          -0.03,
-          1
-         ]
-        ]
-       ],
-       [
-        0,
-        "fx",
-        3,
-        7210433,
-        [
-         [
-          28,
-          "f",
-          1.0,
-          -0.04,
-          1
-         ],
-         [
-          32,
-          "f",
-          1.0,
-          -0.04,
-          1
-         ],
-         [
-          36,
-          "f",
-          1.0,
-          -0.04,
-          1
-         ],
-         [
-          40,
-          "f",
-          1.0,
-          -0.04,
-          1
-         ],
-         [
-          44,
-          "f",
-          1.0,
-          -0.04,
-          1
-         ],
-         [
-          48,
-          "f",
-          1.0,
-          -0.04,
-          1
-         ],
-         [
-          52,
-          "f",
-          1.0,
-          -0.04,
-          1
-         ],
-         [
-          464,
-          "f",
-          1.0,
-          -0.04,
-          1
-         ]
-        ]
-       ]
-      ]
-     },
-     "Epic": {
-      "lo": 2.7188,
-      "hi": 3.0312,
-      "c": 3.0,
-      "mu": 3.60488,
-      "sigma": 0.1406,
-      "tpl": [
-       "防住攻击时能积蓄一层壁垒，最多5层，每层减少{1}％受到的伤害；10秒不防御就会散去\n同名词条只有稀有度最高的生效",
-       "Blocking an attack builds a layer of Bulwark (up to 5), each reducing damage taken by {1}%; it fades after 10 seconds without blocking\nOnly the highest rarity of this effect applies"
-      ],
-      "span": [
-       "防住攻击时能积蓄一层壁垒，最多5层，每层减少2.7~3％受到的伤害；10秒不防御就会散去\n同名词条只有稀有度最高的生效",
-       "Blocking an attack builds a layer of Bulwark (up to 5), each reducing damage taken by 2.7~3%; it fades after 10 seconds without blocking\nOnly the highest rarity of this effect applies"
-      ],
-      "slots": [
-       [
-        0,
-        "fx",
-        0,
         7210435,
         [
          [
@@ -25432,26 +25172,26 @@
        ]
       ]
      },
-     "Legendary": {
-      "lo": 3.0,
-      "hi": 3.0,
+     "Epic": {
+      "lo": 2.7188,
+      "hi": 3.0312,
       "c": 3.0,
-      "mu": 3.0,
-      "sigma": 0.0,
+      "mu": 3.60488,
+      "sigma": 0.1406,
       "tpl": [
-       "防住攻击时能积蓄一层壁垒，最多6层，每层减少{1}％受到的伤害；10秒不防御就会散去\n同名词条只有稀有度最高的生效",
-       "Blocking an attack builds a layer of Bulwark (up to 6), each reducing damage taken by {1}%; it fades after 10 seconds without blocking\nOnly the highest rarity of this effect applies"
+       "防住攻击时能积蓄一层壁垒，最多5层，每层减少{1}％受到的伤害；10秒不防御就会散去\n同名词条只有稀有度最高的生效",
+       "Blocking an attack builds a layer of Bulwark (up to 5), each reducing damage taken by {1}%; it fades after 10 seconds without blocking\nOnly the highest rarity of this effect applies"
       ],
       "span": [
-       "防住攻击时能积蓄一层壁垒，最多6层，每层减少3~3％受到的伤害；10秒不防御就会散去\n同名词条只有稀有度最高的生效",
-       "Blocking an attack builds a layer of Bulwark (up to 6), each reducing damage taken by 3~3%; it fades after 10 seconds without blocking\nOnly the highest rarity of this effect applies"
+       "防住攻击时能积蓄一层壁垒，最多5层，每层减少2.7~3％受到的伤害；10秒不防御就会散去\n同名词条只有稀有度最高的生效",
+       "Blocking an attack builds a layer of Bulwark (up to 5), each reducing damage taken by 2.7~3%; it fades after 10 seconds without blocking\nOnly the highest rarity of this effect applies"
       ],
       "slots": [
        [
         0,
         "fx",
         0,
-        7210446,
+        7210445,
         [
          [
           28,
@@ -25515,7 +25255,7 @@
         0,
         "fx",
         1,
-        7210447,
+        7210446,
         [
          [
           28,
@@ -25579,7 +25319,7 @@
         0,
         "fx",
         2,
-        7210449,
+        7210447,
         [
          [
           28,
@@ -25643,7 +25383,280 @@
         0,
         "fx",
         3,
-        7210450,
+        7210449,
+        [
+         [
+          28,
+          "f",
+          1.0,
+          -0.04,
+          1
+         ],
+         [
+          32,
+          "f",
+          1.0,
+          -0.04,
+          1
+         ],
+         [
+          36,
+          "f",
+          1.0,
+          -0.04,
+          1
+         ],
+         [
+          40,
+          "f",
+          1.0,
+          -0.04,
+          1
+         ],
+         [
+          44,
+          "f",
+          1.0,
+          -0.04,
+          1
+         ],
+         [
+          48,
+          "f",
+          1.0,
+          -0.04,
+          1
+         ],
+         [
+          52,
+          "f",
+          1.0,
+          -0.04,
+          1
+         ],
+         [
+          464,
+          "f",
+          1.0,
+          -0.04,
+          1
+         ]
+        ]
+       ]
+      ]
+     },
+     "Legendary": {
+      "lo": 3.0,
+      "hi": 3.0,
+      "c": 3.0,
+      "mu": 3.0,
+      "sigma": 0.0,
+      "tpl": [
+       "防住攻击时能积蓄一层壁垒，最多6层，每层减少{1}％受到的伤害；10秒不防御就会散去\n同名词条只有稀有度最高的生效",
+       "Blocking an attack builds a layer of Bulwark (up to 6), each reducing damage taken by {1}%; it fades after 10 seconds without blocking\nOnly the highest rarity of this effect applies"
+      ],
+      "span": [
+       "防住攻击时能积蓄一层壁垒，最多6层，每层减少3~3％受到的伤害；10秒不防御就会散去\n同名词条只有稀有度最高的生效",
+       "Blocking an attack builds a layer of Bulwark (up to 6), each reducing damage taken by 3~3%; it fades after 10 seconds without blocking\nOnly the highest rarity of this effect applies"
+      ],
+      "slots": [
+       [
+        0,
+        "fx",
+        0,
+        7210451,
+        [
+         [
+          28,
+          "f",
+          1.0,
+          -0.01,
+          1
+         ],
+         [
+          32,
+          "f",
+          1.0,
+          -0.01,
+          1
+         ],
+         [
+          36,
+          "f",
+          1.0,
+          -0.01,
+          1
+         ],
+         [
+          40,
+          "f",
+          1.0,
+          -0.01,
+          1
+         ],
+         [
+          44,
+          "f",
+          1.0,
+          -0.01,
+          1
+         ],
+         [
+          48,
+          "f",
+          1.0,
+          -0.01,
+          1
+         ],
+         [
+          52,
+          "f",
+          1.0,
+          -0.01,
+          1
+         ],
+         [
+          464,
+          "f",
+          1.0,
+          -0.01,
+          1
+         ]
+        ]
+       ],
+       [
+        0,
+        "fx",
+        1,
+        7210453,
+        [
+         [
+          28,
+          "f",
+          1.0,
+          -0.02,
+          1
+         ],
+         [
+          32,
+          "f",
+          1.0,
+          -0.02,
+          1
+         ],
+         [
+          36,
+          "f",
+          1.0,
+          -0.02,
+          1
+         ],
+         [
+          40,
+          "f",
+          1.0,
+          -0.02,
+          1
+         ],
+         [
+          44,
+          "f",
+          1.0,
+          -0.02,
+          1
+         ],
+         [
+          48,
+          "f",
+          1.0,
+          -0.02,
+          1
+         ],
+         [
+          52,
+          "f",
+          1.0,
+          -0.02,
+          1
+         ],
+         [
+          464,
+          "f",
+          1.0,
+          -0.02,
+          1
+         ]
+        ]
+       ],
+       [
+        0,
+        "fx",
+        2,
+        7210454,
+        [
+         [
+          28,
+          "f",
+          1.0,
+          -0.03,
+          1
+         ],
+         [
+          32,
+          "f",
+          1.0,
+          -0.03,
+          1
+         ],
+         [
+          36,
+          "f",
+          1.0,
+          -0.03,
+          1
+         ],
+         [
+          40,
+          "f",
+          1.0,
+          -0.03,
+          1
+         ],
+         [
+          44,
+          "f",
+          1.0,
+          -0.03,
+          1
+         ],
+         [
+          48,
+          "f",
+          1.0,
+          -0.03,
+          1
+         ],
+         [
+          52,
+          "f",
+          1.0,
+          -0.03,
+          1
+         ],
+         [
+          464,
+          "f",
+          1.0,
+          -0.03,
+          1
+         ]
+        ]
+       ],
+       [
+        0,
+        "fx",
+        3,
+        7210455,
         [
          [
           28,
@@ -26116,20 +26129,20 @@
       "type": "while",
       "hp_below": 25,
       "effect": [
-       7210455,
-       7210458,
        7210461,
-       7210465
+       7210465,
+       7210469,
+       7210472
       ]
      },
      {
       "type": "while",
       "hp_below": 25,
       "effect": [
-       7210457,
-       7210459,
        7210463,
-       7210467
+       7210467,
+       7210470,
+       7210473
       ]
      }
     ],
@@ -26187,212 +26200,6 @@
       "span": [
        "血量低于25％时，能提升13.8~26.2％魔法与祷告的攻击力\n同名词条只有稀有度最高的生效",
        "While HP is below 25%, raises the attack of sorceries and incantations by 13.8~26.2%\nOnly the highest rarity of this effect applies"
-      ],
-      "slots": [
-       [
-        0,
-        "effect",
-        -1,
-        7210455,
-        [
-         [
-          56,
-          "f",
-          1.0,
-          0.01,
-          1
-         ],
-         [
-          60,
-          "f",
-          1.0,
-          0.01,
-          1
-         ],
-         [
-          64,
-          "f",
-          1.0,
-          0.01,
-          1
-         ],
-         [
-          68,
-          "f",
-          1.0,
-          0.01,
-          1
-         ],
-         [
-          476,
-          "f",
-          1.0,
-          0.01,
-          1
-         ]
-        ]
-       ],
-       [
-        1,
-        "effect",
-        -1,
-        7210457,
-        [
-         [
-          56,
-          "f",
-          1.0,
-          0.01,
-          1
-         ],
-         [
-          60,
-          "f",
-          1.0,
-          0.01,
-          1
-         ],
-         [
-          64,
-          "f",
-          1.0,
-          0.01,
-          1
-         ],
-         [
-          68,
-          "f",
-          1.0,
-          0.01,
-          1
-         ],
-         [
-          476,
-          "f",
-          1.0,
-          0.01,
-          1
-         ]
-        ]
-       ]
-      ]
-     },
-     "Rare": {
-      "lo": 23.75,
-      "hi": 36.25,
-      "c": 30.0,
-      "mu": 30.0,
-      "sigma": 3.125,
-      "tpl": [
-       "血量低于25％时，能提升{1}％魔法与祷告的攻击力\n同名词条只有稀有度最高的生效",
-       "While HP is below 25%, raises the attack of sorceries and incantations by {1}%\nOnly the highest rarity of this effect applies"
-      ],
-      "span": [
-       "血量低于25％时，能提升23.8~36.2％魔法与祷告的攻击力\n同名词条只有稀有度最高的生效",
-       "While HP is below 25%, raises the attack of sorceries and incantations by 23.8~36.2%\nOnly the highest rarity of this effect applies"
-      ],
-      "slots": [
-       [
-        0,
-        "effect",
-        -1,
-        7210458,
-        [
-         [
-          56,
-          "f",
-          1.0,
-          0.01,
-          1
-         ],
-         [
-          60,
-          "f",
-          1.0,
-          0.01,
-          1
-         ],
-         [
-          64,
-          "f",
-          1.0,
-          0.01,
-          1
-         ],
-         [
-          68,
-          "f",
-          1.0,
-          0.01,
-          1
-         ],
-         [
-          476,
-          "f",
-          1.0,
-          0.01,
-          1
-         ]
-        ]
-       ],
-       [
-        1,
-        "effect",
-        -1,
-        7210459,
-        [
-         [
-          56,
-          "f",
-          1.0,
-          0.01,
-          1
-         ],
-         [
-          60,
-          "f",
-          1.0,
-          0.01,
-          1
-         ],
-         [
-          64,
-          "f",
-          1.0,
-          0.01,
-          1
-         ],
-         [
-          68,
-          "f",
-          1.0,
-          0.01,
-          1
-         ],
-         [
-          476,
-          "f",
-          1.0,
-          0.01,
-          1
-         ]
-        ]
-       ]
-      ]
-     },
-     "Epic": {
-      "lo": 33.75,
-      "hi": 46.25,
-      "c": 40.0,
-      "mu": 40.0,
-      "sigma": 3.125,
-      "tpl": [
-       "血量低于25％时，能提升{1}％魔法与祷告的攻击力\n同名词条只有稀有度最高的生效",
-       "While HP is below 25%, raises the attack of sorceries and incantations by {1}%\nOnly the highest rarity of this effect applies"
-      ],
-      "span": [
-       "血量低于25％时，能提升33.8~46.2％魔法与祷告的攻击力\n同名词条只有稀有度最高的生效",
-       "While HP is below 25%, raises the attack of sorceries and incantations by 33.8~46.2%\nOnly the highest rarity of this effect applies"
       ],
       "slots": [
        [
@@ -26483,19 +26290,19 @@
        ]
       ]
      },
-     "Legendary": {
-      "lo": 43.75,
-      "hi": 56.25,
-      "c": 50.0,
-      "mu": 50.0,
+     "Rare": {
+      "lo": 23.75,
+      "hi": 36.25,
+      "c": 30.0,
+      "mu": 30.0,
       "sigma": 3.125,
       "tpl": [
        "血量低于25％时，能提升{1}％魔法与祷告的攻击力\n同名词条只有稀有度最高的生效",
        "While HP is below 25%, raises the attack of sorceries and incantations by {1}%\nOnly the highest rarity of this effect applies"
       ],
       "span": [
-       "血量低于25％时，能提升43.8~56.2％魔法与祷告的攻击力\n同名词条只有稀有度最高的生效",
-       "While HP is below 25%, raises the attack of sorceries and incantations by 43.8~56.2%\nOnly the highest rarity of this effect applies"
+       "血量低于25％时，能提升23.8~36.2％魔法与祷告的攻击力\n同名词条只有稀有度最高的生效",
+       "While HP is below 25%, raises the attack of sorceries and incantations by 23.8~36.2%\nOnly the highest rarity of this effect applies"
       ],
       "slots": [
        [
@@ -26546,6 +26353,212 @@
         "effect",
         -1,
         7210467,
+        [
+         [
+          56,
+          "f",
+          1.0,
+          0.01,
+          1
+         ],
+         [
+          60,
+          "f",
+          1.0,
+          0.01,
+          1
+         ],
+         [
+          64,
+          "f",
+          1.0,
+          0.01,
+          1
+         ],
+         [
+          68,
+          "f",
+          1.0,
+          0.01,
+          1
+         ],
+         [
+          476,
+          "f",
+          1.0,
+          0.01,
+          1
+         ]
+        ]
+       ]
+      ]
+     },
+     "Epic": {
+      "lo": 33.75,
+      "hi": 46.25,
+      "c": 40.0,
+      "mu": 40.0,
+      "sigma": 3.125,
+      "tpl": [
+       "血量低于25％时，能提升{1}％魔法与祷告的攻击力\n同名词条只有稀有度最高的生效",
+       "While HP is below 25%, raises the attack of sorceries and incantations by {1}%\nOnly the highest rarity of this effect applies"
+      ],
+      "span": [
+       "血量低于25％时，能提升33.8~46.2％魔法与祷告的攻击力\n同名词条只有稀有度最高的生效",
+       "While HP is below 25%, raises the attack of sorceries and incantations by 33.8~46.2%\nOnly the highest rarity of this effect applies"
+      ],
+      "slots": [
+       [
+        0,
+        "effect",
+        -1,
+        7210469,
+        [
+         [
+          56,
+          "f",
+          1.0,
+          0.01,
+          1
+         ],
+         [
+          60,
+          "f",
+          1.0,
+          0.01,
+          1
+         ],
+         [
+          64,
+          "f",
+          1.0,
+          0.01,
+          1
+         ],
+         [
+          68,
+          "f",
+          1.0,
+          0.01,
+          1
+         ],
+         [
+          476,
+          "f",
+          1.0,
+          0.01,
+          1
+         ]
+        ]
+       ],
+       [
+        1,
+        "effect",
+        -1,
+        7210470,
+        [
+         [
+          56,
+          "f",
+          1.0,
+          0.01,
+          1
+         ],
+         [
+          60,
+          "f",
+          1.0,
+          0.01,
+          1
+         ],
+         [
+          64,
+          "f",
+          1.0,
+          0.01,
+          1
+         ],
+         [
+          68,
+          "f",
+          1.0,
+          0.01,
+          1
+         ],
+         [
+          476,
+          "f",
+          1.0,
+          0.01,
+          1
+         ]
+        ]
+       ]
+      ]
+     },
+     "Legendary": {
+      "lo": 43.75,
+      "hi": 56.25,
+      "c": 50.0,
+      "mu": 50.0,
+      "sigma": 3.125,
+      "tpl": [
+       "血量低于25％时，能提升{1}％魔法与祷告的攻击力\n同名词条只有稀有度最高的生效",
+       "While HP is below 25%, raises the attack of sorceries and incantations by {1}%\nOnly the highest rarity of this effect applies"
+      ],
+      "span": [
+       "血量低于25％时，能提升43.8~56.2％魔法与祷告的攻击力\n同名词条只有稀有度最高的生效",
+       "While HP is below 25%, raises the attack of sorceries and incantations by 43.8~56.2%\nOnly the highest rarity of this effect applies"
+      ],
+      "slots": [
+       [
+        0,
+        "effect",
+        -1,
+        7210472,
+        [
+         [
+          56,
+          "f",
+          1.0,
+          0.01,
+          1
+         ],
+         [
+          60,
+          "f",
+          1.0,
+          0.01,
+          1
+         ],
+         [
+          64,
+          "f",
+          1.0,
+          0.01,
+          1
+         ],
+         [
+          68,
+          "f",
+          1.0,
+          0.01,
+          1
+         ],
+         [
+          476,
+          "f",
+          1.0,
+          0.01,
+          1
+         ]
+        ]
+       ],
+       [
+        1,
+        "effect",
+        -1,
+        7210473,
         [
          [
           56,
@@ -26732,7 +26745,7 @@
       ],
       "rows": [
        7210460,
-       7210469
+       7210475
       ],
       "refs": [
        [
@@ -26776,7 +26789,7 @@
       ],
       "rows": [
        7210462,
-       7210470
+       7210476
       ],
       "refs": [
        [
@@ -26820,7 +26833,7 @@
       ],
       "rows": [
        7210464,
-       7210472
+       7210478
       ],
       "refs": [
        [
@@ -26864,7 +26877,7 @@
       ],
       "rows": [
        7210466,
-       7210473
+       7210479
       ],
       "refs": [
        [
@@ -27042,10 +27055,10 @@
       "type": "while",
       "hp_below": 90,
       "effect": [
-       7210475,
-       7210486,
-       7210496,
-       7210506
+       7210481,
+       7210491,
+       7210501,
+       7210511
       ],
       "hp_above": 80
      },
@@ -27053,10 +27066,10 @@
       "type": "while",
       "hp_below": 80,
       "effect": [
-       7210476,
-       7210487,
-       7210497,
-       7210507
+       7210482,
+       7210492,
+       7210502,
+       7210514
       ],
       "hp_above": 70
      },
@@ -27064,10 +27077,10 @@
       "type": "while",
       "hp_below": 70,
       "effect": [
-       7210478,
-       7210488,
-       7210498,
-       7210508
+       7210483,
+       7210493,
+       7210503,
+       7210515
       ],
       "hp_above": 60
      },
@@ -27075,10 +27088,10 @@
       "type": "while",
       "hp_below": 60,
       "effect": [
-       7210479,
-       7210489,
-       7210499,
-       7210509
+       7210484,
+       7210494,
+       7210504,
+       7210517
       ],
       "hp_above": 50
      },
@@ -27086,10 +27099,10 @@
       "type": "while",
       "hp_below": 50,
       "effect": [
-       7210481,
-       7210491,
-       7210501,
-       7210511
+       7210485,
+       7210495,
+       7210505,
+       7210518
       ],
       "hp_above": 40
      },
@@ -27097,10 +27110,10 @@
       "type": "while",
       "hp_below": 40,
       "effect": [
-       7210482,
-       7210492,
-       7210502,
-       7210514
+       7210486,
+       7210496,
+       7210506,
+       7210521
       ],
       "hp_above": 30
      },
@@ -27108,10 +27121,10 @@
       "type": "while",
       "hp_below": 30,
       "effect": [
-       7210483,
-       7210493,
-       7210503,
-       7210515
+       7210487,
+       7210497,
+       7210507,
+       7210523
       ],
       "hp_above": 20
      },
@@ -27119,10 +27132,10 @@
       "type": "while",
       "hp_below": 20,
       "effect": [
-       7210484,
-       7210494,
-       7210504,
-       7210517
+       7210488,
+       7210498,
+       7210508,
+       7210526
       ],
       "hp_above": 10
      },
@@ -27130,10 +27143,10 @@
       "type": "while",
       "hp_below": 10,
       "effect": [
-       7210485,
-       7210495,
-       7210505,
-       7210518
+       7210489,
+       7210499,
+       7210509,
+       7210527
       ]
      }
     ],
@@ -27197,7 +27210,7 @@
         0,
         "effect",
         -1,
-        7210475,
+        7210481,
         [
          [
           652,
@@ -27275,7 +27288,7 @@
         1,
         "effect",
         -1,
-        7210476,
+        7210482,
         [
          [
           652,
@@ -27353,7 +27366,7 @@
         2,
         "effect",
         -1,
-        7210478,
+        7210483,
         [
          [
           652,
@@ -27431,7 +27444,7 @@
         3,
         "effect",
         -1,
-        7210479,
+        7210484,
         [
          [
           652,
@@ -27509,7 +27522,7 @@
         4,
         "effect",
         -1,
-        7210481,
+        7210485,
         [
          [
           652,
@@ -27587,7 +27600,7 @@
         5,
         "effect",
         -1,
-        7210482,
+        7210486,
         [
          [
           652,
@@ -27665,7 +27678,7 @@
         6,
         "effect",
         -1,
-        7210483,
+        7210487,
         [
          [
           652,
@@ -27743,7 +27756,7 @@
         7,
         "effect",
         -1,
-        7210484,
+        7210488,
         [
          [
           652,
@@ -27821,7 +27834,7 @@
         8,
         "effect",
         -1,
-        7210485,
+        7210489,
         [
          [
           652,
@@ -27916,7 +27929,7 @@
         0,
         "effect",
         -1,
-        7210486,
+        7210491,
         [
          [
           652,
@@ -27994,7 +28007,7 @@
         1,
         "effect",
         -1,
-        7210487,
+        7210492,
         [
          [
           652,
@@ -28072,7 +28085,7 @@
         2,
         "effect",
         -1,
-        7210488,
+        7210493,
         [
          [
           652,
@@ -28150,7 +28163,7 @@
         3,
         "effect",
         -1,
-        7210489,
+        7210494,
         [
          [
           652,
@@ -28228,7 +28241,7 @@
         4,
         "effect",
         -1,
-        7210491,
+        7210495,
         [
          [
           652,
@@ -28306,7 +28319,7 @@
         5,
         "effect",
         -1,
-        7210492,
+        7210496,
         [
          [
           652,
@@ -28384,7 +28397,7 @@
         6,
         "effect",
         -1,
-        7210493,
+        7210497,
         [
          [
           652,
@@ -28462,7 +28475,7 @@
         7,
         "effect",
         -1,
-        7210494,
+        7210498,
         [
          [
           652,
@@ -28540,7 +28553,7 @@
         8,
         "effect",
         -1,
-        7210495,
+        7210499,
         [
          [
           652,
@@ -28635,7 +28648,7 @@
         0,
         "effect",
         -1,
-        7210496,
+        7210501,
         [
          [
           652,
@@ -28713,7 +28726,7 @@
         1,
         "effect",
         -1,
-        7210497,
+        7210502,
         [
          [
           652,
@@ -28791,7 +28804,7 @@
         2,
         "effect",
         -1,
-        7210498,
+        7210503,
         [
          [
           652,
@@ -28869,7 +28882,7 @@
         3,
         "effect",
         -1,
-        7210499,
+        7210504,
         [
          [
           652,
@@ -28947,7 +28960,7 @@
         4,
         "effect",
         -1,
-        7210501,
+        7210505,
         [
          [
           652,
@@ -29025,7 +29038,7 @@
         5,
         "effect",
         -1,
-        7210502,
+        7210506,
         [
          [
           652,
@@ -29103,7 +29116,7 @@
         6,
         "effect",
         -1,
-        7210503,
+        7210507,
         [
          [
           652,
@@ -29181,7 +29194,7 @@
         7,
         "effect",
         -1,
-        7210504,
+        7210508,
         [
          [
           652,
@@ -29259,7 +29272,7 @@
         8,
         "effect",
         -1,
-        7210505,
+        7210509,
         [
          [
           652,
@@ -29354,7 +29367,7 @@
         0,
         "effect",
         -1,
-        7210506,
+        7210511,
         [
          [
           652,
@@ -29432,7 +29445,7 @@
         1,
         "effect",
         -1,
-        7210507,
+        7210514,
         [
          [
           652,
@@ -29510,7 +29523,7 @@
         2,
         "effect",
         -1,
-        7210508,
+        7210515,
         [
          [
           652,
@@ -29588,7 +29601,7 @@
         3,
         "effect",
         -1,
-        7210509,
+        7210517,
         [
          [
           652,
@@ -29666,7 +29679,7 @@
         4,
         "effect",
         -1,
-        7210511,
+        7210518,
         [
          [
           652,
@@ -29744,7 +29757,7 @@
         5,
         "effect",
         -1,
-        7210514,
+        7210521,
         [
          [
           652,
@@ -29822,7 +29835,7 @@
         6,
         "effect",
         -1,
-        7210515,
+        7210523,
         [
          [
           652,
@@ -29900,7 +29913,7 @@
         7,
         "effect",
         -1,
-        7210517,
+        7210526,
         [
          [
           652,
@@ -29978,7 +29991,7 @@
         8,
         "effect",
         -1,
-        7210518,
+        7210527,
         [
          [
           652,
@@ -30222,10 +30235,10 @@
       "cond": "clash_l_r",
       "hp_below": 40,
       "effect": [
-       7210521,
        7210530,
        7210542,
-       7210551
+       7210551,
+       7210559
       ],
       "hp_above": 30
      },
@@ -30234,10 +30247,10 @@
       "cond": "clash_l_r",
       "hp_below": 30,
       "effect": [
-       7210523,
        7210533,
        7210544,
-       7210553
+       7210553,
+       7210560
       ],
       "hp_above": 20
      },
@@ -30246,10 +30259,10 @@
       "cond": "clash_l_r",
       "hp_below": 20,
       "effect": [
-       7210526,
        7210536,
        7210547,
-       7210555
+       7210555,
+       7210563
       ],
       "hp_above": 10
      },
@@ -30258,10 +30271,10 @@
       "cond": "clash_l_r",
       "hp_below": 10,
       "effect": [
-       7210527,
        7210538,
        7210549,
-       7210557
+       7210557,
+       7210564
       ]
      },
      {
@@ -30269,10 +30282,10 @@
       "cond": "clash_l_l",
       "hp_below": 40,
       "effect": [
-       7210521,
        7210530,
        7210542,
-       7210551
+       7210551,
+       7210559
       ],
       "hp_above": 30
      },
@@ -30281,10 +30294,10 @@
       "cond": "clash_l_l",
       "hp_below": 30,
       "effect": [
-       7210523,
        7210533,
        7210544,
-       7210553
+       7210553,
+       7210560
       ],
       "hp_above": 20
      },
@@ -30293,10 +30306,10 @@
       "cond": "clash_l_l",
       "hp_below": 20,
       "effect": [
-       7210526,
        7210536,
        7210547,
-       7210555
+       7210555,
+       7210563
       ],
       "hp_above": 10
      },
@@ -30305,10 +30318,10 @@
       "cond": "clash_l_l",
       "hp_below": 10,
       "effect": [
-       7210527,
        7210538,
        7210549,
-       7210557
+       7210557,
+       7210564
       ]
      }
     ],
@@ -30372,7 +30385,7 @@
         0,
         "effect",
         -1,
-        7210521,
+        7210530,
         [
          [
           652,
@@ -30450,7 +30463,7 @@
         1,
         "effect",
         -1,
-        7210523,
+        7210533,
         [
          [
           652,
@@ -30528,7 +30541,7 @@
         2,
         "effect",
         -1,
-        7210526,
+        7210536,
         [
          [
           652,
@@ -30606,7 +30619,7 @@
         3,
         "effect",
         -1,
-        7210527,
+        7210538,
         [
          [
           652,
@@ -30684,7 +30697,7 @@
         4,
         "effect",
         -1,
-        7210521,
+        7210530,
         [
          [
           652,
@@ -30762,7 +30775,7 @@
         5,
         "effect",
         -1,
-        7210523,
+        7210533,
         [
          [
           652,
@@ -30840,7 +30853,7 @@
         6,
         "effect",
         -1,
-        7210526,
+        7210536,
         [
          [
           652,
@@ -30918,7 +30931,7 @@
         7,
         "effect",
         -1,
-        7210527,
+        7210538,
         [
          [
           652,
@@ -31013,7 +31026,7 @@
         0,
         "effect",
         -1,
-        7210530,
+        7210542,
         [
          [
           652,
@@ -31091,7 +31104,7 @@
         1,
         "effect",
         -1,
-        7210533,
+        7210544,
         [
          [
           652,
@@ -31169,7 +31182,7 @@
         2,
         "effect",
         -1,
-        7210536,
+        7210547,
         [
          [
           652,
@@ -31247,7 +31260,7 @@
         3,
         "effect",
         -1,
-        7210538,
+        7210549,
         [
          [
           652,
@@ -31325,7 +31338,7 @@
         4,
         "effect",
         -1,
-        7210530,
+        7210542,
         [
          [
           652,
@@ -31403,7 +31416,7 @@
         5,
         "effect",
         -1,
-        7210533,
+        7210544,
         [
          [
           652,
@@ -31481,7 +31494,7 @@
         6,
         "effect",
         -1,
-        7210536,
+        7210547,
         [
          [
           652,
@@ -31559,7 +31572,7 @@
         7,
         "effect",
         -1,
-        7210538,
+        7210549,
         [
          [
           652,
@@ -31654,7 +31667,7 @@
         0,
         "effect",
         -1,
-        7210542,
+        7210551,
         [
          [
           652,
@@ -31732,7 +31745,7 @@
         1,
         "effect",
         -1,
-        7210544,
+        7210553,
         [
          [
           652,
@@ -31810,7 +31823,7 @@
         2,
         "effect",
         -1,
-        7210547,
+        7210555,
         [
          [
           652,
@@ -31888,7 +31901,7 @@
         3,
         "effect",
         -1,
-        7210549,
+        7210557,
         [
          [
           652,
@@ -31966,7 +31979,7 @@
         4,
         "effect",
         -1,
-        7210542,
+        7210551,
         [
          [
           652,
@@ -32044,7 +32057,7 @@
         5,
         "effect",
         -1,
-        7210544,
+        7210553,
         [
          [
           652,
@@ -32122,7 +32135,7 @@
         6,
         "effect",
         -1,
-        7210547,
+        7210555,
         [
          [
           652,
@@ -32200,7 +32213,7 @@
         7,
         "effect",
         -1,
-        7210549,
+        7210557,
         [
          [
           652,
@@ -32295,7 +32308,7 @@
         0,
         "effect",
         -1,
-        7210551,
+        7210559,
         [
          [
           652,
@@ -32373,7 +32386,7 @@
         1,
         "effect",
         -1,
-        7210553,
+        7210560,
         [
          [
           652,
@@ -32451,7 +32464,7 @@
         2,
         "effect",
         -1,
-        7210555,
+        7210563,
         [
          [
           652,
@@ -32529,7 +32542,7 @@
         3,
         "effect",
         -1,
-        7210557,
+        7210564,
         [
          [
           652,
@@ -32607,7 +32620,7 @@
         4,
         "effect",
         -1,
-        7210551,
+        7210559,
         [
          [
           652,
@@ -32685,7 +32698,7 @@
         5,
         "effect",
         -1,
-        7210553,
+        7210560,
         [
          [
           652,
@@ -32763,7 +32776,7 @@
         6,
         "effect",
         -1,
-        7210555,
+        7210563,
         [
          [
           652,
@@ -32841,7 +32854,7 @@
         7,
         "effect",
         -1,
-        7210557,
+        7210564,
         [
          [
           652,
@@ -32994,10 +33007,10 @@
       "type": "while",
       "hp_below": 40,
       "effect": [
-       7210559,
        7210574,
        7210578,
-       7210583
+       7210583,
+       7210587
       ],
       "hp_above": 30
      },
@@ -33005,10 +33018,10 @@
       "type": "while",
       "hp_below": 30,
       "effect": [
-       7210560,
        7210575,
        7210580,
-       7210584
+       7210584,
+       7210589
       ],
       "hp_above": 20
      },
@@ -33016,10 +33029,10 @@
       "type": "while",
       "hp_below": 20,
       "effect": [
-       7210563,
        7210576,
        7210581,
-       7210585
+       7210585,
+       7210590
       ],
       "hp_above": 10
      },
@@ -33027,10 +33040,10 @@
       "type": "while",
       "hp_below": 10,
       "effect": [
-       7210564,
        7210577,
        7210582,
-       7210586
+       7210586,
+       7210591
       ]
      }
     ],
@@ -33088,279 +33101,6 @@
       "span": [
        "血量低于40％时，每失去10％血量，受到的伤害减少1.9~3.1％\n同名词条只有稀有度最高的生效",
        "Below 40% HP, you take 1.9~3.1% less damage per 10% of HP lost\nOnly the highest rarity of this effect applies"
-      ],
-      "slots": [
-       [
-        0,
-        "effect",
-        -1,
-        7210559,
-        [
-         [
-          28,
-          "f",
-          1.0,
-          -0.06,
-          2
-         ],
-         [
-          32,
-          "f",
-          1.0,
-          -0.06,
-          2
-         ],
-         [
-          36,
-          "f",
-          1.0,
-          -0.06,
-          2
-         ],
-         [
-          40,
-          "f",
-          1.0,
-          -0.06,
-          2
-         ],
-         [
-          44,
-          "f",
-          1.0,
-          -0.06,
-          2
-         ],
-         [
-          48,
-          "f",
-          1.0,
-          -0.06,
-          2
-         ],
-         [
-          52,
-          "f",
-          1.0,
-          -0.06,
-          2
-         ],
-         [
-          464,
-          "f",
-          1.0,
-          -0.06,
-          2
-         ]
-        ]
-       ],
-       [
-        1,
-        "effect",
-        -1,
-        7210560,
-        [
-         [
-          28,
-          "f",
-          1.0,
-          -0.07,
-          2
-         ],
-         [
-          32,
-          "f",
-          1.0,
-          -0.07,
-          2
-         ],
-         [
-          36,
-          "f",
-          1.0,
-          -0.07,
-          2
-         ],
-         [
-          40,
-          "f",
-          1.0,
-          -0.07,
-          2
-         ],
-         [
-          44,
-          "f",
-          1.0,
-          -0.07,
-          2
-         ],
-         [
-          48,
-          "f",
-          1.0,
-          -0.07,
-          2
-         ],
-         [
-          52,
-          "f",
-          1.0,
-          -0.07,
-          2
-         ],
-         [
-          464,
-          "f",
-          1.0,
-          -0.07,
-          2
-         ]
-        ]
-       ],
-       [
-        2,
-        "effect",
-        -1,
-        7210563,
-        [
-         [
-          28,
-          "f",
-          1.0,
-          -0.08,
-          2
-         ],
-         [
-          32,
-          "f",
-          1.0,
-          -0.08,
-          2
-         ],
-         [
-          36,
-          "f",
-          1.0,
-          -0.08,
-          2
-         ],
-         [
-          40,
-          "f",
-          1.0,
-          -0.08,
-          2
-         ],
-         [
-          44,
-          "f",
-          1.0,
-          -0.08,
-          2
-         ],
-         [
-          48,
-          "f",
-          1.0,
-          -0.08,
-          2
-         ],
-         [
-          52,
-          "f",
-          1.0,
-          -0.08,
-          2
-         ],
-         [
-          464,
-          "f",
-          1.0,
-          -0.08,
-          2
-         ]
-        ]
-       ],
-       [
-        3,
-        "effect",
-        -1,
-        7210564,
-        [
-         [
-          28,
-          "f",
-          1.0,
-          -0.09,
-          2
-         ],
-         [
-          32,
-          "f",
-          1.0,
-          -0.09,
-          2
-         ],
-         [
-          36,
-          "f",
-          1.0,
-          -0.09,
-          2
-         ],
-         [
-          40,
-          "f",
-          1.0,
-          -0.09,
-          2
-         ],
-         [
-          44,
-          "f",
-          1.0,
-          -0.09,
-          2
-         ],
-         [
-          48,
-          "f",
-          1.0,
-          -0.09,
-          2
-         ],
-         [
-          52,
-          "f",
-          1.0,
-          -0.09,
-          2
-         ],
-         [
-          464,
-          "f",
-          1.0,
-          -0.09,
-          2
-         ]
-        ]
-       ]
-      ]
-     },
-     "Rare": {
-      "lo": 2.9062,
-      "hi": 3.8438,
-      "c": 3.5,
-      "mu": 3.59599,
-      "sigma": 0.2969,
-      "tpl": [
-       "血量低于40％时，每失去10％血量，受到的伤害减少{2}％\n同名词条只有稀有度最高的生效",
-       "Below 40% HP, you take {2}% less damage per 10% of HP lost\nOnly the highest rarity of this effect applies"
-      ],
-      "span": [
-       "血量低于40％时，每失去10％血量，受到的伤害减少2.9~3.8％\n同名词条只有稀有度最高的生效",
-       "Below 40% HP, you take 2.9~3.8% less damage per 10% of HP lost\nOnly the highest rarity of this effect applies"
       ],
       "slots": [
        [
@@ -33621,19 +33361,19 @@
        ]
       ]
      },
-     "Epic": {
-      "lo": 3.6562,
-      "hi": 4.5938,
-      "c": 4.0,
-      "mu": 3.90401,
+     "Rare": {
+      "lo": 2.9062,
+      "hi": 3.8438,
+      "c": 3.5,
+      "mu": 3.59599,
       "sigma": 0.2969,
       "tpl": [
        "血量低于40％时，每失去10％血量，受到的伤害减少{2}％\n同名词条只有稀有度最高的生效",
        "Below 40% HP, you take {2}% less damage per 10% of HP lost\nOnly the highest rarity of this effect applies"
       ],
       "span": [
-       "血量低于40％时，每失去10％血量，受到的伤害减少3.7~4.6％\n同名词条只有稀有度最高的生效",
-       "Below 40% HP, you take 3.7~4.6% less damage per 10% of HP lost\nOnly the highest rarity of this effect applies"
+       "血量低于40％时，每失去10％血量，受到的伤害减少2.9~3.8％\n同名词条只有稀有度最高的生效",
+       "Below 40% HP, you take 2.9~3.8% less damage per 10% of HP lost\nOnly the highest rarity of this effect applies"
       ],
       "slots": [
        [
@@ -33894,19 +33634,19 @@
        ]
       ]
      },
-     "Legendary": {
-      "lo": 4.375,
-      "hi": 5.625,
-      "c": 5.0,
-      "mu": 5.0,
-      "sigma": 0.3125,
+     "Epic": {
+      "lo": 3.6562,
+      "hi": 4.5938,
+      "c": 4.0,
+      "mu": 3.90401,
+      "sigma": 0.2969,
       "tpl": [
        "血量低于40％时，每失去10％血量，受到的伤害减少{2}％\n同名词条只有稀有度最高的生效",
        "Below 40% HP, you take {2}% less damage per 10% of HP lost\nOnly the highest rarity of this effect applies"
       ],
       "span": [
-       "血量低于40％时，每失去10％血量，受到的伤害减少4.4~5.6％\n同名词条只有稀有度最高的生效",
-       "Below 40% HP, you take 4.4~5.6% less damage per 10% of HP lost\nOnly the highest rarity of this effect applies"
+       "血量低于40％时，每失去10％血量，受到的伤害减少3.7~4.6％\n同名词条只有稀有度最高的生效",
+       "Below 40% HP, you take 3.7~4.6% less damage per 10% of HP lost\nOnly the highest rarity of this effect applies"
       ],
       "slots": [
        [
@@ -34166,6 +33906,279 @@
         ]
        ]
       ]
+     },
+     "Legendary": {
+      "lo": 4.375,
+      "hi": 5.625,
+      "c": 5.0,
+      "mu": 5.0,
+      "sigma": 0.3125,
+      "tpl": [
+       "血量低于40％时，每失去10％血量，受到的伤害减少{2}％\n同名词条只有稀有度最高的生效",
+       "Below 40% HP, you take {2}% less damage per 10% of HP lost\nOnly the highest rarity of this effect applies"
+      ],
+      "span": [
+       "血量低于40％时，每失去10％血量，受到的伤害减少4.4~5.6％\n同名词条只有稀有度最高的生效",
+       "Below 40% HP, you take 4.4~5.6% less damage per 10% of HP lost\nOnly the highest rarity of this effect applies"
+      ],
+      "slots": [
+       [
+        0,
+        "effect",
+        -1,
+        7210587,
+        [
+         [
+          28,
+          "f",
+          1.0,
+          -0.06,
+          2
+         ],
+         [
+          32,
+          "f",
+          1.0,
+          -0.06,
+          2
+         ],
+         [
+          36,
+          "f",
+          1.0,
+          -0.06,
+          2
+         ],
+         [
+          40,
+          "f",
+          1.0,
+          -0.06,
+          2
+         ],
+         [
+          44,
+          "f",
+          1.0,
+          -0.06,
+          2
+         ],
+         [
+          48,
+          "f",
+          1.0,
+          -0.06,
+          2
+         ],
+         [
+          52,
+          "f",
+          1.0,
+          -0.06,
+          2
+         ],
+         [
+          464,
+          "f",
+          1.0,
+          -0.06,
+          2
+         ]
+        ]
+       ],
+       [
+        1,
+        "effect",
+        -1,
+        7210589,
+        [
+         [
+          28,
+          "f",
+          1.0,
+          -0.07,
+          2
+         ],
+         [
+          32,
+          "f",
+          1.0,
+          -0.07,
+          2
+         ],
+         [
+          36,
+          "f",
+          1.0,
+          -0.07,
+          2
+         ],
+         [
+          40,
+          "f",
+          1.0,
+          -0.07,
+          2
+         ],
+         [
+          44,
+          "f",
+          1.0,
+          -0.07,
+          2
+         ],
+         [
+          48,
+          "f",
+          1.0,
+          -0.07,
+          2
+         ],
+         [
+          52,
+          "f",
+          1.0,
+          -0.07,
+          2
+         ],
+         [
+          464,
+          "f",
+          1.0,
+          -0.07,
+          2
+         ]
+        ]
+       ],
+       [
+        2,
+        "effect",
+        -1,
+        7210590,
+        [
+         [
+          28,
+          "f",
+          1.0,
+          -0.08,
+          2
+         ],
+         [
+          32,
+          "f",
+          1.0,
+          -0.08,
+          2
+         ],
+         [
+          36,
+          "f",
+          1.0,
+          -0.08,
+          2
+         ],
+         [
+          40,
+          "f",
+          1.0,
+          -0.08,
+          2
+         ],
+         [
+          44,
+          "f",
+          1.0,
+          -0.08,
+          2
+         ],
+         [
+          48,
+          "f",
+          1.0,
+          -0.08,
+          2
+         ],
+         [
+          52,
+          "f",
+          1.0,
+          -0.08,
+          2
+         ],
+         [
+          464,
+          "f",
+          1.0,
+          -0.08,
+          2
+         ]
+        ]
+       ],
+       [
+        3,
+        "effect",
+        -1,
+        7210591,
+        [
+         [
+          28,
+          "f",
+          1.0,
+          -0.09,
+          2
+         ],
+         [
+          32,
+          "f",
+          1.0,
+          -0.09,
+          2
+         ],
+         [
+          36,
+          "f",
+          1.0,
+          -0.09,
+          2
+         ],
+         [
+          40,
+          "f",
+          1.0,
+          -0.09,
+          2
+         ],
+         [
+          44,
+          "f",
+          1.0,
+          -0.09,
+          2
+         ],
+         [
+          48,
+          "f",
+          1.0,
+          -0.09,
+          2
+         ],
+         [
+          52,
+          "f",
+          1.0,
+          -0.09,
+          2
+         ],
+         [
+          464,
+          "f",
+          1.0,
+          -0.09,
+          2
+         ]
+        ]
+       ]
+      ]
      }
     },
     "rnum": [],
@@ -34245,10 +34258,10 @@
       "cond": "clash_l_r",
       "hp_below": 40,
       "effect": [
-       7210587,
        7210592,
        7210596,
-       7210607
+       7210607,
+       7210613
       ],
       "hp_above": 30
      },
@@ -34257,10 +34270,10 @@
       "cond": "clash_l_r",
       "hp_below": 30,
       "effect": [
-       7210589,
        7210593,
        7210603,
-       7210609
+       7210609,
+       7210615
       ],
       "hp_above": 20
      },
@@ -34269,10 +34282,10 @@
       "cond": "clash_l_r",
       "hp_below": 20,
       "effect": [
-       7210590,
        7210594,
        7210604,
-       7210610
+       7210610,
+       7210616
       ],
       "hp_above": 10
      },
@@ -34281,10 +34294,10 @@
       "cond": "clash_l_r",
       "hp_below": 10,
       "effect": [
-       7210591,
        7210595,
        7210606,
-       7210612
+       7210612,
+       7210617
       ]
      },
      {
@@ -34292,10 +34305,10 @@
       "cond": "clash_l_l",
       "hp_below": 40,
       "effect": [
-       7210587,
        7210592,
        7210596,
-       7210607
+       7210607,
+       7210613
       ],
       "hp_above": 30
      },
@@ -34304,10 +34317,10 @@
       "cond": "clash_l_l",
       "hp_below": 30,
       "effect": [
-       7210589,
        7210593,
        7210603,
-       7210609
+       7210609,
+       7210615
       ],
       "hp_above": 20
      },
@@ -34316,10 +34329,10 @@
       "cond": "clash_l_l",
       "hp_below": 20,
       "effect": [
-       7210590,
        7210594,
        7210604,
-       7210610
+       7210610,
+       7210616
       ],
       "hp_above": 10
      },
@@ -34328,10 +34341,10 @@
       "cond": "clash_l_l",
       "hp_below": 10,
       "effect": [
-       7210591,
        7210595,
        7210606,
-       7210612
+       7210612,
+       7210617
       ]
      }
     ],
@@ -34395,7 +34408,7 @@
         0,
         "effect",
         -1,
-        7210587,
+        7210592,
         [
          [
           820,
@@ -34410,7 +34423,7 @@
         1,
         "effect",
         -1,
-        7210589,
+        7210593,
         [
          [
           820,
@@ -34425,7 +34438,7 @@
         2,
         "effect",
         -1,
-        7210590,
+        7210594,
         [
          [
           820,
@@ -34440,7 +34453,7 @@
         3,
         "effect",
         -1,
-        7210591,
+        7210595,
         [
          [
           820,
@@ -34455,7 +34468,7 @@
         4,
         "effect",
         -1,
-        7210587,
+        7210592,
         [
          [
           820,
@@ -34470,7 +34483,7 @@
         5,
         "effect",
         -1,
-        7210589,
+        7210593,
         [
          [
           820,
@@ -34485,7 +34498,7 @@
         6,
         "effect",
         -1,
-        7210590,
+        7210594,
         [
          [
           820,
@@ -34500,7 +34513,7 @@
         7,
         "effect",
         -1,
-        7210591,
+        7210595,
         [
          [
           820,
@@ -34532,7 +34545,7 @@
         0,
         "effect",
         -1,
-        7210592,
+        7210596,
         [
          [
           820,
@@ -34547,7 +34560,7 @@
         1,
         "effect",
         -1,
-        7210593,
+        7210603,
         [
          [
           820,
@@ -34562,7 +34575,7 @@
         2,
         "effect",
         -1,
-        7210594,
+        7210604,
         [
          [
           820,
@@ -34577,7 +34590,7 @@
         3,
         "effect",
         -1,
-        7210595,
+        7210606,
         [
          [
           820,
@@ -34592,7 +34605,7 @@
         4,
         "effect",
         -1,
-        7210592,
+        7210596,
         [
          [
           820,
@@ -34607,7 +34620,7 @@
         5,
         "effect",
         -1,
-        7210593,
+        7210603,
         [
          [
           820,
@@ -34622,7 +34635,7 @@
         6,
         "effect",
         -1,
-        7210594,
+        7210604,
         [
          [
           820,
@@ -34637,7 +34650,7 @@
         7,
         "effect",
         -1,
-        7210595,
+        7210606,
         [
          [
           820,
@@ -34669,7 +34682,7 @@
         0,
         "effect",
         -1,
-        7210596,
+        7210607,
         [
          [
           820,
@@ -34684,7 +34697,7 @@
         1,
         "effect",
         -1,
-        7210603,
+        7210609,
         [
          [
           820,
@@ -34699,7 +34712,7 @@
         2,
         "effect",
         -1,
-        7210604,
+        7210610,
         [
          [
           820,
@@ -34714,7 +34727,7 @@
         3,
         "effect",
         -1,
-        7210606,
+        7210612,
         [
          [
           820,
@@ -34729,7 +34742,7 @@
         4,
         "effect",
         -1,
-        7210596,
+        7210607,
         [
          [
           820,
@@ -34744,7 +34757,7 @@
         5,
         "effect",
         -1,
-        7210603,
+        7210609,
         [
          [
           820,
@@ -34759,7 +34772,7 @@
         6,
         "effect",
         -1,
-        7210604,
+        7210610,
         [
          [
           820,
@@ -34774,7 +34787,7 @@
         7,
         "effect",
         -1,
-        7210606,
+        7210612,
         [
          [
           820,
@@ -34806,7 +34819,7 @@
         0,
         "effect",
         -1,
-        7210607,
+        7210613,
         [
          [
           820,
@@ -34821,7 +34834,7 @@
         1,
         "effect",
         -1,
-        7210609,
+        7210615,
         [
          [
           820,
@@ -34836,7 +34849,7 @@
         2,
         "effect",
         -1,
-        7210610,
+        7210616,
         [
          [
           820,
@@ -34851,7 +34864,7 @@
         3,
         "effect",
         -1,
-        7210612,
+        7210617,
         [
          [
           820,
@@ -34866,7 +34879,7 @@
         4,
         "effect",
         -1,
-        7210607,
+        7210613,
         [
          [
           820,
@@ -34881,7 +34894,7 @@
         5,
         "effect",
         -1,
-        7210609,
+        7210615,
         [
          [
           820,
@@ -34896,7 +34909,7 @@
         6,
         "effect",
         -1,
-        7210610,
+        7210616,
         [
          [
           820,
@@ -34911,7 +34924,7 @@
         7,
         "effect",
         -1,
-        7210612,
+        7210617,
         [
          [
           820,
@@ -35010,10 +35023,10 @@
        5
       ],
       "effect": [
-       7210613,
-       7210615,
-       7210616,
-       7210617
+       7210618,
+       7210621,
+       7210622,
+       7210623
       ]
      }
     ],
@@ -35448,10 +35461,10 @@
       "type": "while",
       "cond": "flask",
       "effect": [
-       7210622,
-       7210625,
        7210627,
-       7210630
+       7210630,
+       7210632,
+       7210638
       ]
      },
      {
@@ -35459,10 +35472,10 @@
       "event": "flask",
       "when": "end",
       "effect": [
-       7210623,
-       7210626,
        7210628,
-       7210631
+       7210631,
+       7210633,
+       7210641
       ]
      }
     ],
@@ -35474,16 +35487,16 @@
     ],
     "hks": {
      "endure_hold": [
-      7210622,
-      7210625,
       7210627,
-      7210630
+      7210630,
+      7210632,
+      7210638
      ],
      "endure_after": [
-      7210623,
-      7210626,
       7210628,
-      7210631
+      7210631,
+      7210633,
+      7210641
      ]
     }
    },
@@ -35540,7 +35553,7 @@
         1,
         "effect",
         -1,
-        7210623,
+        7210628,
         [
          [
           8,
@@ -35572,7 +35585,7 @@
         1,
         "effect",
         -1,
-        7210626,
+        7210631,
         [
          [
           8,
@@ -35604,7 +35617,7 @@
         1,
         "effect",
         -1,
-        7210628,
+        7210633,
         [
          [
           8,
@@ -35636,7 +35649,7 @@
         1,
         "effect",
         -1,
-        7210631,
+        7210641,
         [
          [
           8,
@@ -35718,10 +35731,10 @@
       "type": "while",
       "cond": "physick",
       "effect": [
-       7210633,
-       7210641,
        7210645,
-       7210649
+       7210649,
+       7210653,
+       7210659
       ]
      },
      {
@@ -35729,10 +35742,10 @@
       "event": "physick",
       "when": "end",
       "effect": [
-       7210632,
-       7210638,
        7210643,
-       7210647
+       7210647,
+       7210651,
+       7210655
       ]
      }
     ],
@@ -35743,14 +35756,14 @@
      6
     ],
     "iframes": [
-     7210632,
-     7210633,
-     7210638,
-     7210641,
      7210643,
      7210645,
      7210647,
-     7210649
+     7210649,
+     7210651,
+     7210653,
+     7210655,
+     7210659
     ]
    },
    "archetype": "反击回血",
@@ -35806,7 +35819,7 @@
         1,
         "effect",
         -1,
-        7210632,
+        7210643,
         [
          [
           8,
@@ -35838,7 +35851,7 @@
         1,
         "effect",
         -1,
-        7210638,
+        7210647,
         [
          [
           8,
@@ -35870,7 +35883,7 @@
         1,
         "effect",
         -1,
-        7210643,
+        7210651,
         [
          [
           8,
@@ -35902,7 +35915,7 @@
         1,
         "effect",
         -1,
-        7210647,
+        7210655,
         [
          [
           8,
@@ -35966,7 +35979,7 @@
        -1,
        -1,
        -1,
-       7210651
+       7210663
       ]
      }
     ],
@@ -36086,36 +36099,36 @@
       "timeout": 20.0,
       "fx": [
        [
-        7210653,
-        7210655,
-        7210659,
-        7210663,
-        7210666
-       ],
-       [
+        7210666,
         7210670,
         7210674,
         7210678,
-        7210682,
-        7210684,
-        7210694
+        7210682
        ],
        [
+        7210684,
+        7210694,
         7210696,
         7210698,
         7210700,
-        7210702,
-        7210703,
-        7210705
+        7210702
        ],
        [
+        7210703,
+        7210705,
         7210706,
         7210709,
         7210710,
-        7210711,
+        7210711
+       ],
+       [
         7210713,
         7210715,
-        7210717
+        7210717,
+        7210718,
+        7210719,
+        7210734,
+        7210736
        ]
       ],
       "log": "法球"
@@ -36193,7 +36206,7 @@
         0,
         "fx",
         0,
-        7210653,
+        7210666,
         [
          [
           744,
@@ -36222,7 +36235,7 @@
         0,
         "fx",
         1,
-        7210655,
+        7210670,
         [
          [
           744,
@@ -36251,7 +36264,7 @@
         0,
         "fx",
         2,
-        7210659,
+        7210674,
         [
          [
           744,
@@ -36280,7 +36293,7 @@
         0,
         "fx",
         3,
-        7210663,
+        7210678,
         [
          [
           744,
@@ -36309,7 +36322,7 @@
         0,
         "fx",
         4,
-        7210666,
+        7210682,
         [
          [
           744,
@@ -36355,7 +36368,7 @@
         0,
         "fx",
         0,
-        7210670,
+        7210684,
         [
          [
           744,
@@ -36384,7 +36397,7 @@
         0,
         "fx",
         1,
-        7210674,
+        7210694,
         [
          [
           744,
@@ -36413,7 +36426,7 @@
         0,
         "fx",
         2,
-        7210678,
+        7210696,
         [
          [
           744,
@@ -36442,7 +36455,7 @@
         0,
         "fx",
         3,
-        7210682,
+        7210698,
         [
          [
           744,
@@ -36471,7 +36484,7 @@
         0,
         "fx",
         4,
-        7210684,
+        7210700,
         [
          [
           744,
@@ -36500,7 +36513,7 @@
         0,
         "fx",
         5,
-        7210694,
+        7210702,
         [
          [
           744,
@@ -36546,7 +36559,7 @@
         0,
         "fx",
         0,
-        7210696,
+        7210703,
         [
          [
           744,
@@ -36575,7 +36588,7 @@
         0,
         "fx",
         1,
-        7210698,
+        7210705,
         [
          [
           744,
@@ -36604,7 +36617,7 @@
         0,
         "fx",
         2,
-        7210700,
+        7210706,
         [
          [
           744,
@@ -36633,7 +36646,7 @@
         0,
         "fx",
         3,
-        7210702,
+        7210709,
         [
          [
           744,
@@ -36662,7 +36675,7 @@
         0,
         "fx",
         4,
-        7210703,
+        7210710,
         [
          [
           744,
@@ -36691,7 +36704,7 @@
         0,
         "fx",
         5,
-        7210705,
+        7210711,
         [
          [
           744,
@@ -36737,7 +36750,7 @@
         0,
         "fx",
         0,
-        7210706,
+        7210713,
         [
          [
           744,
@@ -36766,7 +36779,7 @@
         0,
         "fx",
         1,
-        7210709,
+        7210715,
         [
          [
           744,
@@ -36795,7 +36808,7 @@
         0,
         "fx",
         2,
-        7210710,
+        7210717,
         [
          [
           744,
@@ -36824,7 +36837,7 @@
         0,
         "fx",
         3,
-        7210711,
+        7210718,
         [
          [
           744,
@@ -36853,7 +36866,7 @@
         0,
         "fx",
         4,
-        7210713,
+        7210719,
         [
          [
           744,
@@ -36882,7 +36895,7 @@
         0,
         "fx",
         5,
-        7210715,
+        7210734,
         [
          [
           744,
@@ -36974,50 +36987,6 @@
       "stack": "dr_orb",
       "min": 1,
       "effect": [
-       7210718,
-       7210756,
-       7210770,
-       7210784
-      ]
-     },
-     {
-      "type": "while",
-      "stack": "dr_orb",
-      "min": 1,
-      "effect": [
-       7210719,
-       7210757,
-       7210771,
-       7210785
-      ]
-     },
-     {
-      "type": "while",
-      "stack": "dr_orb",
-      "min": 2,
-      "effect": [
-       7210734,
-       7210758,
-       7210772,
-       7210786
-      ]
-     },
-     {
-      "type": "while",
-      "stack": "dr_orb",
-      "min": 2,
-      "effect": [
-       7210736,
-       7210759,
-       7210773,
-       7210787
-      ]
-     },
-     {
-      "type": "while",
-      "stack": "dr_orb",
-      "min": 3,
-      "effect": [
        7210737,
        7210760,
        7210774,
@@ -37027,7 +36996,7 @@
      {
       "type": "while",
       "stack": "dr_orb",
-      "min": 3,
+      "min": 1,
       "effect": [
        7210739,
        7210761,
@@ -37038,7 +37007,7 @@
      {
       "type": "while",
       "stack": "dr_orb",
-      "min": 4,
+      "min": 2,
       "effect": [
        7210742,
        7210762,
@@ -37049,7 +37018,7 @@
      {
       "type": "while",
       "stack": "dr_orb",
-      "min": 4,
+      "min": 2,
       "effect": [
        7210743,
        7210763,
@@ -37060,7 +37029,7 @@
      {
       "type": "while",
       "stack": "dr_orb",
-      "min": 5,
+      "min": 3,
       "effect": [
        7210749,
        7210764,
@@ -37071,7 +37040,7 @@
      {
       "type": "while",
       "stack": "dr_orb",
-      "min": 5,
+      "min": 3,
       "effect": [
        7210750,
        7210765,
@@ -37082,7 +37051,7 @@
      {
       "type": "while",
       "stack": "dr_orb",
-      "min": 6,
+      "min": 4,
       "effect": [
        7210751,
        7210766,
@@ -37093,7 +37062,7 @@
      {
       "type": "while",
       "stack": "dr_orb",
-      "min": 6,
+      "min": 4,
       "effect": [
        7210752,
        7210767,
@@ -37104,7 +37073,7 @@
      {
       "type": "while",
       "stack": "dr_orb",
-      "min": 7,
+      "min": 5,
       "effect": [
        7210754,
        7210768,
@@ -37115,12 +37084,56 @@
      {
       "type": "while",
       "stack": "dr_orb",
-      "min": 7,
+      "min": 5,
       "effect": [
        7210755,
        7210769,
        7210783,
        7210797
+      ]
+     },
+     {
+      "type": "while",
+      "stack": "dr_orb",
+      "min": 6,
+      "effect": [
+       7210756,
+       7210770,
+       7210784,
+       7210798
+      ]
+     },
+     {
+      "type": "while",
+      "stack": "dr_orb",
+      "min": 6,
+      "effect": [
+       7210757,
+       7210771,
+       7210785,
+       7210799
+      ]
+     },
+     {
+      "type": "while",
+      "stack": "dr_orb",
+      "min": 7,
+      "effect": [
+       7210758,
+       7210772,
+       7210786,
+       7210800
+      ]
+     },
+     {
+      "type": "while",
+      "stack": "dr_orb",
+      "min": 7,
+      "effect": [
+       7210759,
+       7210773,
+       7210787,
+       7210801
       ]
      }
     ],
@@ -37184,7 +37197,7 @@
         0,
         "effect",
         -1,
-        7210718,
+        7210737,
         [
          [
           56,
@@ -37227,7 +37240,7 @@
         1,
         "effect",
         -1,
-        7210719,
+        7210739,
         [
          [
           56,
@@ -37287,7 +37300,7 @@
         0,
         "effect",
         -1,
-        7210756,
+        7210760,
         [
          [
           56,
@@ -37330,7 +37343,7 @@
         1,
         "effect",
         -1,
-        7210757,
+        7210761,
         [
          [
           56,
@@ -37390,7 +37403,7 @@
         0,
         "effect",
         -1,
-        7210770,
+        7210774,
         [
          [
           56,
@@ -37433,7 +37446,7 @@
         1,
         "effect",
         -1,
-        7210771,
+        7210775,
         [
          [
           56,
@@ -37493,7 +37506,7 @@
         0,
         "effect",
         -1,
-        7210784,
+        7210788,
         [
          [
           56,
@@ -37536,7 +37549,7 @@
         1,
         "effect",
         -1,
-        7210785,
+        7210789,
         [
          [
           56,
@@ -38016,12 +38029,6 @@
       "range": 30.0,
       "fx": [
        [
-        7210798,
-        7210799,
-        7210800,
-        7210801
-       ],
-       [
         7210803,
         7210804,
         7210805,
@@ -38038,6 +38045,12 @@
         7210812,
         7210813,
         7210814
+       ],
+       [
+        7210815,
+        7210816,
+        7210817,
+        7210818
        ]
       ]
      }
@@ -38096,279 +38109,6 @@
       "span": [
        "周围的敌人身上每有一种发作中的异常状态，受到的伤害就提升7.1~10.9％\n同名词条只有稀有度最高的生效",
        "Nearby enemies take 7.1~10.9% more damage for each status ailment active on them\nOnly the highest rarity of this effect applies"
-      ],
-      "slots": [
-       [
-        0,
-        "fx",
-        0,
-        7210798,
-        [
-         [
-          28,
-          "f",
-          1.0,
-          0.01,
-          0
-         ],
-         [
-          32,
-          "f",
-          1.0,
-          0.01,
-          0
-         ],
-         [
-          36,
-          "f",
-          1.0,
-          0.01,
-          0
-         ],
-         [
-          40,
-          "f",
-          1.0,
-          0.01,
-          0
-         ],
-         [
-          44,
-          "f",
-          1.0,
-          0.01,
-          0
-         ],
-         [
-          48,
-          "f",
-          1.0,
-          0.01,
-          0
-         ],
-         [
-          52,
-          "f",
-          1.0,
-          0.01,
-          0
-         ],
-         [
-          464,
-          "f",
-          1.0,
-          0.01,
-          0
-         ]
-        ]
-       ],
-       [
-        0,
-        "fx",
-        1,
-        7210799,
-        [
-         [
-          28,
-          "f",
-          1.0,
-          0.02,
-          0
-         ],
-         [
-          32,
-          "f",
-          1.0,
-          0.02,
-          0
-         ],
-         [
-          36,
-          "f",
-          1.0,
-          0.02,
-          0
-         ],
-         [
-          40,
-          "f",
-          1.0,
-          0.02,
-          0
-         ],
-         [
-          44,
-          "f",
-          1.0,
-          0.02,
-          0
-         ],
-         [
-          48,
-          "f",
-          1.0,
-          0.02,
-          0
-         ],
-         [
-          52,
-          "f",
-          1.0,
-          0.02,
-          0
-         ],
-         [
-          464,
-          "f",
-          1.0,
-          0.02,
-          0
-         ]
-        ]
-       ],
-       [
-        0,
-        "fx",
-        2,
-        7210800,
-        [
-         [
-          28,
-          "f",
-          1.0,
-          0.03,
-          0
-         ],
-         [
-          32,
-          "f",
-          1.0,
-          0.03,
-          0
-         ],
-         [
-          36,
-          "f",
-          1.0,
-          0.03,
-          0
-         ],
-         [
-          40,
-          "f",
-          1.0,
-          0.03,
-          0
-         ],
-         [
-          44,
-          "f",
-          1.0,
-          0.03,
-          0
-         ],
-         [
-          48,
-          "f",
-          1.0,
-          0.03,
-          0
-         ],
-         [
-          52,
-          "f",
-          1.0,
-          0.03,
-          0
-         ],
-         [
-          464,
-          "f",
-          1.0,
-          0.03,
-          0
-         ]
-        ]
-       ],
-       [
-        0,
-        "fx",
-        3,
-        7210801,
-        [
-         [
-          28,
-          "f",
-          1.0,
-          0.04,
-          0
-         ],
-         [
-          32,
-          "f",
-          1.0,
-          0.04,
-          0
-         ],
-         [
-          36,
-          "f",
-          1.0,
-          0.04,
-          0
-         ],
-         [
-          40,
-          "f",
-          1.0,
-          0.04,
-          0
-         ],
-         [
-          44,
-          "f",
-          1.0,
-          0.04,
-          0
-         ],
-         [
-          48,
-          "f",
-          1.0,
-          0.04,
-          0
-         ],
-         [
-          52,
-          "f",
-          1.0,
-          0.04,
-          0
-         ],
-         [
-          464,
-          "f",
-          1.0,
-          0.04,
-          0
-         ]
-        ]
-       ]
-      ]
-     },
-     "Rare": {
-      "lo": 10.125,
-      "hi": 13.875,
-      "c": 12.0,
-      "mu": 12.0,
-      "sigma": 0.9375,
-      "tpl": [
-       "周围的敌人身上每有一种发作中的异常状态，受到的伤害就提升{0}％\n同名词条只有稀有度最高的生效",
-       "Nearby enemies take {0}% more damage for each status ailment active on them\nOnly the highest rarity of this effect applies"
-      ],
-      "span": [
-       "周围的敌人身上每有一种发作中的异常状态，受到的伤害就提升10.1~13.9％\n同名词条只有稀有度最高的生效",
-       "Nearby enemies take 10.1~13.9% more damage for each status ailment active on them\nOnly the highest rarity of this effect applies"
       ],
       "slots": [
        [
@@ -38629,19 +38369,19 @@
        ]
       ]
      },
-     "Epic": {
-      "lo": 12.9375,
-      "hi": 18.5625,
-      "c": 15.0,
-      "mu": 14.42399,
-      "sigma": 1.78125,
+     "Rare": {
+      "lo": 10.125,
+      "hi": 13.875,
+      "c": 12.0,
+      "mu": 12.0,
+      "sigma": 0.9375,
       "tpl": [
        "周围的敌人身上每有一种发作中的异常状态，受到的伤害就提升{0}％\n同名词条只有稀有度最高的生效",
        "Nearby enemies take {0}% more damage for each status ailment active on them\nOnly the highest rarity of this effect applies"
       ],
       "span": [
-       "周围的敌人身上每有一种发作中的异常状态，受到的伤害就提升12.9~18.6％\n同名词条只有稀有度最高的生效",
-       "Nearby enemies take 12.9~18.6% more damage for each status ailment active on them\nOnly the highest rarity of this effect applies"
+       "周围的敌人身上每有一种发作中的异常状态，受到的伤害就提升10.1~13.9％\n同名词条只有稀有度最高的生效",
+       "Nearby enemies take 10.1~13.9% more damage for each status ailment active on them\nOnly the highest rarity of this effect applies"
       ],
       "slots": [
        [
@@ -38902,19 +38642,19 @@
        ]
       ]
      },
-     "Legendary": {
-      "lo": 17.25,
-      "hi": 24.75,
-      "c": 21.0,
-      "mu": 21.0,
-      "sigma": 1.875,
+     "Epic": {
+      "lo": 12.9375,
+      "hi": 18.5625,
+      "c": 15.0,
+      "mu": 14.42399,
+      "sigma": 1.78125,
       "tpl": [
        "周围的敌人身上每有一种发作中的异常状态，受到的伤害就提升{0}％\n同名词条只有稀有度最高的生效",
        "Nearby enemies take {0}% more damage for each status ailment active on them\nOnly the highest rarity of this effect applies"
       ],
       "span": [
-       "周围的敌人身上每有一种发作中的异常状态，受到的伤害就提升17.2~24.8％\n同名词条只有稀有度最高的生效",
-       "Nearby enemies take 17.2~24.8% more damage for each status ailment active on them\nOnly the highest rarity of this effect applies"
+       "周围的敌人身上每有一种发作中的异常状态，受到的伤害就提升12.9~18.6％\n同名词条只有稀有度最高的生效",
+       "Nearby enemies take 12.9~18.6% more damage for each status ailment active on them\nOnly the highest rarity of this effect applies"
       ],
       "slots": [
        [
@@ -39114,6 +38854,279 @@
         "fx",
         3,
         7210814,
+        [
+         [
+          28,
+          "f",
+          1.0,
+          0.04,
+          0
+         ],
+         [
+          32,
+          "f",
+          1.0,
+          0.04,
+          0
+         ],
+         [
+          36,
+          "f",
+          1.0,
+          0.04,
+          0
+         ],
+         [
+          40,
+          "f",
+          1.0,
+          0.04,
+          0
+         ],
+         [
+          44,
+          "f",
+          1.0,
+          0.04,
+          0
+         ],
+         [
+          48,
+          "f",
+          1.0,
+          0.04,
+          0
+         ],
+         [
+          52,
+          "f",
+          1.0,
+          0.04,
+          0
+         ],
+         [
+          464,
+          "f",
+          1.0,
+          0.04,
+          0
+         ]
+        ]
+       ]
+      ]
+     },
+     "Legendary": {
+      "lo": 17.25,
+      "hi": 24.75,
+      "c": 21.0,
+      "mu": 21.0,
+      "sigma": 1.875,
+      "tpl": [
+       "周围的敌人身上每有一种发作中的异常状态，受到的伤害就提升{0}％\n同名词条只有稀有度最高的生效",
+       "Nearby enemies take {0}% more damage for each status ailment active on them\nOnly the highest rarity of this effect applies"
+      ],
+      "span": [
+       "周围的敌人身上每有一种发作中的异常状态，受到的伤害就提升17.2~24.8％\n同名词条只有稀有度最高的生效",
+       "Nearby enemies take 17.2~24.8% more damage for each status ailment active on them\nOnly the highest rarity of this effect applies"
+      ],
+      "slots": [
+       [
+        0,
+        "fx",
+        0,
+        7210815,
+        [
+         [
+          28,
+          "f",
+          1.0,
+          0.01,
+          0
+         ],
+         [
+          32,
+          "f",
+          1.0,
+          0.01,
+          0
+         ],
+         [
+          36,
+          "f",
+          1.0,
+          0.01,
+          0
+         ],
+         [
+          40,
+          "f",
+          1.0,
+          0.01,
+          0
+         ],
+         [
+          44,
+          "f",
+          1.0,
+          0.01,
+          0
+         ],
+         [
+          48,
+          "f",
+          1.0,
+          0.01,
+          0
+         ],
+         [
+          52,
+          "f",
+          1.0,
+          0.01,
+          0
+         ],
+         [
+          464,
+          "f",
+          1.0,
+          0.01,
+          0
+         ]
+        ]
+       ],
+       [
+        0,
+        "fx",
+        1,
+        7210816,
+        [
+         [
+          28,
+          "f",
+          1.0,
+          0.02,
+          0
+         ],
+         [
+          32,
+          "f",
+          1.0,
+          0.02,
+          0
+         ],
+         [
+          36,
+          "f",
+          1.0,
+          0.02,
+          0
+         ],
+         [
+          40,
+          "f",
+          1.0,
+          0.02,
+          0
+         ],
+         [
+          44,
+          "f",
+          1.0,
+          0.02,
+          0
+         ],
+         [
+          48,
+          "f",
+          1.0,
+          0.02,
+          0
+         ],
+         [
+          52,
+          "f",
+          1.0,
+          0.02,
+          0
+         ],
+         [
+          464,
+          "f",
+          1.0,
+          0.02,
+          0
+         ]
+        ]
+       ],
+       [
+        0,
+        "fx",
+        2,
+        7210817,
+        [
+         [
+          28,
+          "f",
+          1.0,
+          0.03,
+          0
+         ],
+         [
+          32,
+          "f",
+          1.0,
+          0.03,
+          0
+         ],
+         [
+          36,
+          "f",
+          1.0,
+          0.03,
+          0
+         ],
+         [
+          40,
+          "f",
+          1.0,
+          0.03,
+          0
+         ],
+         [
+          44,
+          "f",
+          1.0,
+          0.03,
+          0
+         ],
+         [
+          48,
+          "f",
+          1.0,
+          0.03,
+          0
+         ],
+         [
+          52,
+          "f",
+          1.0,
+          0.03,
+          0
+         ],
+         [
+          464,
+          "f",
+          1.0,
+          0.03,
+          0
+         ]
+        ]
+       ],
+       [
+        0,
+        "fx",
+        3,
+        7210818,
         [
          [
           28,
@@ -39419,16 +39432,16 @@
       "timeout": 0.5,
       "fx": [
        [
-        7210816
-       ],
-       [
-        7210818
-       ],
-       [
         7210820
        ],
        [
         7210822
+       ],
+       [
+        7210824
+       ],
+       [
+        7210826
        ]
       ],
       "log": "凌空（可以接跳）"
@@ -39443,10 +39456,10 @@
       "type": "while",
       "cond": "air",
       "effect": [
-       7210817,
-       7210819,
        7210821,
-       7210823
+       7210823,
+       7210825,
+       7210827
       ]
      }
     ],
@@ -39458,10 +39471,10 @@
     ],
     "hks": {
      "air_ready": [
-      7210816,
-      7210818,
       7210820,
-      7210822
+      7210822,
+      7210824,
+      7210826
      ]
     }
    },
@@ -39518,7 +39531,7 @@
         2,
         "effect",
         -1,
-        7210817,
+        7210821,
         [
          [
           500,
@@ -39550,7 +39563,7 @@
         2,
         "effect",
         -1,
-        7210819,
+        7210823,
         [
          [
           500,
@@ -39582,7 +39595,7 @@
         2,
         "effect",
         -1,
-        7210821,
+        7210825,
         [
          [
           500,
@@ -39614,7 +39627,7 @@
         2,
         "effect",
         -1,
-        7210823,
+        7210827,
         [
          [
           500,
@@ -39877,13 +39890,13 @@
       "fx": [
        [],
        [
-        7210824
-       ],
-       [
-        7210826
-       ],
-       [
         7210828
+       ],
+       [
+        7210830
+       ],
+       [
+        7210832
        ]
       ],
       "log": "浮空"
@@ -39892,9 +39905,9 @@
       "type": "while",
       "effect": [
        -1,
-       7210825,
-       7210827,
-       7210829
+       7210829,
+       7210831,
+       7210833
       ]
      }
     ],
@@ -39907,9 +39920,9 @@
     "hks": {
      "float_on": [
       -1,
-      7210824,
-      7210826,
-      7210828
+      7210828,
+      7210830,
+      7210832
      ]
     }
    },
@@ -39978,7 +39991,7 @@
        -1,
        -1,
        -1,
-       7210830
+       7210834
       ]
      },
      {
@@ -39989,7 +40002,7 @@
        -1,
        -1,
        -1,
-       7210831
+       7210835
       ]
      }
     ],
@@ -40110,10 +40123,10 @@
       ],
       "rest": 5.0,
       "effect": [
-       7210832,
-       7210833,
-       7210834,
-       7210835
+       7210836,
+       7210837,
+       7210838,
+       7210839
       ]
      }
     ],
@@ -40322,16 +40335,16 @@
       "timeout": 3.0,
       "fx": [
        [
-        7210836
+        7210840
        ],
        [
-        7210837
+        7210841
        ],
        [
-        7210838
+        7210842
        ],
        [
-        7210839
+        7210843
        ]
       ]
      }
@@ -40417,7 +40430,7 @@
         0,
         "fx",
         0,
-        7210836,
+        7210840,
         [
          [
           652,
@@ -40519,7 +40532,7 @@
         0,
         "fx",
         0,
-        7210837,
+        7210841,
         [
          [
           652,
@@ -40621,7 +40634,7 @@
         0,
         "fx",
         0,
-        7210838,
+        7210842,
         [
          [
           652,
@@ -40723,7 +40736,7 @@
         0,
         "fx",
         0,
-        7210839,
+        7210843,
         [
          [
           652,
@@ -40852,7 +40865,7 @@
        -1,
        -1,
        -1,
-       7210840
+       7210844
       ],
       "haste": [
        30,
@@ -40956,10 +40969,10 @@
       "type": "while",
       "cond": "charged",
       "effect": [
-       7210841,
-       7210842,
-       7210843,
-       7210844
+       7210845,
+       7210846,
+       7210847,
+       7210848
       ]
      }
     ],
@@ -41023,7 +41036,7 @@
         0,
         "effect",
         -1,
-        7210841,
+        7210845,
         [
          [
           820,
@@ -41055,7 +41068,7 @@
         0,
         "effect",
         -1,
-        7210842,
+        7210846,
         [
          [
           820,
@@ -41087,7 +41100,7 @@
         0,
         "effect",
         -1,
-        7210843,
+        7210847,
         [
          [
           820,
@@ -41119,7 +41132,7 @@
         0,
         "effect",
         -1,
-        7210844,
+        7210848,
         [
          [
           820,
@@ -41206,10 +41219,10 @@
       "event": "break",
       "target_on": "break",
       "target_fx": [
-       7210845,
-       7210846,
-       7210847,
-       7210848
+       7210849,
+       7210850,
+       7210851,
+       7210852
       ]
      }
     ],
@@ -41273,7 +41286,7 @@
         0,
         "target_fx",
         -1,
-        7210845,
+        7210849,
         [
          [
           28,
@@ -41354,7 +41367,7 @@
         0,
         "target_fx",
         -1,
-        7210846,
+        7210850,
         [
          [
           28,
@@ -41435,7 +41448,7 @@
         0,
         "target_fx",
         -1,
-        7210847,
+        7210851,
         [
          [
           28,
@@ -41516,7 +41529,7 @@
         0,
         "target_fx",
         -1,
-        7210848,
+        7210852,
         [
          [
           28,
@@ -41652,10 +41665,10 @@
       "event": "crit",
       "when": "end",
       "effect": [
-       7210849,
-       7210850,
-       7210851,
-       7210852
+       7210853,
+       7210854,
+       7210855,
+       7210856
       ],
       "haste": [
        5,
@@ -41870,10 +41883,10 @@
        10
       ],
       "effect": [
-       7210853,
-       7210854,
-       7210855,
-       7210856
+       7210857,
+       7210858,
+       7210859,
+       7210860
       ]
      }
     ],
@@ -42115,11 +42128,6 @@
       "max": 3,
       "fx": [
        [
-        7210857,
-        7210858,
-        7210859
-       ],
-       [
         7210861,
         7210862,
         7210863
@@ -42133,6 +42141,11 @@
         7210869,
         7210870,
         7210871
+       ],
+       [
+        7210873,
+        7210874,
+        7210875
        ]
       ],
       "log": "乘势"
@@ -42158,10 +42171,10 @@
       "stack": "dr_momentum",
       "min": 3,
       "effect": [
-       7210860,
        7210864,
        7210868,
-       7210872
+       7210872,
+       7210876
       ]
      }
     ],
@@ -42173,10 +42186,10 @@
     ],
     "hks": {
      "momentum_full": [
-      7210860,
       7210864,
       7210868,
-      7210872
+      7210872,
+      7210876
      ]
     }
    },
@@ -42227,152 +42240,6 @@
       "span": [
        "普通攻击命中敌人时能积蓄一层势，每层提升下一次战技伤害5.4~6.6％，最多3层；受到攻击时会失去一层，积满3层时使出的战技不会被打断\n同名词条只有稀有度最高的生效",
        "Landing normal attacks builds Momentum (up to 3 stacks), each raising your next skill's damage by 5.4~6.6%; getting hit loses a stack, and at 3 stacks your skill cannot be interrupted\nOnly the highest rarity of this effect applies"
-      ],
-      "slots": [
-       [
-        0,
-        "fx",
-        0,
-        7210857,
-        [
-         [
-          56,
-          "f",
-          1.0,
-          0.01,
-          0
-         ],
-         [
-          60,
-          "f",
-          1.0,
-          0.01,
-          0
-         ],
-         [
-          64,
-          "f",
-          1.0,
-          0.01,
-          0
-         ],
-         [
-          68,
-          "f",
-          1.0,
-          0.01,
-          0
-         ],
-         [
-          476,
-          "f",
-          1.0,
-          0.01,
-          0
-         ]
-        ]
-       ],
-       [
-        0,
-        "fx",
-        1,
-        7210858,
-        [
-         [
-          56,
-          "f",
-          1.0,
-          0.02,
-          0
-         ],
-         [
-          60,
-          "f",
-          1.0,
-          0.02,
-          0
-         ],
-         [
-          64,
-          "f",
-          1.0,
-          0.02,
-          0
-         ],
-         [
-          68,
-          "f",
-          1.0,
-          0.02,
-          0
-         ],
-         [
-          476,
-          "f",
-          1.0,
-          0.02,
-          0
-         ]
-        ]
-       ],
-       [
-        0,
-        "fx",
-        2,
-        7210859,
-        [
-         [
-          56,
-          "f",
-          1.0,
-          0.03,
-          0
-         ],
-         [
-          60,
-          "f",
-          1.0,
-          0.03,
-          0
-         ],
-         [
-          64,
-          "f",
-          1.0,
-          0.03,
-          0
-         ],
-         [
-          68,
-          "f",
-          1.0,
-          0.03,
-          0
-         ],
-         [
-          476,
-          "f",
-          1.0,
-          0.03,
-          0
-         ]
-        ]
-       ]
-      ]
-     },
-     "Rare": {
-      "lo": 6.375,
-      "hi": 7.625,
-      "c": 7.0,
-      "mu": 7.0,
-      "sigma": 0.3125,
-      "tpl": [
-       "普通攻击命中敌人时能积蓄一层势，每层提升下一次战技伤害{0}％，最多3层；受到攻击时会失去一层，积满3层时使出的战技不会被打断\n同名词条只有稀有度最高的生效",
-       "Landing normal attacks builds Momentum (up to 3 stacks), each raising your next skill's damage by {0}%; getting hit loses a stack, and at 3 stacks your skill cannot be interrupted\nOnly the highest rarity of this effect applies"
-      ],
-      "span": [
-       "普通攻击命中敌人时能积蓄一层势，每层提升下一次战技伤害6.4~7.6％，最多3层；受到攻击时会失去一层，积满3层时使出的战技不会被打断\n同名词条只有稀有度最高的生效",
-       "Landing normal attacks builds Momentum (up to 3 stacks), each raising your next skill's damage by 6.4~7.6%; getting hit loses a stack, and at 3 stacks your skill cannot be interrupted\nOnly the highest rarity of this effect applies"
       ],
       "slots": [
        [
@@ -42506,19 +42373,19 @@
        ]
       ]
      },
-     "Epic": {
-      "lo": 7.3125,
-      "hi": 9.1875,
-      "c": 8.0,
-      "mu": 7.808,
-      "sigma": 0.59375,
+     "Rare": {
+      "lo": 6.375,
+      "hi": 7.625,
+      "c": 7.0,
+      "mu": 7.0,
+      "sigma": 0.3125,
       "tpl": [
        "普通攻击命中敌人时能积蓄一层势，每层提升下一次战技伤害{0}％，最多3层；受到攻击时会失去一层，积满3层时使出的战技不会被打断\n同名词条只有稀有度最高的生效",
        "Landing normal attacks builds Momentum (up to 3 stacks), each raising your next skill's damage by {0}%; getting hit loses a stack, and at 3 stacks your skill cannot be interrupted\nOnly the highest rarity of this effect applies"
       ],
       "span": [
-       "普通攻击命中敌人时能积蓄一层势，每层提升下一次战技伤害7.3~9.2％，最多3层；受到攻击时会失去一层，积满3层时使出的战技不会被打断\n同名词条只有稀有度最高的生效",
-       "Landing normal attacks builds Momentum (up to 3 stacks), each raising your next skill's damage by 7.3~9.2%; getting hit loses a stack, and at 3 stacks your skill cannot be interrupted\nOnly the highest rarity of this effect applies"
+       "普通攻击命中敌人时能积蓄一层势，每层提升下一次战技伤害6.4~7.6％，最多3层；受到攻击时会失去一层，积满3层时使出的战技不会被打断\n同名词条只有稀有度最高的生效",
+       "Landing normal attacks builds Momentum (up to 3 stacks), each raising your next skill's damage by 6.4~7.6%; getting hit loses a stack, and at 3 stacks your skill cannot be interrupted\nOnly the highest rarity of this effect applies"
       ],
       "slots": [
        [
@@ -42652,19 +42519,19 @@
        ]
       ]
      },
-     "Legendary": {
-      "lo": 8.75,
-      "hi": 11.25,
-      "c": 10.0,
-      "mu": 10.0,
-      "sigma": 0.625,
+     "Epic": {
+      "lo": 7.3125,
+      "hi": 9.1875,
+      "c": 8.0,
+      "mu": 7.808,
+      "sigma": 0.59375,
       "tpl": [
        "普通攻击命中敌人时能积蓄一层势，每层提升下一次战技伤害{0}％，最多3层；受到攻击时会失去一层，积满3层时使出的战技不会被打断\n同名词条只有稀有度最高的生效",
        "Landing normal attacks builds Momentum (up to 3 stacks), each raising your next skill's damage by {0}%; getting hit loses a stack, and at 3 stacks your skill cannot be interrupted\nOnly the highest rarity of this effect applies"
       ],
       "span": [
-       "普通攻击命中敌人时能积蓄一层势，每层提升下一次战技伤害8.8~11.2％，最多3层；受到攻击时会失去一层，积满3层时使出的战技不会被打断\n同名词条只有稀有度最高的生效",
-       "Landing normal attacks builds Momentum (up to 3 stacks), each raising your next skill's damage by 8.8~11.2%; getting hit loses a stack, and at 3 stacks your skill cannot be interrupted\nOnly the highest rarity of this effect applies"
+       "普通攻击命中敌人时能积蓄一层势，每层提升下一次战技伤害7.3~9.2％，最多3层；受到攻击时会失去一层，积满3层时使出的战技不会被打断\n同名词条只有稀有度最高的生效",
+       "Landing normal attacks builds Momentum (up to 3 stacks), each raising your next skill's damage by 7.3~9.2%; getting hit loses a stack, and at 3 stacks your skill cannot be interrupted\nOnly the highest rarity of this effect applies"
       ],
       "slots": [
        [
@@ -42797,6 +42664,152 @@
         ]
        ]
       ]
+     },
+     "Legendary": {
+      "lo": 8.75,
+      "hi": 11.25,
+      "c": 10.0,
+      "mu": 10.0,
+      "sigma": 0.625,
+      "tpl": [
+       "普通攻击命中敌人时能积蓄一层势，每层提升下一次战技伤害{0}％，最多3层；受到攻击时会失去一层，积满3层时使出的战技不会被打断\n同名词条只有稀有度最高的生效",
+       "Landing normal attacks builds Momentum (up to 3 stacks), each raising your next skill's damage by {0}%; getting hit loses a stack, and at 3 stacks your skill cannot be interrupted\nOnly the highest rarity of this effect applies"
+      ],
+      "span": [
+       "普通攻击命中敌人时能积蓄一层势，每层提升下一次战技伤害8.8~11.2％，最多3层；受到攻击时会失去一层，积满3层时使出的战技不会被打断\n同名词条只有稀有度最高的生效",
+       "Landing normal attacks builds Momentum (up to 3 stacks), each raising your next skill's damage by 8.8~11.2%; getting hit loses a stack, and at 3 stacks your skill cannot be interrupted\nOnly the highest rarity of this effect applies"
+      ],
+      "slots": [
+       [
+        0,
+        "fx",
+        0,
+        7210873,
+        [
+         [
+          56,
+          "f",
+          1.0,
+          0.01,
+          0
+         ],
+         [
+          60,
+          "f",
+          1.0,
+          0.01,
+          0
+         ],
+         [
+          64,
+          "f",
+          1.0,
+          0.01,
+          0
+         ],
+         [
+          68,
+          "f",
+          1.0,
+          0.01,
+          0
+         ],
+         [
+          476,
+          "f",
+          1.0,
+          0.01,
+          0
+         ]
+        ]
+       ],
+       [
+        0,
+        "fx",
+        1,
+        7210874,
+        [
+         [
+          56,
+          "f",
+          1.0,
+          0.02,
+          0
+         ],
+         [
+          60,
+          "f",
+          1.0,
+          0.02,
+          0
+         ],
+         [
+          64,
+          "f",
+          1.0,
+          0.02,
+          0
+         ],
+         [
+          68,
+          "f",
+          1.0,
+          0.02,
+          0
+         ],
+         [
+          476,
+          "f",
+          1.0,
+          0.02,
+          0
+         ]
+        ]
+       ],
+       [
+        0,
+        "fx",
+        2,
+        7210875,
+        [
+         [
+          56,
+          "f",
+          1.0,
+          0.03,
+          0
+         ],
+         [
+          60,
+          "f",
+          1.0,
+          0.03,
+          0
+         ],
+         [
+          64,
+          "f",
+          1.0,
+          0.03,
+          0
+         ],
+         [
+          68,
+          "f",
+          1.0,
+          0.03,
+          0
+         ],
+         [
+          476,
+          "f",
+          1.0,
+          0.03,
+          0
+         ]
+        ]
+       ]
+      ]
      }
     },
     "rnum": [],
@@ -42850,13 +42863,13 @@
        -1,
        -1,
        -1,
-       7210874
+       7210878
       ],
       "effect": [
        -1,
        -1,
        -1,
-       7210875
+       7210879
       ]
      },
      {
@@ -42866,7 +42879,7 @@
        -1,
        -1,
        -1,
-       7210873
+       7210877
       ]
      }
     ],
@@ -42974,24 +42987,24 @@
       "mark_secs": 10.0,
       "mfx": [
        [
-        7210876,
-        7210877,
-        7210878
-       ],
-       [
-        7210879,
         7210880,
-        7210881
+        7210881,
+        7210882
        ],
        [
-        7210882,
         7210883,
-        7210884
+        7210884,
+        7210885
        ],
        [
-        7210885,
         7210886,
-        7210887
+        7210887,
+        7210888
+       ],
+       [
+        7210889,
+        7210890,
+        7210891
        ]
       ]
      }
@@ -43056,7 +43069,7 @@
         0,
         "mfx",
         0,
-        7210876,
+        7210880,
         [
          [
           28,
@@ -43120,7 +43133,7 @@
         0,
         "mfx",
         1,
-        7210877,
+        7210881,
         [
          [
           28,
@@ -43184,7 +43197,7 @@
         0,
         "mfx",
         2,
-        7210878,
+        7210882,
         [
          [
           28,
@@ -43265,7 +43278,7 @@
         0,
         "mfx",
         0,
-        7210879,
+        7210883,
         [
          [
           28,
@@ -43329,7 +43342,7 @@
         0,
         "mfx",
         1,
-        7210880,
+        7210884,
         [
          [
           28,
@@ -43393,7 +43406,7 @@
         0,
         "mfx",
         2,
-        7210881,
+        7210885,
         [
          [
           28,
@@ -43474,7 +43487,7 @@
         0,
         "mfx",
         0,
-        7210882,
+        7210886,
         [
          [
           28,
@@ -43538,7 +43551,7 @@
         0,
         "mfx",
         1,
-        7210883,
+        7210887,
         [
          [
           28,
@@ -43602,7 +43615,7 @@
         0,
         "mfx",
         2,
-        7210884,
+        7210888,
         [
          [
           28,
@@ -43683,7 +43696,7 @@
         0,
         "mfx",
         0,
-        7210885,
+        7210889,
         [
          [
           28,
@@ -43747,7 +43760,7 @@
         0,
         "mfx",
         1,
-        7210886,
+        7210890,
         [
          [
           28,
@@ -43811,7 +43824,7 @@
         0,
         "mfx",
         2,
-        7210887,
+        7210891,
         [
          [
           28,
@@ -43956,24 +43969,24 @@
       "take_grow": 2.5,
       "tfx": [
        [
-        7210888,
-        7210889,
-        7210890
-       ],
-       [
-        7210891,
         7210892,
-        7210893
+        7210893,
+        7210894
        ],
        [
-        7210894,
         7210895,
-        7210896
+        7210896,
+        7210897
        ],
        [
-        7210897,
         7210898,
-        7210899
+        7210899,
+        7210900
+       ],
+       [
+        7210901,
+        7210902,
+        7210903
        ]
       ]
      }
@@ -44169,24 +44182,24 @@
       ],
       "tfx": [
        [
-        7210900,
-        7210901,
-        7210902
-       ],
-       [
-        7210903,
         7210904,
-        7210905
+        7210905,
+        7210906
        ],
        [
-        7210906,
         7210907,
-        7210908
+        7210908,
+        7210909
        ],
        [
-        7210909,
         7210910,
-        7210911
+        7210911,
+        7210912
+       ],
+       [
+        7210913,
+        7210914,
+        7210915
        ]
       ]
      }
@@ -44599,16 +44612,16 @@
       "timeout": 20.0,
       "fx": [
        [
-        7210912
-       ],
-       [
-        7210914
-       ],
-       [
         7210916
        ],
        [
         7210918
+       ],
+       [
+        7210920
+       ],
+       [
+        7210922
        ]
       ]
      },
@@ -44621,16 +44634,16 @@
       "timeout": 20.0,
       "fx": [
        [
-        7210913
-       ],
-       [
-        7210915
-       ],
-       [
         7210917
        ],
        [
         7210919
+       ],
+       [
+        7210921
+       ],
+       [
+        7210923
        ]
       ]
      }
@@ -44698,352 +44711,6 @@
       "span": [
        "使用投掷道具或调香后的20秒内，能提升13.8~26.2％箭与弩箭的伤害；射箭命中后的20秒内，能提升13.8~26.2％道具伤害\n同名词条只有稀有度最高的生效",
        "For 20 seconds after using a throwable or perfume, arrows and bolts deal +13.8~26.2%; for 20 seconds after an arrow hits, item damage +13.8~26.2%\nOnly the highest rarity of this effect applies"
-      ],
-      "slots": [
-       [
-        0,
-        "fx",
-        0,
-        7210912,
-        [
-         [
-          652,
-          "f",
-          1.0,
-          0.01,
-          1
-         ],
-         [
-          656,
-          "f",
-          1.0,
-          0.01,
-          1
-         ],
-         [
-          660,
-          "f",
-          1.0,
-          0.01,
-          1
-         ],
-         [
-          664,
-          "f",
-          1.0,
-          0.01,
-          1
-         ],
-         [
-          668,
-          "f",
-          1.0,
-          0.01,
-          1
-         ],
-         [
-          672,
-          "f",
-          1.0,
-          0.01,
-          1
-         ],
-         [
-          676,
-          "f",
-          1.0,
-          0.01,
-          1
-         ],
-         [
-          680,
-          "f",
-          1.0,
-          0.01,
-          1
-         ],
-         [
-          684,
-          "f",
-          1.0,
-          0.01,
-          1
-         ],
-         [
-          688,
-          "f",
-          1.0,
-          0.01,
-          1
-         ]
-        ]
-       ],
-       [
-        1,
-        "fx",
-        0,
-        7210913,
-        [
-         [
-          652,
-          "f",
-          1.0,
-          0.01,
-          3
-         ],
-         [
-          656,
-          "f",
-          1.0,
-          0.01,
-          3
-         ],
-         [
-          660,
-          "f",
-          1.0,
-          0.01,
-          3
-         ],
-         [
-          664,
-          "f",
-          1.0,
-          0.01,
-          3
-         ],
-         [
-          668,
-          "f",
-          1.0,
-          0.01,
-          3
-         ],
-         [
-          672,
-          "f",
-          1.0,
-          0.01,
-          3
-         ],
-         [
-          676,
-          "f",
-          1.0,
-          0.01,
-          3
-         ],
-         [
-          680,
-          "f",
-          1.0,
-          0.01,
-          3
-         ],
-         [
-          684,
-          "f",
-          1.0,
-          0.01,
-          3
-         ],
-         [
-          688,
-          "f",
-          1.0,
-          0.01,
-          3
-         ]
-        ]
-       ]
-      ]
-     },
-     "Rare": {
-      "lo": 23.75,
-      "hi": 36.25,
-      "c": 30.0,
-      "mu": 30.0,
-      "sigma": 3.125,
-      "tpl": [
-       "使用投掷道具或调香后的20秒内，能提升{1}％箭与弩箭的伤害；射箭命中后的20秒内，能提升{3}％道具伤害\n同名词条只有稀有度最高的生效",
-       "For 20 seconds after using a throwable or perfume, arrows and bolts deal +{1}%; for 20 seconds after an arrow hits, item damage +{3}%\nOnly the highest rarity of this effect applies"
-      ],
-      "span": [
-       "使用投掷道具或调香后的20秒内，能提升23.8~36.2％箭与弩箭的伤害；射箭命中后的20秒内，能提升23.8~36.2％道具伤害\n同名词条只有稀有度最高的生效",
-       "For 20 seconds after using a throwable or perfume, arrows and bolts deal +23.8~36.2%; for 20 seconds after an arrow hits, item damage +23.8~36.2%\nOnly the highest rarity of this effect applies"
-      ],
-      "slots": [
-       [
-        0,
-        "fx",
-        0,
-        7210914,
-        [
-         [
-          652,
-          "f",
-          1.0,
-          0.01,
-          1
-         ],
-         [
-          656,
-          "f",
-          1.0,
-          0.01,
-          1
-         ],
-         [
-          660,
-          "f",
-          1.0,
-          0.01,
-          1
-         ],
-         [
-          664,
-          "f",
-          1.0,
-          0.01,
-          1
-         ],
-         [
-          668,
-          "f",
-          1.0,
-          0.01,
-          1
-         ],
-         [
-          672,
-          "f",
-          1.0,
-          0.01,
-          1
-         ],
-         [
-          676,
-          "f",
-          1.0,
-          0.01,
-          1
-         ],
-         [
-          680,
-          "f",
-          1.0,
-          0.01,
-          1
-         ],
-         [
-          684,
-          "f",
-          1.0,
-          0.01,
-          1
-         ],
-         [
-          688,
-          "f",
-          1.0,
-          0.01,
-          1
-         ]
-        ]
-       ],
-       [
-        1,
-        "fx",
-        0,
-        7210915,
-        [
-         [
-          652,
-          "f",
-          1.0,
-          0.01,
-          3
-         ],
-         [
-          656,
-          "f",
-          1.0,
-          0.01,
-          3
-         ],
-         [
-          660,
-          "f",
-          1.0,
-          0.01,
-          3
-         ],
-         [
-          664,
-          "f",
-          1.0,
-          0.01,
-          3
-         ],
-         [
-          668,
-          "f",
-          1.0,
-          0.01,
-          3
-         ],
-         [
-          672,
-          "f",
-          1.0,
-          0.01,
-          3
-         ],
-         [
-          676,
-          "f",
-          1.0,
-          0.01,
-          3
-         ],
-         [
-          680,
-          "f",
-          1.0,
-          0.01,
-          3
-         ],
-         [
-          684,
-          "f",
-          1.0,
-          0.01,
-          3
-         ],
-         [
-          688,
-          "f",
-          1.0,
-          0.01,
-          3
-         ]
-        ]
-       ]
-      ]
-     },
-     "Epic": {
-      "lo": 33.75,
-      "hi": 46.25,
-      "c": 40.0,
-      "mu": 40.0,
-      "sigma": 3.125,
-      "tpl": [
-       "使用投掷道具或调香后的20秒内，能提升{1}％箭与弩箭的伤害；射箭命中后的20秒内，能提升{3}％道具伤害\n同名词条只有稀有度最高的生效",
-       "For 20 seconds after using a throwable or perfume, arrows and bolts deal +{1}%; for 20 seconds after an arrow hits, item damage +{3}%\nOnly the highest rarity of this effect applies"
-      ],
-      "span": [
-       "使用投掷道具或调香后的20秒内，能提升33.8~46.2％箭与弩箭的伤害；射箭命中后的20秒内，能提升33.8~46.2％道具伤害\n同名词条只有稀有度最高的生效",
-       "For 20 seconds after using a throwable or perfume, arrows and bolts deal +33.8~46.2%; for 20 seconds after an arrow hits, item damage +33.8~46.2%\nOnly the highest rarity of this effect applies"
       ],
       "slots": [
        [
@@ -45204,19 +44871,19 @@
        ]
       ]
      },
-     "Legendary": {
-      "lo": 43.75,
-      "hi": 56.25,
-      "c": 50.0,
-      "mu": 50.0,
+     "Rare": {
+      "lo": 23.75,
+      "hi": 36.25,
+      "c": 30.0,
+      "mu": 30.0,
       "sigma": 3.125,
       "tpl": [
        "使用投掷道具或调香后的20秒内，能提升{1}％箭与弩箭的伤害；射箭命中后的20秒内，能提升{3}％道具伤害\n同名词条只有稀有度最高的生效",
        "For 20 seconds after using a throwable or perfume, arrows and bolts deal +{1}%; for 20 seconds after an arrow hits, item damage +{3}%\nOnly the highest rarity of this effect applies"
       ],
       "span": [
-       "使用投掷道具或调香后的20秒内，能提升43.8~56.2％箭与弩箭的伤害；射箭命中后的20秒内，能提升43.8~56.2％道具伤害\n同名词条只有稀有度最高的生效",
-       "For 20 seconds after using a throwable or perfume, arrows and bolts deal +43.8~56.2%; for 20 seconds after an arrow hits, item damage +43.8~56.2%\nOnly the highest rarity of this effect applies"
+       "使用投掷道具或调香后的20秒内，能提升23.8~36.2％箭与弩箭的伤害；射箭命中后的20秒内，能提升23.8~36.2％道具伤害\n同名词条只有稀有度最高的生效",
+       "For 20 seconds after using a throwable or perfume, arrows and bolts deal +23.8~36.2%; for 20 seconds after an arrow hits, item damage +23.8~36.2%\nOnly the highest rarity of this effect applies"
       ],
       "slots": [
        [
@@ -45302,6 +44969,352 @@
         "fx",
         0,
         7210919,
+        [
+         [
+          652,
+          "f",
+          1.0,
+          0.01,
+          3
+         ],
+         [
+          656,
+          "f",
+          1.0,
+          0.01,
+          3
+         ],
+         [
+          660,
+          "f",
+          1.0,
+          0.01,
+          3
+         ],
+         [
+          664,
+          "f",
+          1.0,
+          0.01,
+          3
+         ],
+         [
+          668,
+          "f",
+          1.0,
+          0.01,
+          3
+         ],
+         [
+          672,
+          "f",
+          1.0,
+          0.01,
+          3
+         ],
+         [
+          676,
+          "f",
+          1.0,
+          0.01,
+          3
+         ],
+         [
+          680,
+          "f",
+          1.0,
+          0.01,
+          3
+         ],
+         [
+          684,
+          "f",
+          1.0,
+          0.01,
+          3
+         ],
+         [
+          688,
+          "f",
+          1.0,
+          0.01,
+          3
+         ]
+        ]
+       ]
+      ]
+     },
+     "Epic": {
+      "lo": 33.75,
+      "hi": 46.25,
+      "c": 40.0,
+      "mu": 40.0,
+      "sigma": 3.125,
+      "tpl": [
+       "使用投掷道具或调香后的20秒内，能提升{1}％箭与弩箭的伤害；射箭命中后的20秒内，能提升{3}％道具伤害\n同名词条只有稀有度最高的生效",
+       "For 20 seconds after using a throwable or perfume, arrows and bolts deal +{1}%; for 20 seconds after an arrow hits, item damage +{3}%\nOnly the highest rarity of this effect applies"
+      ],
+      "span": [
+       "使用投掷道具或调香后的20秒内，能提升33.8~46.2％箭与弩箭的伤害；射箭命中后的20秒内，能提升33.8~46.2％道具伤害\n同名词条只有稀有度最高的生效",
+       "For 20 seconds after using a throwable or perfume, arrows and bolts deal +33.8~46.2%; for 20 seconds after an arrow hits, item damage +33.8~46.2%\nOnly the highest rarity of this effect applies"
+      ],
+      "slots": [
+       [
+        0,
+        "fx",
+        0,
+        7210920,
+        [
+         [
+          652,
+          "f",
+          1.0,
+          0.01,
+          1
+         ],
+         [
+          656,
+          "f",
+          1.0,
+          0.01,
+          1
+         ],
+         [
+          660,
+          "f",
+          1.0,
+          0.01,
+          1
+         ],
+         [
+          664,
+          "f",
+          1.0,
+          0.01,
+          1
+         ],
+         [
+          668,
+          "f",
+          1.0,
+          0.01,
+          1
+         ],
+         [
+          672,
+          "f",
+          1.0,
+          0.01,
+          1
+         ],
+         [
+          676,
+          "f",
+          1.0,
+          0.01,
+          1
+         ],
+         [
+          680,
+          "f",
+          1.0,
+          0.01,
+          1
+         ],
+         [
+          684,
+          "f",
+          1.0,
+          0.01,
+          1
+         ],
+         [
+          688,
+          "f",
+          1.0,
+          0.01,
+          1
+         ]
+        ]
+       ],
+       [
+        1,
+        "fx",
+        0,
+        7210921,
+        [
+         [
+          652,
+          "f",
+          1.0,
+          0.01,
+          3
+         ],
+         [
+          656,
+          "f",
+          1.0,
+          0.01,
+          3
+         ],
+         [
+          660,
+          "f",
+          1.0,
+          0.01,
+          3
+         ],
+         [
+          664,
+          "f",
+          1.0,
+          0.01,
+          3
+         ],
+         [
+          668,
+          "f",
+          1.0,
+          0.01,
+          3
+         ],
+         [
+          672,
+          "f",
+          1.0,
+          0.01,
+          3
+         ],
+         [
+          676,
+          "f",
+          1.0,
+          0.01,
+          3
+         ],
+         [
+          680,
+          "f",
+          1.0,
+          0.01,
+          3
+         ],
+         [
+          684,
+          "f",
+          1.0,
+          0.01,
+          3
+         ],
+         [
+          688,
+          "f",
+          1.0,
+          0.01,
+          3
+         ]
+        ]
+       ]
+      ]
+     },
+     "Legendary": {
+      "lo": 43.75,
+      "hi": 56.25,
+      "c": 50.0,
+      "mu": 50.0,
+      "sigma": 3.125,
+      "tpl": [
+       "使用投掷道具或调香后的20秒内，能提升{1}％箭与弩箭的伤害；射箭命中后的20秒内，能提升{3}％道具伤害\n同名词条只有稀有度最高的生效",
+       "For 20 seconds after using a throwable or perfume, arrows and bolts deal +{1}%; for 20 seconds after an arrow hits, item damage +{3}%\nOnly the highest rarity of this effect applies"
+      ],
+      "span": [
+       "使用投掷道具或调香后的20秒内，能提升43.8~56.2％箭与弩箭的伤害；射箭命中后的20秒内，能提升43.8~56.2％道具伤害\n同名词条只有稀有度最高的生效",
+       "For 20 seconds after using a throwable or perfume, arrows and bolts deal +43.8~56.2%; for 20 seconds after an arrow hits, item damage +43.8~56.2%\nOnly the highest rarity of this effect applies"
+      ],
+      "slots": [
+       [
+        0,
+        "fx",
+        0,
+        7210922,
+        [
+         [
+          652,
+          "f",
+          1.0,
+          0.01,
+          1
+         ],
+         [
+          656,
+          "f",
+          1.0,
+          0.01,
+          1
+         ],
+         [
+          660,
+          "f",
+          1.0,
+          0.01,
+          1
+         ],
+         [
+          664,
+          "f",
+          1.0,
+          0.01,
+          1
+         ],
+         [
+          668,
+          "f",
+          1.0,
+          0.01,
+          1
+         ],
+         [
+          672,
+          "f",
+          1.0,
+          0.01,
+          1
+         ],
+         [
+          676,
+          "f",
+          1.0,
+          0.01,
+          1
+         ],
+         [
+          680,
+          "f",
+          1.0,
+          0.01,
+          1
+         ],
+         [
+          684,
+          "f",
+          1.0,
+          0.01,
+          1
+         ],
+         [
+          688,
+          "f",
+          1.0,
+          0.01,
+          1
+         ]
+        ]
+       ],
+       [
+        1,
+        "fx",
+        0,
+        7210923,
         [
          [
           652,
@@ -45685,7 +45698,7 @@
        -1,
        -1,
        -1,
-       7210920
+       7210924
       ]
      },
      {
@@ -45699,7 +45712,7 @@
        -1,
        -1,
        -1,
-       7210921
+       7210925
       ]
      },
      {
@@ -45713,7 +45726,7 @@
        -1,
        -1,
        -1,
-       7210922
+       7210926
       ]
      },
      {
@@ -45727,7 +45740,7 @@
        -1,
        -1,
        -1,
-       7210923
+       7210927
       ]
      },
      {
@@ -45741,7 +45754,7 @@
        -1,
        -1,
        -1,
-       7210922
+       7210926
       ]
      },
      {
@@ -45755,7 +45768,7 @@
        -1,
        -1,
        -1,
-       7210923
+       7210927
       ]
      }
     ],
@@ -45770,37 +45783,37 @@
       -1,
       -1,
       -1,
-      7210920
+      7210924
      ],
      "clash_ll": [
       -1,
       -1,
       -1,
-      7210921
+      7210925
      ],
      "clash_hr": [
       -1,
       -1,
       -1,
-      7210922
+      7210926
      ],
      "clash_hl": [
       -1,
       -1,
       -1,
-      7210923
+      7210927
      ],
      "clash_spark_r": [
       -1,
       -1,
       -1,
-      7210924
+      7210928
      ],
      "clash_spark_l": [
       -1,
       -1,
       -1,
-      7210925
+      7210929
      ]
     }
    },
@@ -45872,7 +45885,7 @@
        -1,
        -1,
        -1,
-       7210926
+       7210930
       ]
      }
     ],
@@ -46162,188 +46175,188 @@
  ],
  "runtime": {
   "marks": {
-   "roll": 7210931,
-   "reload": 7210932,
-   "attack": 7210933,
-   "hit": 7210934,
-   "charging": 7210935,
-   "air": 7210936,
-   "air_jump": 7210937,
-   "armor": 7210938,
-   "aroma": 7210939,
-   "backstep": 7210940,
-   "bleed_near": 7210618,
-   "break": 7210941,
-   "cast": 7210942,
-   "cast_hit": 7210943,
-   "cast_new": 7210944,
-   "casting": 7210945,
-   "charged": 7210946,
-   "clash_h_l": 7210947,
-   "clash_h_r": 7210948,
-   "clash_hc_l": 7210949,
-   "clash_hc_r": 7210950,
-   "clash_l_l": 7210951,
-   "clash_l_r": 7210952,
-   "crit": 7210953,
+   "roll": 7210935,
+   "reload": 7210936,
+   "attack": 7210937,
+   "hit": 7210938,
+   "charging": 7210939,
+   "air": 7210940,
+   "air_jump": 7210941,
+   "armor": 7210942,
+   "aroma": 7210943,
+   "backstep": 7210944,
+   "bleed_near": 7210625,
+   "break": 7210945,
+   "cast": 7210946,
+   "cast_hit": 7210947,
+   "cast_new": 7210948,
+   "casting": 7210949,
+   "charged": 7210950,
+   "clash_h_l": 7210951,
+   "clash_h_r": 7210952,
+   "clash_hc_l": 7210953,
+   "clash_hc_r": 7210954,
+   "clash_l_l": 7210955,
+   "clash_l_r": 7210956,
+   "crit": 7210957,
    "crouch": 8001,
-   "flask": 7210954,
-   "float_hit": 7210955,
-   "grip1": 7210956,
-   "grip2": 7210957,
-   "ground": 7210958,
-   "guard_counter": 7210959,
-   "guard_hit": 7210960,
-   "guard_light": 7210961,
-   "item_hit": 7210962,
-   "jatk": 7210963,
-   "jland": 7210964,
-   "jump": 7210965,
-   "land": 7210966,
-   "hit_self": 7210968,
-   "hit_acc": 7210970,
-   "mikiri": 7210971,
-   "physick": 7210972,
-   "shot": 7210973,
-   "shot_hit": 7210974,
-   "shot_new": 7210975,
-   "skill": 7210976,
-   "style": 7210977,
-   "swing": 7210978,
-   "sync": 7210979,
-   "throw": 7210980,
-   "throw_new": 7210981,
-   "wswitch2": 7210982,
-   "wolf_atk": 7211264,
-   "wolf_van": 7211265,
-   "wolf_try": 7211266,
-   "wolf_ok": 7211267,
-   "overlord_hit": 7211268,
-   "light_new": 7211269
+   "flask": 7210958,
+   "float_hit": 7210959,
+   "grip1": 7210960,
+   "grip2": 7210961,
+   "ground": 7210962,
+   "guard_counter": 7210963,
+   "guard_hit": 7210964,
+   "guard_light": 7210965,
+   "item_hit": 7210966,
+   "jatk": 7210967,
+   "jland": 7210968,
+   "jump": 7210969,
+   "land": 7210970,
+   "hit_self": 7210972,
+   "hit_acc": 7210974,
+   "mikiri": 7210975,
+   "physick": 7210976,
+   "shot": 7210977,
+   "shot_hit": 7210978,
+   "shot_new": 7210979,
+   "skill": 7210980,
+   "style": 7210981,
+   "swing": 7210982,
+   "sync": 7210983,
+   "throw": 7210984,
+   "throw_new": 7210985,
+   "wswitch2": 7210986,
+   "wolf_atk": 7211268,
+   "wolf_van": 7211269,
+   "wolf_try": 7211270,
+   "wolf_ok": 7211271,
+   "overlord_hit": 7211272,
+   "light_new": 7211273
   },
   "crush": [
    [
     40,
-    7210983
-   ],
-   [
-    47,
-    7210984
-   ],
-   [
-    56,
-    7210985
-   ],
-   [
-    66,
-    7210986
-   ],
-   [
-    78,
     7210987
    ],
    [
-    92,
+    47,
     7210988
    ],
    [
-    108,
+    56,
     7210989
    ],
    [
-    127,
+    66,
     7210990
    ],
    [
-    150,
+    78,
     7210991
    ],
    [
-    177,
+    92,
     7210992
    ],
    [
-    209,
+    108,
     7210993
    ],
    [
-    247,
+    127,
     7210994
    ],
    [
-    292,
+    150,
     7210995
    ],
    [
-    344,
+    177,
     7210996
    ],
    [
-    406,
+    209,
     7210997
    ],
    [
-    479,
+    247,
     7210998
    ],
    [
-    565,
+    292,
     7210999
    ],
    [
-    667,
+    344,
     7211000
    ],
    [
-    787,
+    406,
     7211001
    ],
    [
-    929,
+    479,
     7211002
    ],
    [
-    1096,
+    565,
     7211003
    ],
    [
-    1293,
+    667,
     7211004
    ],
    [
-    1526,
+    787,
     7211005
    ],
    [
-    1800,
+    929,
     7211006
+   ],
+   [
+    1096,
+    7211007
+   ],
+   [
+    1293,
+    7211008
+   ],
+   [
+    1526,
+    7211009
+   ],
+   [
+    1800,
+    7211010
    ]
   ],
   "crush_live": [
    [
-    7211007,
+    7211011,
     307000148
    ],
    [
-    7211008,
+    7211012,
     307000149
    ]
   ],
   "shock_live": [
    [
-    7211009,
+    7211013,
     307000150
    ],
    [
-    7211010,
+    7211014,
     307000151
    ],
    [
-    7211011,
+    7211015,
     307000152
    ],
    [
-    7211012,
+    7211016,
     307000153
    ]
   ],
@@ -46351,1195 +46364,1195 @@
    "magic": [
     [
      40,
-     7211013
-    ],
-    [
-     47,
-     7211014
-    ],
-    [
-     56,
-     7211015
-    ],
-    [
-     66,
-     7211016
-    ],
-    [
-     78,
      7211017
     ],
     [
-     92,
+     47,
      7211018
     ],
     [
-     108,
+     56,
      7211019
     ],
     [
-     127,
+     66,
      7211020
     ],
     [
-     150,
+     78,
      7211021
     ],
     [
-     177,
+     92,
      7211022
     ],
     [
-     209,
+     108,
      7211023
     ],
     [
-     247,
+     127,
      7211024
     ],
     [
-     292,
+     150,
      7211025
     ],
     [
-     344,
+     177,
      7211026
     ],
     [
-     406,
+     209,
      7211027
     ],
     [
-     479,
+     247,
      7211028
     ],
     [
-     565,
+     292,
      7211029
     ],
     [
-     667,
+     344,
      7211030
     ],
     [
-     787,
+     406,
      7211031
     ],
     [
-     929,
+     479,
      7211032
     ],
     [
-     1096,
+     565,
      7211033
     ],
     [
-     1293,
+     667,
      7211034
     ],
     [
-     1526,
+     787,
      7211035
     ],
     [
-     1800,
+     929,
      7211036
+    ],
+    [
+     1096,
+     7211037
+    ],
+    [
+     1293,
+     7211038
+    ],
+    [
+     1526,
+     7211039
+    ],
+    [
+     1800,
+     7211040
     ]
    ],
    "hp": [
     [
      5,
-     7211163
-    ],
-    [
-     6,
-     7211164
-    ],
-    [
-     7,
-     7211165
-    ],
-    [
-     8,
-     7211166
-    ],
-    [
-     10,
      7211167
     ],
     [
-     11,
+     6,
      7211168
     ],
     [
-     13,
+     7,
      7211169
     ],
     [
-     16,
+     8,
      7211170
     ],
     [
-     19,
+     10,
      7211171
     ],
     [
-     22,
+     11,
      7211172
     ],
     [
-     26,
+     13,
      7211173
     ],
     [
-     31,
+     16,
      7211174
     ],
     [
-     36,
+     19,
      7211175
     ],
     [
-     43,
+     22,
      7211176
     ],
     [
-     51,
+     26,
      7211177
     ],
     [
-     60,
+     31,
      7211178
     ],
     [
-     71,
+     36,
      7211179
     ],
     [
-     83,
+     43,
      7211180
     ],
     [
-     98,
+     51,
      7211181
     ],
     [
-     116,
+     60,
      7211182
     ],
     [
-     137,
+     71,
      7211183
     ],
     [
-     162,
+     83,
      7211184
     ],
     [
-     191,
+     98,
      7211185
     ],
     [
-     225,
+     116,
      7211186
     ],
     [
-     266,
+     137,
      7211187
     ],
     [
-     313,
+     162,
      7211188
     ],
     [
-     370,
+     191,
      7211189
     ],
     [
-     436,
+     225,
      7211190
     ],
     [
-     515,
+     266,
      7211191
     ],
     [
-     608,
+     313,
      7211192
     ],
     [
-     717,
+     370,
      7211193
     ],
     [
-     846,
+     436,
      7211194
     ],
     [
-     998,
+     515,
      7211195
     ],
     [
-     1178,
+     608,
      7211196
     ],
     [
-     1390,
+     717,
      7211197
     ],
     [
-     1640,
+     846,
      7211198
     ],
     [
-     1935,
+     998,
      7211199
     ],
     [
-     2284,
+     1178,
      7211200
     ],
     [
-     2695,
+     1390,
      7211201
     ],
     [
-     3180,
+     1640,
      7211202
     ],
     [
-     3752,
+     1935,
      7211203
     ],
     [
-     4427,
+     2284,
      7211204
     ],
     [
-     5224,
+     2695,
      7211205
     ],
     [
-     6164,
+     3180,
      7211206
     ],
     [
-     7274,
+     3752,
      7211207
     ],
     [
-     8583,
+     4427,
      7211208
     ],
     [
-     10128,
+     5224,
      7211209
     ],
     [
-     11952,
+     6164,
      7211210
     ],
     [
-     14103,
+     7274,
      7211211
     ],
     [
-     16641,
+     8583,
      7211212
     ],
     [
-     19637,
+     10128,
      7211213
     ],
     [
-     23171,
+     11952,
      7211214
     ],
     [
-     27342,
+     14103,
      7211215
     ],
     [
-     32264,
+     16641,
      7211216
     ],
     [
-     38071,
+     19637,
      7211217
+    ],
+    [
+     23171,
+     7211218
+    ],
+    [
+     27342,
+     7211219
+    ],
+    [
+     32264,
+     7211220
+    ],
+    [
+     38071,
+     7211221
     ]
    ],
    "pebble": [
     [
      40,
-     7211037,
+     7211041,
      93000449
     ],
     [
      42,
-     7211038,
+     7211042,
      93000451
     ],
     [
      44,
-     7211039,
+     7211043,
      93000453
     ],
     [
      46,
-     7211040,
+     7211044,
      93000455
     ],
     [
      49,
-     7211041,
+     7211045,
      93000457
     ],
     [
      51,
-     7211042,
+     7211046,
      93000459
     ],
     [
      54,
-     7211043,
+     7211047,
      93000461
     ],
     [
      56,
-     7211044,
+     7211048,
      93000463
     ],
     [
      59,
-     7211045,
+     7211049,
      93000465
     ],
     [
      62,
-     7211046,
+     7211050,
      93000467
     ],
     [
      65,
-     7211047,
+     7211051,
      93000469
     ],
     [
      68,
-     7211048,
+     7211052,
      93000471
     ],
     [
      72,
-     7211049,
+     7211053,
      93000473
     ],
     [
      75,
-     7211050,
+     7211054,
      93000475
     ],
     [
      79,
-     7211051,
+     7211055,
      93000477
     ],
     [
      83,
-     7211052,
+     7211056,
      93000479
     ],
     [
      87,
-     7211053,
+     7211057,
      93000481
     ],
     [
      92,
-     7211054,
+     7211058,
      93000483
     ],
     [
      96,
-     7211055,
+     7211059,
      93000485
     ],
     [
      101,
-     7211056,
+     7211060,
      93000487
     ],
     [
      106,
-     7211057,
+     7211061,
      93000489
     ],
     [
      111,
-     7211058,
+     7211062,
      93000491
     ],
     [
      117,
-     7211059,
+     7211063,
      93000493
     ],
     [
      123,
-     7211060,
+     7211064,
      93000495
     ],
     [
      129,
-     7211061,
+     7211065,
      93000497
     ],
     [
      135,
-     7211062,
+     7211066,
      93000499
     ],
     [
      142,
-     7211063,
+     7211067,
      93000501
     ],
     [
      149,
-     7211064,
+     7211068,
      93000503
     ],
     [
      157,
-     7211065,
+     7211069,
      93000505
     ],
     [
      165,
-     7211066,
+     7211070,
      93000507
     ],
     [
      173,
-     7211067,
+     7211071,
      93000509
     ],
     [
      182,
-     7211068,
+     7211072,
      93000511
     ],
     [
      191,
-     7211069,
+     7211073,
      93000513
     ],
     [
      200,
-     7211070,
+     7211074,
      93000515
     ],
     [
      210,
-     7211071,
+     7211075,
      93000517
     ],
     [
      221,
-     7211072,
+     7211076,
      93000519
     ],
     [
      232,
-     7211073,
+     7211077,
      93000521
     ],
     [
      243,
-     7211074,
+     7211078,
      93000523
     ],
     [
      255,
-     7211075,
+     7211079,
      93000525
     ],
     [
      268,
-     7211076,
+     7211080,
      93000527
     ],
     [
      282,
-     7211077,
+     7211081,
      93000529
     ],
     [
      296,
-     7211078,
+     7211082,
      93000531
     ],
     [
      310,
-     7211079,
+     7211083,
      93000533
     ],
     [
      326,
-     7211080,
+     7211084,
      93000535
     ],
     [
      342,
-     7211081,
+     7211085,
      93000537
     ],
     [
      359,
-     7211082,
+     7211086,
      93000539
     ],
     [
      377,
-     7211083,
+     7211087,
      93000541
     ],
     [
      396,
-     7211084,
+     7211088,
      93000543
     ],
     [
      416,
-     7211085,
+     7211089,
      93000545
     ],
     [
      437,
-     7211086,
+     7211090,
      93000547
     ],
     [
      459,
-     7211087,
+     7211091,
      93000549
     ],
     [
      482,
-     7211088,
+     7211092,
      93000551
     ],
     [
      506,
-     7211089,
+     7211093,
      93000553
     ],
     [
      531,
-     7211090,
+     7211094,
      93000555
     ],
     [
      558,
-     7211091,
+     7211095,
      93000557
     ],
     [
      585,
-     7211092,
+     7211096,
      93000559
     ],
     [
      615,
-     7211093,
+     7211097,
      93000561
     ],
     [
      645,
-     7211094,
+     7211098,
      93000563
     ],
     [
      678,
-     7211095,
+     7211099,
      93000565
     ],
     [
      712,
-     7211096,
+     7211100,
      93000567
     ],
     [
      747,
-     7211097,
+     7211101,
      93000569
     ],
     [
      785,
-     7211098,
+     7211102,
      93000571
     ],
     [
      824,
-     7211099,
+     7211103,
      93000573
     ],
     [
      865,
-     7211100,
+     7211104,
      93000575
     ],
     [
      908,
-     7211101,
+     7211105,
      93000577
     ],
     [
      954,
-     7211102,
+     7211106,
      93000579
     ],
     [
      1001,
-     7211103,
+     7211107,
      93000581
     ],
     [
      1051,
-     7211104,
+     7211108,
      93000583
     ],
     [
      1104,
-     7211105,
+     7211109,
      93000585
     ],
     [
      1159,
-     7211106,
+     7211110,
      93000587
     ],
     [
      1217,
-     7211107,
+     7211111,
      93000589
     ],
     [
      1278,
-     7211108,
+     7211112,
      93000591
     ],
     [
      1342,
-     7211109,
+     7211113,
      93000593
     ],
     [
      1409,
-     7211110,
+     7211114,
      93000595
     ],
     [
      1479,
-     7211111,
+     7211115,
      93000597
     ],
     [
      1553,
-     7211112,
+     7211116,
      93000599
     ],
     [
      1631,
-     7211113,
+     7211117,
      93000601
     ],
     [
      1713,
-     7211114,
+     7211118,
      93000603
     ],
     [
      1798,
-     7211115,
+     7211119,
      93000605
     ],
     [
      1888,
-     7211116,
+     7211120,
      93000607
     ],
     [
      1982,
-     7211117,
+     7211121,
      93000609
     ],
     [
      2082,
-     7211118,
+     7211122,
      93000611
     ],
     [
      2186,
-     7211119,
+     7211123,
      93000613
     ],
     [
      2295,
-     7211120,
+     7211124,
      93000615
     ],
     [
      2410,
-     7211121,
+     7211125,
      93000617
     ],
     [
      2530,
-     7211122,
+     7211126,
      93000619
     ],
     [
      2657,
-     7211123,
+     7211127,
      93000621
     ],
     [
      2790,
-     7211124,
+     7211128,
      93000623
     ],
     [
      2929,
-     7211125,
+     7211129,
      93000625
     ],
     [
      3075,
-     7211126,
+     7211130,
      93000627
     ],
     [
      3229,
-     7211127,
+     7211131,
      93000629
     ],
     [
      3391,
-     7211128,
+     7211132,
      93000631
     ],
     [
      3560,
-     7211129,
+     7211133,
      93000633
     ],
     [
      3738,
-     7211130,
+     7211134,
      93000635
     ],
     [
      3925,
-     7211131,
+     7211135,
      93000637
     ],
     [
      4121,
-     7211132,
+     7211136,
      93000639
     ],
     [
      4327,
-     7211133,
+     7211137,
      93000641
     ],
     [
      4544,
-     7211134,
+     7211138,
      93000643
     ],
     [
      4771,
-     7211135,
+     7211139,
      93000645
     ],
     [
      5010,
-     7211136,
+     7211140,
      93000647
     ],
     [
      5260,
-     7211137,
+     7211141,
      93000649
     ],
     [
      5523,
-     7211138,
+     7211142,
      93000651
     ],
     [
      5799,
-     7211139,
+     7211143,
      93000653
     ],
     [
      6089,
-     7211140,
+     7211144,
      93000655
     ],
     [
      6394,
-     7211141,
+     7211145,
      93000657
     ],
     [
      6713,
-     7211142,
+     7211146,
      93000659
     ],
     [
      7049,
-     7211143,
+     7211147,
      93000661
     ],
     [
      7401,
-     7211144,
+     7211148,
      93000663
     ],
     [
      7771,
-     7211145,
+     7211149,
      93000665
     ],
     [
      8160,
-     7211146,
+     7211150,
      93000667
     ],
     [
      8568,
-     7211147,
+     7211151,
      93000669
     ],
     [
      8996,
-     7211148,
+     7211152,
      93000671
     ],
     [
      9446,
-     7211149,
+     7211153,
      93000673
     ],
     [
      9919,
-     7211150,
+     7211154,
      93000675
     ],
     [
      10415,
-     7211151,
+     7211155,
      93000677
     ],
     [
      10935,
-     7211152,
+     7211156,
      93000679
     ],
     [
      11482,
-     7211153,
+     7211157,
      93000681
     ],
     [
      12056,
-     7211154,
+     7211158,
      93000683
     ],
     [
      12659,
-     7211155,
+     7211159,
      93000685
     ],
     [
      13292,
-     7211156,
+     7211160,
      93000687
     ],
     [
      13956,
-     7211157,
+     7211161,
      93000689
     ],
     [
      14654,
-     7211158,
+     7211162,
      93000691
     ],
     [
      15387,
-     7211159,
+     7211163,
      93000693
     ],
     [
      16156,
-     7211160,
+     7211164,
      93000695
     ],
     [
      16964,
-     7211161,
+     7211165,
      93000697
     ],
     [
      17812,
-     7211162,
+     7211166,
      93000699
     ]
    ],
    "hpmax": [
     [
      1,
-     7211270
-    ],
-    [
-     2,
-     7211271
-    ],
-    [
-     3,
-     7211272
-    ],
-    [
-     4,
-     7211273
-    ],
-    [
-     5,
      7211274
     ],
     [
-     6,
+     2,
      7211275
     ],
     [
-     7,
+     3,
      7211276
     ],
     [
-     8,
+     4,
      7211277
     ],
     [
-     9,
+     5,
      7211278
     ],
     [
-     10,
+     6,
      7211279
     ],
     [
-     11,
+     7,
      7211280
     ],
     [
-     12,
+     8,
      7211281
     ],
     [
-     13,
+     9,
      7211282
     ],
     [
-     14,
+     10,
      7211283
     ],
     [
-     15,
+     11,
      7211284
     ],
     [
-     16,
+     12,
      7211285
     ],
     [
-     17,
+     13,
      7211286
     ],
     [
-     18,
+     14,
      7211287
     ],
     [
-     19,
+     15,
      7211288
     ],
     [
-     20,
+     16,
      7211289
     ],
     [
-     21,
+     17,
      7211290
     ],
     [
-     22,
+     18,
      7211291
     ],
     [
-     23,
+     19,
      7211292
     ],
     [
-     24,
+     20,
      7211293
     ],
     [
-     25,
+     21,
      7211294
     ],
     [
-     26,
+     22,
      7211295
     ],
     [
-     27,
+     23,
      7211296
     ],
     [
-     28,
+     24,
      7211297
     ],
     [
-     29,
+     25,
      7211298
     ],
     [
-     30,
+     26,
      7211299
     ],
     [
-     31,
+     27,
      7211300
     ],
     [
-     32,
+     28,
      7211301
     ],
     [
-     33,
+     29,
      7211302
     ],
     [
-     34,
+     30,
      7211303
     ],
     [
-     35,
+     31,
      7211304
     ],
     [
-     36,
+     32,
      7211305
     ],
     [
-     37,
+     33,
      7211306
     ],
     [
-     38,
+     34,
      7211307
     ],
     [
-     39,
+     35,
      7211308
     ],
     [
-     40,
+     36,
      7211309
     ],
     [
-     41,
+     37,
      7211310
     ],
     [
-     42,
+     38,
      7211311
     ],
     [
-     43,
+     39,
      7211312
     ],
     [
-     44,
+     40,
      7211313
     ],
     [
-     45,
+     41,
      7211314
     ],
     [
-     46,
+     42,
      7211315
     ],
     [
-     47,
+     43,
      7211316
     ],
     [
-     48,
+     44,
      7211317
     ],
     [
-     49,
+     45,
      7211318
     ],
     [
-     50,
+     46,
      7211319
     ],
     [
-     51,
+     47,
      7211320
     ],
     [
-     52,
+     48,
      7211321
     ],
     [
-     53,
+     49,
      7211322
     ],
     [
-     54,
+     50,
      7211323
     ],
     [
-     55,
+     51,
      7211324
     ],
     [
-     56,
+     52,
      7211325
     ],
     [
-     57,
+     53,
      7211326
     ],
     [
-     58,
+     54,
      7211327
     ],
     [
-     59,
+     55,
      7211328
     ],
     [
-     60,
+     56,
      7211329
+    ],
+    [
+     57,
+     7211330
+    ],
+    [
+     58,
+     7211331
+    ],
+    [
+     59,
+     7211332
+    ],
+    [
+     60,
+     7211333
     ]
    ]
   },
@@ -47613,173 +47626,173 @@
    "poison": [
     [
      60,
-     7211218
-    ],
-    [
-     80,
-     7211219
-    ],
-    [
-     100,
-     7211220
-    ],
-    [
-     150,
-     7211221
-    ],
-    [
-     200,
      7211222
     ],
     [
-     750,
+     80,
      7211223
+    ],
+    [
+     100,
+     7211224
+    ],
+    [
+     150,
+     7211225
+    ],
+    [
+     200,
+     7211226
+    ],
+    [
+     750,
+     7211227
     ]
    ],
    "rot": [
     [
      60,
-     7211224
-    ],
-    [
-     80,
-     7211225
-    ],
-    [
-     100,
-     7211226
-    ],
-    [
-     150,
-     7211227
-    ],
-    [
-     200,
      7211228
     ],
     [
-     750,
+     80,
      7211229
+    ],
+    [
+     100,
+     7211230
+    ],
+    [
+     150,
+     7211231
+    ],
+    [
+     200,
+     7211232
+    ],
+    [
+     750,
+     7211233
     ]
    ],
    "bleed": [
     [
      60,
-     7211230
-    ],
-    [
-     80,
-     7211231
-    ],
-    [
-     100,
-     7211232
-    ],
-    [
-     150,
-     7211233
-    ],
-    [
-     200,
      7211234
     ],
     [
-     750,
+     80,
      7211235
+    ],
+    [
+     100,
+     7211236
+    ],
+    [
+     150,
+     7211237
+    ],
+    [
+     200,
+     7211238
+    ],
+    [
+     750,
+     7211239
     ]
    ],
    "frost": [
     [
      60,
-     7211236
-    ],
-    [
-     80,
-     7211237
-    ],
-    [
-     100,
-     7211238
-    ],
-    [
-     150,
-     7211239
-    ],
-    [
-     200,
      7211240
     ],
     [
-     750,
+     80,
      7211241
+    ],
+    [
+     100,
+     7211242
+    ],
+    [
+     150,
+     7211243
+    ],
+    [
+     200,
+     7211244
+    ],
+    [
+     750,
+     7211245
     ]
    ],
    "sleep": [
     [
      60,
-     7211242
-    ],
-    [
-     80,
-     7211243
-    ],
-    [
-     100,
-     7211244
-    ],
-    [
-     150,
-     7211245
-    ],
-    [
-     200,
      7211246
     ],
     [
-     750,
+     80,
      7211247
+    ],
+    [
+     100,
+     7211248
+    ],
+    [
+     150,
+     7211249
+    ],
+    [
+     200,
+     7211250
+    ],
+    [
+     750,
+     7211251
     ]
    ],
    "madness": [
     [
      60,
-     7211248
-    ],
-    [
-     80,
-     7211249
-    ],
-    [
-     100,
-     7211250
-    ],
-    [
-     150,
-     7211251
-    ],
-    [
-     200,
      7211252
     ],
     [
-     750,
+     80,
      7211253
+    ],
+    [
+     100,
+     7211254
+    ],
+    [
+     150,
+     7211255
+    ],
+    [
+     200,
+     7211256
+    ],
+    [
+     750,
+     7211257
     ]
    ]
   },
   "bloodrage": {
    "marker": 7210391,
    "stacks": [
-    7211254,
-    7211255,
-    7211256,
-    7211257,
     7211258,
     7211259,
     7211260,
     7211261,
     7211262,
-    7211263
+    7211263,
+    7211264,
+    7211265,
+    7211266,
+    7211267
    ],
    "hp": 0.5,
    "reset": 5.0
@@ -47805,16 +47818,16 @@
       "timeout": 3.0,
       "fx": [
        [
-        7210454
+        7210459
        ],
        [
-        7210454
+        7210459
        ],
        [
-        7210454
+        7210459
        ],
        [
-        7210454
+        7210459
        ]
       ]
      }
@@ -47839,19 +47852,19 @@
        3
       ],
       "effect": [
-       7210621,
-       7210621,
-       7210621,
-       7210621
+       7210626,
+       7210626,
+       7210626,
+       7210626
       ]
      },
      {
       "type": "while",
       "effect": [
-       7210967,
-       7210967,
-       7210967,
-       7210967
+       7210971,
+       7210971,
+       7210971,
+       7210971
       ]
      }
     ]
@@ -47908,10 +47921,10 @@
      {
       "type": "while",
       "effect": [
-       7210967,
-       7210967,
-       7210967,
-       7210967
+       7210971,
+       7210971,
+       7210971,
+       7210971
       ]
      }
     ]
@@ -47942,10 +47955,10 @@
      {
       "type": "while",
       "effect": [
-       7210967,
-       7210967,
-       7210967,
-       7210967
+       7210971,
+       7210971,
+       7210971,
+       7210971
       ]
      }
     ]
@@ -47981,10 +47994,10 @@
      {
       "type": "while",
       "effect": [
-       7210967,
-       7210967,
-       7210967,
-       7210967
+       7210971,
+       7210971,
+       7210971,
+       7210971
       ]
      }
     ]
@@ -48008,16 +48021,16 @@
       "timeout": 3.0,
       "fx": [
        [
-        7210815
+        7210819
        ],
        [
-        7210815
+        7210819
        ],
        [
-        7210815
+        7210819
        ],
        [
-        7210815
+        7210819
        ]
       ]
      },
@@ -48042,10 +48055,10 @@
      {
       "type": "while",
       "effect": [
-       7210967,
-       7210967,
-       7210967,
-       7210967
+       7210971,
+       7210971,
+       7210971,
+       7210971
       ]
      }
     ]

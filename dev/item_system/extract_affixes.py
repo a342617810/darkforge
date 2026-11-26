@@ -856,11 +856,14 @@ CUSTOM = [
          zh='能加快周围8米内所有角色的动作，不分敌我（＋%s％）', en='Speeds up the actions of every character within 8 m, friend or foe (+%s%%)'),
     # 混沌（2026-11-06 改成积木规则）：以前标记自己带 152 + 命中时触发挂减抗，游戏对这种效果只认一个（rr/atkfwd.py），
     # 和听命中的词条标记互相顶：排在后面减抗挂不上，排在前面所有听命中的词条都不触发。现在标记也只是听命中，减抗由 dark_core 挂
+    # 用户 2026-11-24「混沌护符加一个负面效果 受到伤害+30% 不用波动」：戴着就一直挂 frail（受到的伤害 ×1.3，同怒意的 DEF_RATES），
+    # 每个稀有度一样（同浮空的「削韧降低30％」）
     dict(key='dr_chaos', run='chaos', suffix=['Chaos', '混沌'], slots=('talisman',), icon=18311, vals=(10, 15, 20, 30),
-         rows=dict(debuff=lambda v: dict(enemy=True, effectEndurance=10.0, **{x: 1.0 + v / 100.0 for x in STATUS_DEF})),
-         logic=[dict(type='on', event='land', target_fx='debuff')],
-         zh='被命中的敌人在10秒内更容易陷入异常状态（异常累积＋%s％）',
-         en='Enemies you hit become more susceptible to every status ailment for 10 seconds (buildup +%s%%)'),
+         rows=dict(debuff=lambda v: dict(enemy=True, effectEndurance=10.0, **{x: 1.0 + v / 100.0 for x in STATUS_DEF}),
+                   frail=lambda v: dict(effectEndurance=-1.0, **{x: 1.3 for x in DEF_RATES})),
+         logic=[dict(type='on', event='land', target_fx='debuff'), dict(type='while', effect='frail')],
+         zh='被命中的敌人在10秒内更容易陷入异常状态（异常累积＋%s％），但自身受到的伤害增加30％',
+         en='Enemies you hit become more susceptible to every status ailment for 10 seconds (buildup +%s%%), but you take 30%% more damage'),
     dict(key='dr_deft', run='deft', suffix=['Deft Hands', '巧手'], slots=('arm',), vals=(15, 22, 30, 40),
          zh='能加快弩的装填与弓的拉弦（＋%s％）', en='Speeds up crossbow reloading and bow drawing (+%s%%)'),
     # 寸劲（原名沉稳；用户 2026-11-05「重蓄霸体的词条改为减少重蓄所需时间传说最高50%每级10%」、改名「寸劲」）：以前是按住蓄力时霸体 + 减伤（积木 while charging），
