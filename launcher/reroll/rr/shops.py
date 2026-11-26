@@ -174,9 +174,16 @@ def scarab_rows(ctx):
 def scarabs(ctx, x):
     P, g, merch = x['P'], x['g'], x['merch']
     sc = scarab_rows(ctx)
-    # 只改这一格现在就是战灰的：开了物品随机时随机器会把别的东西放到甲虫身上，不能冲掉
+    # 只改这一格现在就是战灰的：开了物品随机时随机器会把别的东西放到甲虫身上，不能冲掉。
+    # 随机器放到甲虫身上的原版装备已经被 bosses.no_weapons 删成空格（ctx.gear_stripped），这些格子也换成随机战灰
+    # （用户 2026-11-24「甲虫那个改成随机战灰」：以前这些甲虫什么都不掉）；法术、道具这些照旧
     is_gem = lambda r, i: any(k == i and c == LOT_GEM for k, c, _iid, _pt in erlib.lot_slots(ctx.P_mp.rows[r]))
-    slots = [(r, i) for r, i, _gem in sc if r in ctx.P_mp.rows and is_gem(r, i)]
+    stripped = getattr(ctx, 'gear_stripped', None) or set()
+    rows = {r for r, _i, _gem in sc if r in ctx.P_mp.rows}
+    gem_list = [(r, i) for r, i, _gem in sc if r in rows and is_gem(r, i)]     # 顺序照以前（没开物品随机时一次性记录的键不变）
+    gem_slots = set(gem_list)
+    gear_slots = {(r, i) for r, i in stripped if r in rows} - gem_slots
+    slots = gem_list + sorted(gear_slots)
     if not slots:
         return
     all_ash, buyable = {gem for _r, _i, gem in sc}, set()
@@ -186,8 +193,9 @@ def scarabs(ctx, x):
         all_ash.add(g(row, 'equipId'))
         if (g(row, 'mtrlId') == -1 and g(row, 'costType') == 0 and str(rid) in merch) or (101800 <= rid <= 101999 and g(row, 'mtrlId') != -1):
             buyable.add(g(row, 'equipId'))                # 商人用卢恩买得到 / 追忆换得到
-    # 一定要留在甲虫身上的：原本甲虫掉、商店又买不到的（地图上捡的、Boss 给的不用管，原处还有）；其余格子从全部战灰里随机
-    must = sorted({gem for _r, _i, gem in sc} - buyable)
+    # 一定要留在甲虫身上的：原本甲虫掉、商店又买不到的（地图上捡的、Boss 给的不用管，原处还有）；其余格子从全部战灰里随机。
+    # 开了物品随机时这些战灰随机器已经放到别处了，全部随机
+    must = [] if ctx.item_rand else sorted({gem for _r, _i, gem in sc} - buyable)
     key = once.sig('s3', slots, sorted(all_ash), must)
     plan = once.get(ctx, 'shop_scarab', key)
     fresh = not plan
@@ -207,10 +215,11 @@ def scarabs(ctx, x):
             struct.pack_into('<i', row, erlib.LOT_ID + 4 * i, gem)
             struct.pack_into('<i', row, erlib.LOT_CAT + 4 * i, LOT_GEM)
             n += 1
-    other = len(sc) - len(slots)
-    if other:      # 开了物品随机：随机器在甲虫身上放了别的东西，那几格没改，原本只有甲虫掉的战灰随机器挪到别处了
-        ctx.report.append('甲虫掉战灰（%s）：%d 只甲虫掉的本来就是战灰，重新分配；另外 %d 只掉的是随机器放的别的东西（开了物品随机），没改' % (
-            '新抽的' if fresh else '沿用第一次抽的', n, other))
+    other = len(rows - {r for r, _i in slots})
+    if other or gear_slots:      # 开了物品随机：随机器在甲虫身上放了别的东西；原版装备那几格换成随机战灰，其余没改
+        ctx.report.append('甲虫掉战灰（%s，开了物品随机）：%d 格换成随机战灰（%d 格本来就是战灰、%d 格是随机器放的原版装备）；'
+                          '另外 %d 只掉的是随机器放的别的东西（法术、道具等），没改' % (
+                              '新抽的' if fresh else '沿用第一次抽的', n, len(gem_slots), len(gear_slots), other))
     else:
         ctx.report.append('甲虫掉战灰（%s）：%d 只甲虫重新分配战灰，原本只有甲虫掉、商店买不到的 %d 种都还在甲虫身上，其余 %d 只从全部 %d 种战灰里随机' % (
             '新抽的' if fresh else '沿用第一次抽的', n, len(must), max(0, n - len(must)), len(all_ash)))

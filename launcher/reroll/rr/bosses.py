@@ -291,7 +291,7 @@ def no_weapons(ctx):
     P_mp, P_en, chain = ctx.P_mp, ctx.P_en, ctx.chain
 
     def strip(row):
-        """这一行的原版装备格改成空格（编号、类别 0，点数照旧），返回改了的 [类别]"""
+        """这一行的原版装备格改成空格（编号、类别 0，点数照旧），返回改了的 [(格子, 类别)]"""
         out = []
         for i, cat, iid, _pt in erlib.lot_slots(row):
             if cat == CAT_CW and weapon_of(cat, iid) is not None and weapon_of(cat, iid) not in KEEP_GEAR:
@@ -302,7 +302,7 @@ def no_weapons(ctx):
                 continue
             struct.pack_into('<i', row, erlib.LOT_ID + 4 * i, 0)
             struct.pack_into('<i', row, erlib.LOT_CAT + 4 * i, 0)
-            out.append(cat)
+            out.append((i, cat))
         return out
     try:
         bosses = json.load(open(os.path.join(ctx.data_dir, 'boss_lots.json'), encoding='utf-8'))['bosses']
@@ -315,12 +315,14 @@ def no_weapons(ctx):
     boss_rows = {r for b in bosses for lot in b['lots'] for r in chain(lot)}
     npc_rows = {r for lot in nl for r in chain(int(lot))}
     n = Counter()
+    ctx.gear_stripped = set()        # 地图掉落表里删掉的格子 (行, 格)：甲虫身上的那几格之后换成随机战灰（shops.scarabs）
     for r, row in P_mp.rows.items():
         src = 'Boss 奖励' if r in boss_rows else '人形 NPC' if r in npc_rows else '地图'
-        for cat in strip(row):
+        for i, cat in strip(row):
             n[(src, cat)] += 1
+            ctx.gear_stripped.add((r, i))
     for row in P_en.rows.values():
-        for cat in strip(row):
+        for _i, cat in strip(row):
             n[('敌人', cat)] += 1
     zh = {CAT_W: '武器', CAT_P: '防具', CAT_A: '护符'}
     parts = ['%s %s' % (s, ' / '.join('%s %d' % (zh[c], n[(s, c)]) for c in zh if n[(s, c)]))
