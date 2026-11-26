@@ -774,6 +774,58 @@ def weapon_scaling(ctx, wt):
     return out, '截断正态 %s；全能补正 ×%g' % ('、'.join(note), omni_mult(ctx))
 
 
+# 补正曲线照原版（用户 2026-11-25「照原版重做」）：以前每种伤害按稀有度照原包武器的件数抽（wcurve），元素那几项把「武器没有这种伤害时
+# 空着填的 0 号」也算了进去，五到七成抽到 0 号；原版有这种伤害的武器九成以上是 4 号。现在每类武器写 wcurvet：
+# 物理照原版这类武器（本体 + 各质变、有物理攻击力的）的分布（质变决定：标准 / 元素类 0、重型 1、锋利 2、优质 8、神秘 7）；
+# 魔力 / 火 / 雷 / 圣一律 4 号，异常 6 号；法杖、圣印记五种伤害同一条（法术补正按它算），照原版这类法器本体的分布。
+# settings 的 weapon_curve_vanilla = false 不写，照旧按 wcurve。只影响以后生成 / 重铸的，已经拿到的照记录里的曲线
+CATALYST_CURVE = {57: 'Magic', 61: 'Dark'}       # 法杖看魔力曲线、圣印记看圣曲线（原版法器三项都一样）
+ELEM_CURVE, STATUS_CURVE = 4, 6
+
+
+def vanilla_curves(ctx, wb):
+    """wcurvet 行：<武器类型> <伤害种类序号 k,…（CURVES 的顺序）> <曲线:件数…>。返回（行，报告用的说明）"""
+    if not ctx.S.get('weapon_curve_vanilla', True):
+        return [], '照原包按稀有度（weapon_curve_vanilla 关着）'
+    W = erlib.Param(ctx.bnd.get('EquipParamWeapon.param'))
+    wl = {t[0]: t for t in pdm.layout(pdm.load(os.path.join(ctx.data_dir, 'EquipParamWeapon.xml')))[0]}
+    g = lambda row, f: struct.unpack_from('<' + wl[f][1], row, wl[f][2])[0]
+    phys = defaultdict(Counter)
+    for b in wb:
+        t = b['type']
+        if t in CATALYST_CURVE:
+            row = W.rows.get(b['id'])
+            if row is not None:
+                phys[t][g(row, 'correctType_' + CATALYST_CURVE[t])] += 1
+            continue
+        for a in range(100):                     # 本体 + 各质变（编号 + 100 × 质变序号）
+            row = W.rows.get(b['id'] + 100 * a)
+            if row is not None and g(row, 'attackBasePhysics') > 0:
+                phys[t][g(row, 'correctType_Physics')] += 1
+    L = []
+    for t in sorted({b['type'] for b in wb}):
+        if t in CATALYST_CURVE:
+            if phys[t]:
+                L.append('wcurvet\t%d\t0,1,2,3,4\t%s' % (t, pairs(phys[t])))
+        else:
+            if phys[t]:
+                L.append('wcurvet\t%d\t0\t%s' % (t, pairs(phys[t])))
+            L.append('wcurvet\t%d\t1,2,3,4\t%d:1' % (t, ELEM_CURVE))
+        L.append('wcurvet\t%d\t5,6,7,8\t%d:1' % (t, STATUS_CURVE))
+    tot = Counter()
+    for t, c in phys.items():
+        if t not in CATALYST_CURVE:
+            tot.update(c)
+    n = sum(tot.values()) or 1
+    cat = Counter()
+    for t in CATALYST_CURVE:
+        cat.update(phys[t])
+    note = '照原版，%d 类武器：物理 %s；元素 %d 号、异常 %d 号；法杖 / 圣印记 %s' % (
+        len({b['type'] for b in wb}), ' '.join('%d 号 %.0f%%' % (k, 100 * v / n) for k, v in tot.most_common()),
+        ELEM_CURVE, STATUS_CURVE, ' '.join('%d 号 %d' % kv for kv in cat.most_common()))
+    return L, note
+
+
 def omni_mult(ctx):
     """全能（五项都有补正）的补正倍率（settings 的 weapon_scaling.omni，默认 0.75）：dark_core 写参数行时乘（同法器倍率），
     超限上限、装备工坊的数也乘。weapon_scaling 关着（照原包的统计，全能本来就低）是 1"""
@@ -1016,6 +1068,9 @@ def write_def(ctx, path):
         L.append('wstat_n\t%d\t%s' % (r_i, pairs(wt['status']['count'][r])))
         for k, kind in enumerate(STATUS_KINDS):
             L.append('wstat_pow\t%d\t%d\t%s' % (k, r_i, pairs(wt['status']['power'][kind][r])))
+    curve_lines, curve_note = vanilla_curves(ctx, wb)
+    L += curve_lines
+    ctx.report.append('武器补正曲线：%s' % curve_note)
     for k, kind in enumerate(STATUS_KINDS):
         L.append('wstat_sp\t%d\t%s' % (k, '\t'.join('%s:%d' % kv for kv in sorted(wt['status']['sp'][kind].items(), key=lambda kv: int(kv[0])))))
         L.append('wstat_msg\t%d\t%d' % (k, STATUS_MSG[kind]))

@@ -607,6 +607,9 @@ struct Lib {
     /// 鉴定偏向加点：每件武器生成几把候选（≤1 = 不偏向）
     bias_n: u32,
     wcurve: HashMap<(usize, usize), Dist>,
+    /// 按武器类型的补正曲线（wcurvet 行，用户 2026-11-25「照原版重做」）：类型 → [(这一组伤害种类, 曲线分布)]，
+    /// 一组共用一次抽到的曲线；有的种类照它，没有的照旧按稀有度的 wcurve（draw_curves）
+    wcurvet: HashMap<u16, Vec<(Vec<usize>, Dist)>>,
     wstat_n: [Dist; 4],
     wstat_pow: HashMap<(usize, usize), Dist>,
     wstat_sp: Vec<HashMap<u32, i32>>,
@@ -886,6 +889,13 @@ fn parse_lib(text: &str) -> Result<Lib, String> {
             "wfull_nostatus" if n >= 2 => d.full_no_status = f[1] == "1",
             "bias" if n >= 2 => d.bias_n = num(f[1])?.clamp(1, 16) as u32,
             "wcurve" if n >= 3 => _ = d.wcurve.insert((r_of(f[1])?, num(f[2])? as usize), dist(&f[3..])?),
+            "wcurvet" if n >= 4 => {
+                let ks = f[2].split(',').filter(|s| !s.is_empty()).map(|s| num(s).map(|k| k as usize)).collect::<Result<Vec<_>, _>>()?;
+                if ks.is_empty() || ks.iter().any(|&k| k >= CURVE_N) {
+                    return Err(format!("wcurvet 的伤害种类不对：{}", f[2]));
+                }
+                d.wcurvet.entry(num(f[1])?.clamp(0, u16::MAX as i64) as u16).or_default().push((ks, dist(&f[3..])?));
+            }
             "wstat_n" if n >= 2 => d.wstat_n[r_of(f[1])?] = dist(&f[2..])?,
             "wspec_n" if n >= 2 => d.wspec_n[r_of(f[1])?] = dist(&f[2..])?,
             "wassault" if n >= 4 => d.wassault[r_of(f[1])?] = (num(f[2])?.clamp(0, 100) as u32, num(f[3])?.clamp(0, 255) as u8),
@@ -1529,10 +1539,7 @@ fn gen_weapon_inner(lib: &Lib, tier: usize, fixed: Option<WFix>, want: Option<u1
             }
         }
     }
-    let mut curve = [0u8; CURVE_N];
-    for (k, c) in curve.iter_mut().enumerate() {
-        *c = lib.wcurve.get(&(r, k)).and_then(|d| d.pick(rng)).unwrap_or(0.0) as u8;
-    }
+    let curve = draw_curves(lib, r, typ, rng);
     // 命中异常：几种、哪几种（7 种等概率）、强度；开局武器至少 min_status 种（负数：开局的法杖、圣印记、弓、盾一个都不带，用户 2026-10-29）；全能不带
     let full = n >= 5 && lib.full_no_status || fixed.is_some_and(|f| f.min_status < 0);
     let need = if full { 0 } else { fixed.map_or(0, |f| f.min_status.max(0) as usize).min(3) };
@@ -1723,7 +1730,7 @@ fn build_weight(rec: &Recipe, s: &[u32; 5]) -> f64 {
 
 /// 重抽一组补正、能力需求、补正曲线（同 gen_weapon_inner 不带约束时的抽法）。full = true 一定是全能（五项都有补正）；
 /// false 不抽全能，别的项数照原版比例：抽到五项就重抽，20 次还是五项就按三项
-fn draw_scaling(lib: &Lib, r: usize, full: bool, rng: &mut Rng) -> ([f32; 5], [u8; 5], [u8; CURVE_N]) {
+fn draw_scaling(lib: &Lib, r: usize, typ: u16, full: bool, rng: &mut Rng) -> ([f32; 5], [u8; 5], [u8; CURVE_N]) {
     let mut n = if full { 5 } else { lib.wscal_n[r].pick(rng).unwrap_or(2.0) as usize };
     if !full {
         for _ in 0..20 {
@@ -1748,11 +1755,28 @@ fn draw_scaling(lib: &Lib, r: usize, full: bool, rng: &mut Rng) -> ([f32; 5], [u
         sort_req(&stats, &cor, &mut req);
     }
     lift_level(&stats, &cor, &mut req, lib.wreq_minlvl[r]);
+    (cor, req, draw_curves(lib, r, typ, rng))
+}
+
+/// 补正曲线（九种：物理 / 魔力 / 火 / 雷 / 圣 / 毒 / 出血 / 睡眠 / 发狂）。这类武器有 wcurvet 行的照它（用户 2026-11-25「照原版重做」：
+/// 物理按原版这类武器连质变在内的分布，元素一律 4 号，异常 6 号，法杖 / 圣印记五种伤害同一条、按原版法器的分布），
+/// 一行一组伤害种类共用一次抽到的曲线；没写到的种类（旧的定义没有 wcurvet）照旧按稀有度的 wcurve 抽
+fn draw_curves(lib: &Lib, r: usize, typ: u16, rng: &mut Rng) -> [u8; CURVE_N] {
     let mut curve = [0u8; CURVE_N];
-    for (k, c) in curve.iter_mut().enumerate() {
-        *c = lib.wcurve.get(&(r, k)).and_then(|d| d.pick(rng)).unwrap_or(0.0) as u8;
+    let mut done = [false; CURVE_N];
+    for (ks, d) in lib.wcurvet.get(&typ).map_or(&[][..], |v| v.as_slice()) {
+        let c = d.pick(rng).unwrap_or(0.0) as u8;
+        for &k in ks {
+            curve[k] = c;
+            done[k] = true;
+        }
     }
-    (cor, req, curve)
+    for k in 0..CURVE_N {
+        if !done[k] {
+            curve[k] = lib.wcurve.get(&(r, k)).and_then(|d| d.pick(rng)).unwrap_or(0.0) as u8;
+        }
+    }
+    curve
 }
 
 /// 平均多少块重铸石出一把全能（用户 2026-11-09）
@@ -1767,11 +1791,13 @@ fn reforge_recipe(lib: &Lib, tier: usize, recipe: &Recipe, stats: Option<[u32; 5
         return None;
     };
     let r = tier.min(3);
+    // 本体的武器类型（补正曲线按它抽；本体不在这次的本体表里就是 0，曲线照旧按稀有度抽）
+    let typ = lib.wbase.iter().find(|b| b.id == base).map_or(0, |b| b.typ);
     let full = cor0.iter().all(|&c| c > 0.0) || rng.below(REFORGE_OMNI_ODDS) == 0;
     let n = if stats.is_some() { lib.bias_n.max(1) } else { 1 };
     let cands: Vec<Recipe> = (0..n)
         .map(|_| {
-            let (cor, req, curve) = draw_scaling(lib, r, full, rng);
+            let (cor, req, curve) = draw_scaling(lib, r, typ, full, rng);
             Recipe::W { base, var, skill, cor, req, curve, st, res, glow, spec, atk, ovl: false, elem, share }
         })
         .collect();
@@ -5220,6 +5246,68 @@ mod tests {
         let lib = parse_lib(&format!("{text}wheavy\t1.5\t5,7,41\n")).unwrap();
         assert_eq!(lib.wheavy, HashMap::from([(5, 1.5), (7, 1.5), (41, 1.5)]));
         assert!(parse_lib(&format!("{text}wheavy\t0\t5\n")).is_err());
+    }
+
+    /// 按武器类型的补正曲线（wcurvet，用户 2026-11-25「照原版重做」）：一行一组伤害种类共用一次抽到的曲线；
+    /// 写到的种类照它，没写到的、没有 wcurvet 的类型照旧按稀有度的 wcurve；种类越界报错
+    #[test]
+    fn curves_by_type() {
+        let base = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..").join("..").join("dll").join("dark_core");
+        let Ok(text) = fs::read_to_string(base.join("affixes.txt")) else { return };
+        let mut text: String = text.lines().filter(|l| !l.starts_with("wcurvet\t")).map(|l| format!("{l}\n")).collect();
+        let bad = text.clone();
+        for k in 0..CURVE_N {
+            text += &format!("wcurve\t3\t{k}\t9:1\n");
+        }
+        text += "wcurvet\t3\t0\t0:7\t1:1\t2:1\t8:1\t7:1\nwcurvet\t3\t1,2,3,4\t4:1\nwcurvet\t3\t5,6,7,8\t6:1\n";
+        text += "wcurvet\t57\t0,1,2,3,4\t0:9\t16:8\t15:8\t12:3\t14:1\n";
+        let lib = parse_lib(&text).unwrap();
+        let mut rng = Rng(12345);
+        let mut phys = HashMap::new();
+        for _ in 0..2000 {
+            let c = draw_curves(&lib, 3, 3, &mut rng);
+            assert_eq!(&c[1..5], &[4; 4], "元素一律 4 号");
+            assert_eq!(&c[5..], &[6; 4], "异常 6 号");
+            *phys.entry(c[0]).or_insert(0) += 1;
+            let s = draw_curves(&lib, 3, 57, &mut rng);
+            assert!(s[..5].iter().all(|&x| x == s[0]) && [0, 16, 15, 12, 14].contains(&s[0]), "法杖五种伤害同一条：{s:?}");
+            assert_eq!(&s[5..], &[9; 4], "法杖没写异常：照稀有度的 wcurve");
+        }
+        assert!(phys.keys().all(|k| [0, 1, 2, 7, 8].contains(k)));
+        assert!(phys[&0] > 1100 && phys[&0] < 1700, "0 号约七成：{phys:?}");
+        assert_eq!(draw_curves(&lib, 3, 42, &mut rng), [9; CURVE_N], "没有 wcurvet 的类型照旧");
+        assert!(parse_lib(&format!("{bad}wcurvet\t3\t9\t4:1\n")).is_err(), "种类越界");
+        assert!(parse_lib(&format!("{bad}wcurvet\t3\t\t4:1\n")).is_err(), "没写种类");
+        assert!(parse_lib(&format!("{bad}wcurvet\t3\t0\t4:1\n")).is_ok());
+    }
+
+    /// 指定了 DR_DEFS_DIR（带 wcurvet 的新重随输出）时：每档生成一批武器，元素曲线都是 4 号、异常 6 号，法杖 / 圣印记五种伤害同一条、不是 0 号
+    #[test]
+    fn generated_curves_follow_vanilla() {
+        if std::env::var_os("DR_DEFS_DIR").is_none() {
+            eprintln!("没设 DR_DEFS_DIR，跳过");
+            return;
+        }
+        let (_items, lib) = real_defs().expect("DR_DEFS_DIR 读不了 items.txt / affixes.txt");
+        assert!(!lib.wcurvet.is_empty(), "定义里没有 wcurvet 行");
+        let mut rng = Rng(777);
+        let (mut n, mut phys) = (0, HashMap::new());
+        for tier in 0..5 {
+            for _ in 0..600 {
+                let Some(Recipe::W { base, curve, .. }) = gen_weapon(&lib, tier, &mut rng) else { continue };
+                let typ = lib.wbase.iter().find(|b| b.id == base).map(|b| b.typ).unwrap();
+                n += 1;
+                assert_eq!(&curve[5..], &[6; 4], "异常 6 号：{base} {curve:?}");
+                if typ == 57 || typ == 61 {
+                    assert!(curve[..5].iter().all(|&c| c == curve[0]) && curve[0] != 0, "法器同一条、不是 0 号：{base} {curve:?}");
+                } else {
+                    assert_eq!(&curve[1..5], &[4; 4], "元素 4 号：{base} {curve:?}");
+                    *phys.entry(curve[0]).or_insert(0u32) += 1;
+                }
+            }
+        }
+        eprintln!("生成 {n} 把，物理曲线 {phys:?}");
+        assert!(n > 2000);
     }
 
     /// famtop（同名只认最好的那件）：指定了 DR_DEFS_DIR（新的重随输出）时，蓄力攻击伤害、双手持握伤害都在里面，而且是存在的词条

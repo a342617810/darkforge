@@ -151,6 +151,8 @@
   "_plague_talisman": "词条疫病的敌人一侧（rr/plague.py + dll\\dark_core 的 plague 模块，参考法魂的封印者宝石）：resist_mult 原来免疫的敌人降到它别的异常抗性的几倍；fallback 所有异常都免疫的敌人按多少算。各稀有度加多少抗性、掉落在词条库（dev\\item_system\\extract_affixes.py 的 dr_pestilence）。",
   "weapon_scaling": {"enabled": true, "omni": 0.75, "range": {"Common": [40, 80], "Rare": [60, 100], "Epic": [70, 110], "Legendary": [100, 150]}},
   "_weapon_scaling": "生成武器的补正值（dll\\dark_core 生成时，用户 2026-11-02）：每项补正按稀有度在 range 里正态分布（均值 = 区间中点，区间 = 均值 ± 2σ，靠中间的多），一项 / 两项 / 三项补正一样；全能（五项）也按这个区间抽，挂到武器上时补正 × omni（用户 2026-11-24「只用一个参数控制 然后数值和现在基本保持一致」：以前区间按原包里全能和两项的中位数之比缩小 0.76~0.89、强化成长再只算 0.583，满强化时合计约 0.71~0.76）；超限上限同样 × omni，武器面板和装备工坊都显示乘过的数。enabled = false 时全能照原包的统计、不再乘 omni。开局、追忆、商人小极品「只取最高的百分之几」照旧在这个分布里取。只影响以后生成的，已经拿到的不变。enabled = false 照 RNG Lands 原包各稀有度的统计（跨度大，普通 ~ 史诗中位数 45 / 51 / 59）",
+  "weapon_curve_vanilla": true,
+  "_weapon_curve_vanilla": "生成武器的补正曲线照原版（用户 2026-11-25「照原版重做」，rr/affixes.py vanilla_curves → affixes.txt 的 wcurvet 行，dll\\dark_core 生成 / 重铸时抽）：物理照原版这类武器（本体 + 各质变）的分布（标准和元素类质变 0 号、重型 1、锋利 2、优质 8、神秘 7），魔力 / 火 / 雷 / 圣一律 4 号，异常 6 号；法杖、圣印记五种伤害同一条，照原版法器的分布（0 / 16 / 15 / 12 / 14 号）。以前照原包按稀有度抽，元素那几项把武器没有这种伤害时空着的 0 号也算了进去，五到七成抽到 0 号（同样的补正，属性 40 时只兑现原版的八成多）。只影响以后生成 / 重铸的，已经拿到的照记录里的曲线。false = 照旧按原包",
   "armor_negation": {"enabled": true, "range": {"Common": [1.2, 1.4], "Rare": [1.3, 1.5], "Epic": [1.5, 1.7], "Legendary": [1.6, 1.8]}},
   "_armor_negation": "生成防具的减伤（dll\\dark_core 改写参数行时）：本体的八种减伤百分比（普通 / 斩击 / 打击 / 突刺 / 魔力 / 火 / 雷 / 圣）乘同一个倍率，倍率按稀有度在 range 里正态分布（均值 = 区间中点，区间 = 均值 ± 2σ，抽到外面重抽）；幽影之地的传说照传说。按这件的记录定，同一件每次读档都一样，已经拿到的也一样。重量、异常抗性、强韧不变。enabled = false 照原版",
   "catalyst_base": {"enabled": true, "range": {"Common": [70, 130], "Rare": [90, 150], "Epic": [110, 210], "Legendary": [150, 250]}},
