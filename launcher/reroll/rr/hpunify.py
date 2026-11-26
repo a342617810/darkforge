@@ -10,6 +10,7 @@
   × 肉度。肉度 = 放进来的 Boss 的原版血量 ÷ 原版里它所在那一档 Boss 位置血量的中位数，夹在 boss_blend 的 min~max
   （同 stage3.boss_targets；放进来的原版不在 Boss 位置时用这个位置原版 Boss 的肉度）；boss_blend.neutral_entities（拉卡德）按 1。
   本体 / DLC 按位置所在的档（dlc_band_from 起算 DLC）。k = 目标 ÷ 现在的实际血量，可升可降（小 Boss 也一样，不打折）。
+  DLC 位置的 Boss 目标再 × dlc_boss_mult（settings 1.5，用户 2026-11-24；斗技场 rr/arena.py 用 hpu_calc 的 goal_b，不乘）。
   skip_entities（神皮二人组：原版三个实体共用一条血条，怎么共享的没查清）不动。
 - 效果行：maxHpRate = step^i（i 覆盖 k_min~k_max），编号 sp_base 起。每个位置挂最接近的一档；差不到半档（k ≈ 1）的不挂。
 - 攻击力（atk，用户 2026-11-03：前期小怪根本打不动人）：原版敌人的攻击力主要靠区域强度效果放大（本体 7000 + 10 × 档、
@@ -38,7 +39,7 @@ NPC_HP = 36
 NPC_SPEFFECTS = tuple(range(76, 108, 4)) + tuple(range(376, 408, 4)) + tuple(range(488, 552, 4))
 TEMPLATE = 90030               # 原版只有「咒死无效」一位的效果（敌人参数挂在九成敌人身上），去掉那一位当底子（同 rr/ailments.py 的特效效果）
 DEFAULT = dict(sp_base=7302000, step=1.03, k_min=0.25, k_max=100.0, mob_goal_tier=19, boss_goal_band=[3, 5], dlc_band_from=4,
-               skip_entities=[13000850, 13000851, 13000852], atk=True, atk_sp_base=7302300, atk_k_max=6.0,
+               skip_entities=[13000850, 13000851, 13000852], atk=True, atk_sp_base=7302300, atk_k_max=6.0, dlc_boss_mult=1.0,
                rune_sp_base=7302400, rune_k_max=200.0, res_sp_base=7302800)
 RES_RATES = ('registPoizonChangeRate', 'registDiseaseChangeRate', 'registBloodChangeRate', 'registCurseChangeRate',
              'registFreezeChangeRate', 'registSleepChangeRate', 'registMadnessChangeRate')   # 七种异常抗性的倍率
@@ -159,6 +160,7 @@ def build(ctx):
     gb = [int(x) for x in c['boss_goal_band']]
     dlc_b = int(c['dlc_band_from'])
     goal_b = {s: med[g] * boss_mult[min(g, len(boss_mult) - 1)] if g in med else None for s, g in ((False, gb[0]), (True, gb[1]))}
+    dlc_boss = float(c['dlc_boss_mult'])          # DLC 位置的 Boss 目标再乘（斗技场用的 goal_b 不乘）
     # 斗技场试炼（rr/arena.py）的敌人也按这里的算法挂高难度倍率（n / an 行）：把要用的留给它
     # mob_goal / dlc_from：小怪本体、DLC 的目标（斗技场死亡以上照 lock_tiers 选本体 / DLC 目标时换算用，用户 2026-11-20）
     ctx.hpu_calc = dict(sp_of=sp_of, k_mob=k_mob, goal_b=goal_b, dlc_b=dlc_b, lo=lo, hi=hi, mob_goal=goal, dlc_from=dlc_from)
@@ -176,6 +178,8 @@ def build(ctx):
         g = goal_b[b >= dlc_b]
         if g is None or cur <= 0:
             continue
+        if b >= dlc_b:
+            g *= dlc_boss
         ob = own_band.get(npc)
         T = tness(npc, ob) if ob in med else tness(nv, b) if b in med else 1.0
         T = min(hi, max(lo, T))
@@ -309,9 +313,9 @@ def build(ctx):
         pass
     mob_txt = ' '.join('%d:×%.1f' % (t, k) for t, k in sorted(k_t.items()) if k > 1.0)
     ctx.report.append('高难度血量补正（标记 %s 亮着时 dark_core 挂，效果 %d 起 %d 行，每档 ×%g）：小怪目标本体 %d（强度 %d）/ DLC %d，'
-                      '%d 处 / 行挂上（%s）；Boss 目标中位本体 %d / DLC %d × 肉度（夹在 %g~%g），%d 处挂上%s%s' % (
+                      '%d 处 / 行挂上（%s）；Boss 目标中位本体 %d / DLC %d（×%g）× 肉度（夹在 %g~%g），%d 处挂上%s%s' % (
                           '/'.join(map(str, fl)), base, imax - imin + 1, step, goal[False] or 0, goal_t, goal[True] or 0,
-                          n_mob, mob_txt or '都不用乘', goal_b[False] or 0, goal_b[True] or 0, lo, hi, len(ks),
+                          n_mob, mob_txt or '都不用乘', goal_b[False] or 0, (goal_b[True] or 0) * dlc_boss, dlc_boss, lo, hi, len(ks),
                           '（倍率 %.2f~%.2f，中位 %.2f）' % (min(ks), max(ks), statistics.median(ks)) if ks else '',
                           '，%d 处共用血条的不动' % n_skip if n_skip else ''))
     ctx.report.append('高难度攻击力补正（同上，和血量补正一起挂）：%s' % atk_txt)
