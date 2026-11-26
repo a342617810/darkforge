@@ -26,6 +26,7 @@
 //! 加新功能：新建一个模块，提供 tick()，在 DllMain 的任务里加一行（出错只记日志、不影响其他功能）。
 
 mod arena;
+mod artcharge;
 mod attrstack;
 #[macro_use]
 mod chrs;
@@ -281,8 +282,8 @@ pub unsafe extern "system" fn DllMain(hmodule: u64, reason: u32, _reserved: *mut
         };
         log(&format!("dark_core 已加载：{}；{}；{}；{}；{}（{combat}）；{}；{}；{}；{}；{}；{}；{}；{}；{}；{}；{}；{}；{}；{}；{}；{}；{}；{}；{}；{scaling}", arena::describe(), foefx::describe(), festive::describe(), gear::describe(), runtime::describe(),
                      rules::describe(), procs::describe(), boat::describe(), attrstack::describe(), skillmult::describe(), spellbase::describe(), hpunify::describe(), ovldrop::describe(), fusion::describe(), nightmare::describe(), curses::describe(), notes::describe(), plague::describe(), wishstone::describe(), shopstage::describe(), clash::describe(), bossmode::describe(), glow::describe(), runebank::describe()));
-        // 34..=38：帧统计、帧耗时统计、玩家角色、唤声船（帧开头）、难度屏障（帧开头）；39：存档解锁；40：第五护符槽补挂
-        let mut errs = [0u32; 41];
+        // 34..=38：帧统计、帧耗时统计、玩家角色、唤声船（帧开头）、难度屏障（帧开头）；39：存档解锁；40：第五护符槽补挂；41：艾珀莉亚漩涡充能
+        let mut errs = [0u32; 42];
         let mut th_fb = Vec::new();
         task.run_recurring(
             move |_: &FD4TaskData| {
@@ -307,6 +308,8 @@ pub unsafe extern "system" fn DllMain(hmodule: u64, reason: u32, _reserved: *mut
                 // 第五格护符的效果游戏没挂上（联机时 Seamless 改了槽位判断等）就补挂一份；只在第五格装着护符时干活
                 guarded("第五护符槽补挂", &mut errs[40], slotfx::tick);
                 guarded("战技伤害按稀有度", &mut errs[7], skillmult::tick);
+                // 艾珀莉亚漩涡装在别的武器上（战灰、生成武器）：自己记命中充能、挂原版的充能效果；手上有这个战技时才每帧干活
+                guarded("艾珀莉亚漩涡充能", &mut errs[41], artcharge::tick);
                 guarded("高难度血量补正", &mut errs[9], hpunify::tick);
                 guarded("超限锻造石掉落", &mut errs[10], ovldrop::tick);
                 guarded("融锻之心掉落", &mut errs[14], fusion::tick);
