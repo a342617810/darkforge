@@ -1,35 +1,51 @@
 # -*- coding: utf-8 -*-
 """一键出售（settings.json 的 quick_sell；真正卖东西的是 dll\\dark_sell\\dark_sell.dll）：赐福「暗黑重铸」子菜单里的「一键出售」（sc/forge.py；以前在赐福主菜单），
-两级菜单：先选类别（武器 / 防具 / 护符），再选档位（普通 / 稀有及以下 / 史诗及以下 / 传说及以下）。选中先弹确认框，
-选「是」就点亮请求标记 FLAGS[类别 × 4 + 档位]，弹一句「已出售」；DLL 每帧看这些标记，看到就把背包里（不含仓库）
-没装备着、没锁定的、这一类这一档及以下的随机装备按游戏里的售价卖掉、熄灭标记。
+两级菜单：先选类别（背包的武器 / 防具 / 护符、木箱里的武器 / 防具 / 护符），再选档位（普通 / 稀有及以下 / 史诗及以下 / 传说及以下）。选中先弹确认框，
+选「是」就点亮请求标记 FLAGS[类别 × 4 + 档位]，弹一句「已出售」；DLL 每帧看这些标记，看到就把背包里没装备着的（木箱那三类是木箱里的）、
+没锁定的、这一类这一档及以下的随机装备按游戏里的售价卖掉、熄灭标记。
+用户 2026-11-25：「增加一个一键卖出木箱里装备的功能 也分为三类」——木箱（赐福「整理木箱」）的三类接在背包三类后面（类别 3~5）。
 提示框关掉时标记还亮着 = DLL 没加载：熄灭标记（免得以后装上 DLL 时突然卖掉），改弹「没有加载出售 DLL」。
-请求标记在官方定义里「予備」的 93000 块（会存档、谁都没用；以前的位置被写坏过、和事件编号撞过，见 dev\\event_flags\\说明.md）。
-确认框里的预计件数 / 卢恩：固定长度的占位「〔#S<序号，一位十六进制> …〕」（英文用 [ ]），dark_sell 每半秒按背包现状算好
+请求标记在官方定义里「予備」的 93000 块（背包，93000~93011）和 92000 块（木箱，92780~92791）（会存档、谁都没用；以前的位置被写坏过、和事件编号撞过，
+见 dev\\event_flags\\说明.md）。
+确认框里的预计件数 / 卢恩：固定长度的占位「〔#S<序号，0~9 / A~N 一位> …〕」（英文用 [ ]），dark_sell 坐在赐福点时每半秒按背包、木箱现状算好
 「预计卖出 N 件，约 R 卢恩」交给 dark_core 的取文字钩子（msghook.rs），游戏取这段文字时换掉占位；没装 DLL 就显示占位里的提示"""
 from .esdutil import ALWAYS, DIALOG_WAIT, MENU_WAIT, flag_is_on, register, i32, menu_parts, menu_pick
 
 OPTION, TEXT, CAT_TEXT, DONE_TEXT, MISSING_TEXT = 34, 80090110, 80090111, 80090115, 80090116
-TIER_TEXT, DESC_TEXT = 80090117, 80090121          # 档位名 4 个、确认框 12 个（类别 × 4 + 档位）
-FLAGS = tuple(range(93000, 93012))                 # 和 dark_sell 的 SELL_FLAGS 一致
-CATS = (('武器', 'weapons'), ('防具', 'armor'), ('护符', 'talismans'))
+TIER_TEXT, DESC_TEXT = 80090117, 80090121          # 档位名 4 个、背包的确认框 12 个（类别 × 4 + 档位）
+CHEST_CAT_TEXT, CHEST_DESC_TEXT = 80090500, 80090510   # 木箱的类别 3 个、确认框 12 个（80090500 段没人用，2026-11-25）
+# 和 dark_sell 的 SELL_FLAGS 一致：背包 3 类 × 4 档，再木箱 3 类 × 4 档
+FLAGS = tuple(range(93000, 93012)) + tuple(range(92780, 92792))
+KINDS = (('武器', 'weapons'), ('防具', 'armor'), ('护符', 'talismans'))
+CATS = tuple((zh, en, False) for zh, en in KINDS) + tuple((zh, en, True) for zh, en in KINDS)    # (名字, 英文, 是不是木箱)
 TIERS = (('普通', 'Common', '「普通」'),
          ('稀有及以下', 'Rare and below', '「稀有」及以下（普通、稀有）'),
          ('史诗及以下', 'Epic and below', '「史诗」及以下（普通、稀有、史诗）'),
          ('传说及以下', 'Legendary and below', '「传说」及以下（全部稀有度）'))
 TIERS_EN = ('Common', 'Common and Rare', 'Common, Rare and Epic', 'Common, Rare, Epic and Legendary')
 FIELD_LEN = {'zh': 30, 'en': 44}                   # 含两端括号的字符数（DLL 按括号找范围，长度可以不同）
+DIGITS = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ'     # 占位序号（dark_core msghook.rs 的 marker_at 认 0~9、A~Z）
+assert len(FLAGS) == len(CATS) * len(TIERS) <= len(DIGITS)
 
 
 def on(cx):
     return bool(cx.S.get('quick_sell', True))
 
 
+def cat_text(c):
+    return CAT_TEXT + c if c < len(KINDS) else CHEST_CAT_TEXT + c - len(KINDS)
+
+
+def desc_text(i):
+    n = len(KINDS) * len(TIERS)
+    return DESC_TEXT + i if i < n else CHEST_DESC_TEXT + i - n
+
+
 def field(i, lang):
     if lang == 'zh':
-        body = '#S%X 正在估算……' % i
+        body = '#S%s 正在估算……' % DIGITS[i]
         return '〔' + body + ' ' * (FIELD_LEN['zh'] - 2 - len(body)) + '〕'
-    body = '#S%X estimating...' % i
+    body = '#S%s estimating...' % DIGITS[i]
     return '[' + body + ' ' * (FIELD_LEN['en'] - 2 - len(body)) + ']'
 
 
@@ -43,7 +59,7 @@ def esd(cx, groups):
     show = {'bank': 1, 'id': 10, 'args': [i32(1)]}
     clear = [{'bank': 1, 'id': 12, 'args': []}, {'bank': 1, 'id': 20, 'args': []}]
     # 0 / 1：类别列表；100 + c / 110 + c：这一类的档位列表；200 + i：确认框；300 + i：点亮标记、弹提示；400 + i：看 DLL 有没有处理；500 + i：没处理
-    st = {0: {'entry': clear + [dict(add_cmd, args=[i32(c + 1), i32(CAT_TEXT + c), i32(-1)]) for c in range(nc)] + [back, show],
+    st = {0: {'entry': clear + [dict(add_cmd, args=[i32(c + 1), i32(cat_text(c)), i32(-1)]) for c in range(nc)] + [back, show],
               'conds': [{'target': 1, 'eval': MENU_WAIT, 'pass': [], 'sub': []}], 'exit': [], 'while': []},
           1: {'entry': [], 'exit': [], 'while': [],
               'conds': [{'target': 100 + c, 'eval': menu_pick(c + 1), 'pass': [], 'sub': []} for c in range(nc)]
@@ -58,7 +74,7 @@ def esd(cx, groups):
         for t in range(nt):
             i = c * nt + t
             flag = FLAGS[i]
-            st[200 + i] = {'entry': [dict(conf_call, args=[i32(DESC_TEXT + i)])], 'exit': [], 'while': [],
+            st[200 + i] = {'entry': [dict(conf_call, args=[i32(desc_text(i))])], 'exit': [], 'while': [],
                            'conds': [{'target': 300 + i, 'eval': yes_eval, 'pass': [], 'sub': []},
                                      {'target': 100 + c, 'eval': no_eval, 'pass': [], 'sub': []}]}
             st[300 + i] = {'entry': [{'bank': 1, 'id': 11, 'args': [i32(flag), i32(1)]},
@@ -83,16 +99,25 @@ def texts(cx, key):
     else:
         out = {TEXT: 'Quick sell', DONE_TEXT: 'Sold. Runes received.',
                MISSING_TEXT: "Can't sell right now: a Darkforge component didn't load. Please restart the game from the launcher."}
-    for c, (zh, en) in enumerate(CATS):
-        out[CAT_TEXT + c] = ('出售' + zh) if key == 'zh' else ('Sell ' + en)
+    for c, (zh, en, chest) in enumerate(CATS):
+        if key == 'zh':
+            out[cat_text(c)] = ('出售木箱里的' if chest else '出售') + zh
+        else:
+            out[cat_text(c)] = 'Sell ' + en + (' in chest' if chest else '')
     for t, (zh, en, desc) in enumerate(TIERS):
         out[TIER_TEXT + t] = zh if key == 'zh' else en
-        for c, (czh, cen) in enumerate(CATS):
+        for c, (czh, cen, chest) in enumerate(CATS):
             i = c * len(TIERS) + t
-            if key == 'zh':
-                out[DESC_TEXT + i] = ('出售背包里所有%s的%s，按售价换成卢恩\n（装备着的、锁定的、仓库里的不卖）。\n%s\n\n确定出售吗？'
-                                      % (desc, czh, field(i, 'zh')))
+            if key == 'zh' and chest:
+                text = '出售木箱里所有%s的%s，按售价换成卢恩\n（锁定的不卖）。\n%s\n\n确定出售吗？' % (desc, czh, field(i, 'zh'))
+            elif key == 'zh':
+                text = ('出售背包里所有%s的%s，按售价换成卢恩\n（装备着的、锁定的、木箱里的不卖）。\n%s\n\n确定出售吗？'
+                        % (desc, czh, field(i, 'zh')))
+            elif chest:
+                text = ('Sell all %s %s in the chest for runes\n(locked items are kept).\n%s\n\nSell them?'
+                        % (TIERS_EN[t], cen, field(i, 'en')))
             else:
-                out[DESC_TEXT + i] = ('Sell all %s %s in your inventory for runes\n(equipped, locked and stored items are kept).\n%s\n\nSell them?'
-                                      % (TIERS_EN[t], cen, field(i, 'en')))
+                text = ('Sell all %s %s in your inventory for runes\n(equipped, locked and chest items are kept).\n%s\n\nSell them?'
+                        % (TIERS_EN[t], cen, field(i, 'en')))
+            out[desc_text(i)] = text
     return {'EventTextForTalk': out}

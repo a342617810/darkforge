@@ -1,9 +1,11 @@
 //! RNG Lands 一键出售。
 //!
-//! 赐福主菜单「一键出售」选类别（武器 / 防具 / 护符）和档位（普通 / 稀有及以下 / 史诗及以下）确认后，
-//! 对话脚本点亮请求标记 SELL_FLAGS[类别 × 4 + 档位]；这里每帧看这 12 个标记，看到就熄灭它，
-//! 把背包里（不含仓库）没装备着的、这一类这一档及以下的 RNG 装备按游戏里的售价卖掉。
-//!   请求标记在官方「予備」的 93000 块（93000~93011，见 dev\event_flags\说明.md）。以前放在 1040490781~792：那一段读档、
+//! 赐福「暗黑重铸」→「一键出售」选类别（武器 / 防具 / 护符，背包的三类和木箱的三类）和档位（普通 / 稀有及以下 / 史诗及以下 / 传说及以下）确认后，
+//! 对话脚本点亮请求标记 SELL_FLAGS[(地方 × 3 + 类别) × 4 + 档位]；这里每帧看这 24 个标记，看到就熄灭它，
+//! 把背包里没装备着的（或木箱里的）、这一类这一档及以下的 RNG 装备按游戏里的售价卖掉。
+//!   木箱（赐福「整理木箱」，PlayerGameData.storage）和背包是同一种结构（EquipInventoryData），游戏的移除函数只按它自己的字段改
+//!   （反汇编 exe+0x24d1e0 看过：格子数组、最近获得列表、壶类计数都在这个结构里，不往外够装备数据），所以木箱也用同一个函数删。
+//!   请求标记在官方「予備」的 93000 块（背包 93000~93011）和 92000 块（木箱 92780~92791，2026-11-25 扫过没人用），见 dev\event_flags\说明.md。以前放在 1040490781~792：那一段读档、
 //!   换区域时会被写进别的数据（同一个字节被写成角色名之类的值），几个请求一起亮，没点出售也会卖掉东西。后来的 9970~9981 和
 //!   RNG Lands 公共事件的事件编号 9970~9973、9977 撞了（事件结束 / 重来会点亮同号标记，9977 是死亡触发的：每死一次卖一次防具）。
 //!   防误卖：同一帧亮了不止一个请求（对话脚本一次只点一个）→ 全部熄灭、不卖；进存档后头几秒亮着的（存档里残留的）→ 熄灭、不卖；
@@ -11,7 +13,7 @@
 //!   哪些是 RNG 装备：DLL 旁边的 sell_items.txt（重随时自动生成：类别 编号，武器写 +0 的编号）；
 //!   稀有度、售价：游戏当时加载的参数（EquipParam 的 rarity 0 普通 / 1 稀有 / 2 史诗 / 3 传说、sellValue）。
 //!   移除物品调用游戏自己的函数（和 The Grand Archives CE 表的 RemoveItem 同一个，按特征码找）。
-//! 确认框里的预计件数 / 卢恩：sc/sell.py 在确认框文字里留了占位「〔#S<序号> …〕」（英文 [ ]），每 30 帧按背包现状算好，
+//! 确认框里的预计件数 / 卢恩：sc/sell.py 在确认框文字里留了占位「〔#S<序号> …〕」（英文 [ ]；序号 0~9、A~N），人物坐在赐福点时每 30 帧按背包、木箱现状算好，
 //!   交给 dll\dark_core 的取文字钩子（导出函数 dr_msg_confirm，msghook.rs），游戏取这段文字时换成算好的。
 //!   以前是扫内存找到占位原地改写：找到的多是临时副本，写进已经释放的内存会写坏游戏的堆（2026-11-18 改掉）。
 //! 锁定的装备不卖：%APPDATA%\EldenRing\DarkReforged\角色记录\lock_items.txt（dll\dark_lock 在物品弹出菜单里的「锁定」写的，按类别 + 编号，
@@ -54,11 +56,23 @@ use windows::Win32::System::LibraryLoader::{GetModuleFileNameW, GetModuleHandleW
 
 const KEY_DUMP: i32 = 0x78; // F9
 const MAX_RUNES: u32 = 999_999_999;
-/// 请求标记 = SELL_FLAGS[类别（0 武器 / 1 防具 / 2 护符）× TIERS + 档位（最高稀有度 0 普通 / 1 稀有 / 2 史诗 / 3 传说）]（和 bossres.py 一致）。
-/// 93000~93011：官方定义里「予備」的 93000 块，原版和各包的事件 / 对话 / 参数、事件编号都没用（dev\event_flags\说明.md）
-const SELL_FLAGS: [u32; COMBOS] = [93000, 93001, 93002, 93003, 93004, 93005, 93006, 93007, 93008, 93009, 93010, 93011];
+/// 请求标记 = SELL_FLAGS[(地方（0 背包 / 1 木箱）× CATS + 类别（0 武器 / 1 防具 / 2 护符）) × TIERS + 档位（最高稀有度 0 普通 / 1 稀有 / 2 史诗 / 3 传说）]
+/// （和 sc/sell.py 的 FLAGS 一致，见 combo）。背包 93000~93011、木箱 92780~92791：官方定义里「予備」的 93000 / 92000 块，
+/// 原版和各包的事件 / 对话 / 参数、事件编号都没用（dev\event_flags\说明.md）
+const SELL_FLAGS: [u32; COMBOS] = [
+    93000, 93001, 93002, 93003, 93004, 93005, 93006, 93007, 93008, 93009, 93010, 93011, //
+    92780, 92781, 92782, 92783, 92784, 92785, 92786, 92787, 92788, 92789, 92790, 92791,
+];
 const TIERS: usize = 4;
-const COMBOS: usize = 3 * TIERS;
+const CATS: usize = 3;
+/// 0 背包 / 1 木箱
+const PLACES: usize = 2;
+const COMBOS: usize = PLACES * CATS * TIERS;
+
+/// 请求 / 确认框序号 i → (地方, 类别, 档位)
+fn combo(i: usize) -> (usize, u8, u8) {
+    (i / (CATS * TIERS), (i / TIERS % CATS) as u8, (i % TIERS) as u8)
+}
 /// 进存档后多少帧内亮着的出售请求算存档里残留的（对话脚本不可能这么快点亮）
 const SELL_SETTLE_FRAMES: u32 = 300;
 /// 这次进存档后过了几帧（回到标题画面清零）
@@ -397,20 +411,40 @@ fn lock_line(line: &str, slot: i32) -> Option<(u8, u32)> {
     Some(sell_key(cat, id & 0x0FFF_FFFF))
 }
 
-/// 要卖的：背包里（不含仓库）没装备着、没锁定的、类别是 sell_cat、稀有度 <= max_rarity 的 RNG 装备 →（格子, 编号, 数量, 单价）
-fn candidates(pgd: &PlayerGameData, inv: &EquipInventoryData, sell_cat: u8, max_rarity: u8) -> Vec<(usize, u32, u32, u32)> {
+/// 木箱（赐福「整理木箱」）的结构；还没建好（没进存档）是 None
+fn storage(pgd: &mut PlayerGameData) -> Option<*mut EquipInventoryData> {
+    pgd.storage.as_ref().map(|s| s.as_ptr())
+}
+
+/// 地方（0 背包 / 1 木箱）的结构
+fn place_inv(pgd: &mut PlayerGameData, place: usize) -> Option<*mut EquipInventoryData> {
+    if place == 0 { inventory(pgd) } else { storage(pgd) }
+}
+
+/// 一件能卖的
+struct Pick {
+    idx: usize,
+    raw: u32,
+    qty: u32,
+    price: u32,
+    cat: u8,
+    rarity: u8,
+}
+
+/// 能卖的：这个结构里没锁定的 RNG 装备（武器 / 防具 / 护符，售价 > 0）；背包的还要没装备着。
+/// stored = 木箱：装备着的格子序号是背包的，不拿来比（同号的木箱格子不是装备着的）；编号和身上装备的一样的照样不卖
+fn sellable(pgd: &PlayerGameData, inv: &EquipInventoryData, stored: bool, locked: &HashSet<(u8, u32)>) -> Vec<Pick> {
     let list = rng_items();
     let equipped = equipped_ids(pgd);
-    let equipped_idx: HashSet<u32> = pgd.equipment.equipment_item_idx_list.iter().copied().collect();
+    let equipped_idx: HashSet<u32> = if stored { HashSet::new() } else { pgd.equipment.equipment_item_idx_list.iter().copied().collect() };
     let key_cap = inv.items_data.key_items_capacity;
-    let locked = locked_keys();
     let mut picks = Vec::new();
     for (idx, e) in inv.items_data.normal_entries().iter().enumerate() {
         let Some(it) = e.as_option() else { continue };
         let cat = it.item_id.category() as u8;
         let raw = it.item_id.into_inner();
         let pid = it.item_id.param_id();
-        if cat != sell_cat || it.quantity == 0 || equipped_idx.contains(&(key_cap + idx as u32)) || equipped.contains(&raw)
+        if cat as usize >= CATS || it.quantity == 0 || equipped_idx.contains(&(key_cap + idx as u32)) || equipped.contains(&raw)
             || locked.contains(&sell_key(cat, pid))
         {
             continue;
@@ -418,24 +452,41 @@ fn candidates(pgd: &PlayerGameData, inv: &EquipInventoryData, sell_cat: u8, max_
         if !list.contains(&sell_key(cat, pid)) {
             continue;
         }
-        if let Some((rar, price)) = rarity_price(cat, pid) {
-            if rar <= max_rarity && price > 0 {
-                picks.push((idx, raw, it.quantity, price as u32));
+        if let Some((rarity, price)) = rarity_price(cat, pid) {
+            if price > 0 {
+                picks.push(Pick { idx, raw, qty: it.quantity, price: price as u32, cat, rarity });
             }
         }
     }
     picks
 }
 
-/// 卖掉 candidates 挑出来的，返回（件数, 卢恩）
-fn sell_batch(sell_cat: u8, max_rarity: u8) -> Option<(u32, u32)> {
+/// 每类每档的预计（件数, 卢恩）：档位 t = 稀有度 <= t 的合计
+fn tally(picks: &[Pick]) -> [[(u32, u32); TIERS]; CATS] {
+    let mut out = [[(0u32, 0u32); TIERS]; CATS];
+    for p in picks {
+        for t in p.rarity as usize..TIERS {
+            let e = &mut out[p.cat as usize][t];
+            e.0 += p.qty;
+            e.1 = e.1.saturating_add(p.price.saturating_mul(p.qty));
+        }
+    }
+    out
+}
+
+/// 卖掉地方 place（0 背包 / 1 木箱）里类别 sell_cat、稀有度 <= max_rarity 的，返回（件数, 卢恩）
+fn sell_batch(place: usize, sell_cat: u8, max_rarity: u8) -> Option<(u32, u32)> {
     let gdm = unsafe { GameDataMan::instance_mut() }.ok()?;
     let f = remove_item_fn()?;
     let pgd: &mut PlayerGameData = &mut gdm.main_player_game_data;
-    let inv_ptr = inventory(pgd)?;
+    let inv_ptr = place_inv(pgd, place)?;
     let inv = unsafe { &mut *inv_ptr };
     let key_cap = inv.items_data.key_items_capacity;
-    let picks = candidates(pgd, inv, sell_cat, max_rarity);
+    let picks: Vec<(usize, u32, u32, u32)> = sellable(pgd, inv, place == 1, &locked_keys())
+        .into_iter()
+        .filter(|p| p.cat == sell_cat && p.rarity <= max_rarity)
+        .map(|p| (p.idx, p.raw, p.qty, p.price))
+        .collect();
     let remove = unsafe { std::mem::transmute::<usize, RemoveItemFn>(f) };
     let (mut n, mut runes, mut fail) = (0u32, 0u32, 0u32);
     for (idx, raw, qty, price) in picks {
@@ -486,11 +537,12 @@ fn confirm_fn() -> Option<ConfirmFn> {
     Some(unsafe { std::mem::transmute::<usize, ConfirmFn>(a) })
 }
 
-/// 一键出售确认框的预计结果（序号 i = 类别 × 4 + 档位）：中英文各一份交给 dark_core，变了才交
+/// 一键出售确认框的预计结果（序号 i 见 combo）：中英文各一份交给 dark_core，变了才交。
+/// 确认框只在赐福菜单里：人物不在赐福点就不算（木箱最多两千来格，不用一直扫），坐下后半秒内就算好
 fn write_fields() {
     let Ok(gdm) = (unsafe { GameDataMan::instance_mut() }) else { return };
     let pgd: &mut PlayerGameData = &mut gdm.main_player_game_data;
-    if pgd.level == 0 {
+    if pgd.level == 0 || !at_grace(player_anim()) {
         return;
     }
     let Some(publish) = confirm_fn() else {
@@ -499,15 +551,22 @@ fn write_fields() {
         }
         return;
     };
-    let Some(inv_ptr) = inventory(pgd) else { return };
-    let inv = unsafe { &*inv_ptr };
-    let mut est = [(0u32, 0u32); COMBOS];
-    for (i, e) in est.iter_mut().enumerate() {
-        for (_, _, qty, price) in candidates(pgd, inv, (i / TIERS) as u8, (i % TIERS) as u8) {
-            e.0 += qty;
-            e.1 = e.1.saturating_add(price.saturating_mul(qty));
-        }
+    let locked = locked_keys();
+    let mut by_place = [[[(0u32, 0u32); TIERS]; CATS]; PLACES];
+    for (place, out) in by_place.iter_mut().enumerate() {
+        let Some(inv_ptr) = place_inv(pgd, place) else {
+            if place == 0 {
+                return; // 背包结构对不上：什么都不交（确认框显示占位的提示）
+            }
+            continue; // 木箱还没有：算没有可卖的
+        };
+        let inv = unsafe { &*inv_ptr };
+        *out = tally(&sellable(pgd, inv, place == 1, &locked));
     }
+    let est: [(u32, u32); COMBOS] = std::array::from_fn(|i| {
+        let (place, cat, tier) = combo(i);
+        by_place[place][cat as usize][tier as usize]
+    });
     let mut last = FIELD_TEXT.lock().unwrap_or_else(|e| e.into_inner());
     for (i, &(n, r)) in est.iter().enumerate() {
         let (zh, en) = if n == 0 {
@@ -784,9 +843,13 @@ fn poll_sell() {
         return;
     }
     let Ok(flags) = (unsafe { CSEventFlagMan::instance_mut() }) else { return };
-    const CATS: [&str; 3] = ["武器", "防具", "护符"];
+    const PLACE_NAMES: [&str; PLACES] = ["背包", "木箱"];
+    const CAT_NAMES: [&str; CATS] = ["武器", "防具", "护符"];
     const TIER_NAMES: [&str; TIERS] = ["普通", "稀有及以下", "史诗及以下", "传说及以下"];
-    let name = |i: usize| format!("{} · {}", CATS[i / TIERS], TIER_NAMES[i % TIERS]);
+    let name = |i: usize| {
+        let (place, cat, tier) = combo(i);
+        format!("{} · {} · {}", PLACE_NAMES[place], CAT_NAMES[cat as usize], TIER_NAMES[tier as usize])
+    };
     let lit: Vec<usize> = (0..COMBOS).filter(|&i| flags.virtual_memory_flag.get_flag(SELL_FLAGS[i])).collect();
     if lit.is_empty() {
         return;
@@ -810,9 +873,9 @@ fn poll_sell() {
         return;
     }
     let i = lit[0];
-    let (cat, max_rarity) = ((i / TIERS) as u8, (i % TIERS) as u8);
+    let (place, cat, max_rarity) = combo(i);
     let name = name(i);
-    match catch_unwind(AssertUnwindSafe(|| sell_batch(cat, max_rarity))) {
+    match catch_unwind(AssertUnwindSafe(|| sell_batch(place, cat, max_rarity))) {
         Ok(Some((n, runes))) => log(&format!("一键出售（{name}）：卖了 {n} 件，得到 {runes} 卢恩")),
         Ok(None) => log(&format!("一键出售（{name}）：没卖（没进存档 / 找不到移除函数 / 地址对不上）")),
         Err(_) => log(&format!("一键出售（{name}）：出错（已跳过）")),
@@ -917,12 +980,32 @@ mod tests {
             assert!(!at_grace(Some(a)));
         }
         assert!(!at_grace(None));
-        // 93000 块：出售 93000~93011、免费许愿 93020~93049，互不重复、不重叠（93050~93059 是许愿地区档位，bossres / rr\wish.py 用）
+        // 93000 块：背包出售 93000~93011、免费许愿 93020~93049；92000 块：木箱出售 92780~92791（92640~92760 死亡惩罚、92770 许愿石十个），互不重复、不重叠
         let s: HashSet<u32> = SELL_FLAGS.iter().copied().collect();
         assert_eq!(s.len(), COMBOS);
         let free = FREE_FLAG0..FREE_FLAG0 + FREE_MAX as u32;
-        assert!(SELL_FLAGS.iter().all(|f| (93000..93020).contains(f) && !free.contains(f)));
+        let half = CATS * TIERS;
+        assert!(SELL_FLAGS[..half].iter().all(|f| (93000..93012).contains(f) && !free.contains(f)));
+        assert!(SELL_FLAGS[half..].iter().all(|f| (92780..92792).contains(f)));
         assert!(free.start >= 93020 && free.end <= 93050);
+    }
+
+    #[test]
+    fn combos_and_tally() {
+        // 序号 = (地方 × 3 + 类别) × 4 + 档位，和 sc/sell.py 的 i = c × 4 + t（c = 地方 × 3 + 类别）一致
+        assert_eq!(combo(0), (0, 0, 0));
+        assert_eq!(combo(7), (0, 1, 3));
+        assert_eq!(combo(11), (0, 2, 3));
+        assert_eq!(combo(12), (1, 0, 0));
+        assert_eq!(combo(18), (1, 1, 2));
+        assert_eq!(combo(23), (1, 2, 3));
+        assert_eq!(SELL_FLAGS[12], 92780);
+        // 档位 t 是稀有度 <= t 的合计；稀有度超出 0~3 的不算
+        let p = |cat, rarity, qty, price| Pick { idx: 0, raw: 0, qty, price, cat, rarity };
+        let t = tally(&[p(0, 0, 1, 100), p(0, 2, 2, 50), p(2, 3, 1, 1000), p(1, 4, 1, 9)]);
+        assert_eq!(t[0], [(1, 100), (1, 100), (3, 200), (3, 200)]);
+        assert_eq!(t[1], [(0, 0); TIERS]);
+        assert_eq!(t[2], [(0, 0), (0, 0), (0, 0), (1, 1000)]);
     }
 
     #[test]
